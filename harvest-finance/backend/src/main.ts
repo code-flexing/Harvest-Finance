@@ -9,9 +9,22 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe({ transform: true }));
 
   const config = new DocumentBuilder()
-    .setTitle('Harvest Orders API')
-    .setDescription('Order creation and management with Stellar escrow')
+    .setTitle('Harvest Finance API')
+    .setDescription(
+      'Harvest Finance - Delivery Verification System API\n\n' +
+        '## Features\n' +
+        '- Delivery verification with GPS coordinates\n' +
+        '- IPFS image storage for proof of delivery\n' +
+        '- Multi-signature approval workflow\n' +
+        '- Automatic payment release on verification\n' +
+        '- Real-time notifications\n' +
+        '- Inspector assignment management',
+    )
     .setVersion('1.0')
+    .addTag('verifications', 'Delivery verification endpoints')
+    .addTag('deliveries', 'Delivery management endpoints')
+    .addTag('orders', 'Order management endpoints')
+    .addTag('health', 'Health check endpoints')
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);

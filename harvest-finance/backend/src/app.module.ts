@@ -7,6 +7,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { OrdersModule } from './orders/orders.module';
 import { HealthModule } from './health/health.module';
+import { VerificationModule } from './verification/verification.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { HealthModule } from './health/health.module';
     }),
     HealthModule,
     OrdersModule,
+    VerificationModule,
   ],
   controllers: [AppController],
   providers: [AppService],
