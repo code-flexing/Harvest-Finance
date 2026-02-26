@@ -1,3 +1,22 @@
+  async releaseUpfrontPayment(orderId: string, farmerPublicKey: string): Promise<OrderEntity> {
+    const order = await this.repo.findById(orderId);
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.status !== OrderStatus.IN_ESCROW) throw new ConflictException('Order not in escrow');
+    // Calculate 60% upfront
+    const upfrontAmount = ((order.price * order.quantity) * 0.6).toFixed(7);
+    // Call StellarService to release upfront payment
+    const tx = await this.stellar.releaseUpfrontPayment({
+      orderId,
+      farmerPublicKey,
+      amount: upfrontAmount,
+      assetCode: 'XLM', // TODO: support other assets if needed
+    });
+    // Update order status and record tx
+    order.status = OrderStatus.ACCEPTED;
+    order.escrowTxHash = tx.transactionHash;
+    await this.repo.save(order);
+    return order;
+  }
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { OrdersRepository } from './orders.repository';
 import { CreateOrderDto } from './dto/create-order.dto';

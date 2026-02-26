@@ -1,3 +1,54 @@
+import { ReleaseUpfrontPaymentParams } from '../interfaces/stellar.interfaces';
+    // ─────────────────────────────────────────────────────────────────────────────
+    // UPFRONT PAYMENT (60%)
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Releases 60% upfront payment to the farmer for a given order.
+     * @param params { orderId, farmerPublicKey, amount, assetCode, assetIssuer }
+     */
+    async releaseUpfrontPayment(params: ReleaseUpfrontPaymentParams): Promise<TransactionStatus> {
+        const { orderId, farmerPublicKey, amount, assetCode, assetIssuer } = params;
+        this.logger.log(`Releasing upfront payment (60%) | order=${orderId} farmer=${farmerPublicKey} amount=${amount}`);
+
+        this.validatePublicKey(farmerPublicKey);
+        this.validateAmount(amount);
+
+        const asset = this.resolveAsset(assetCode, assetIssuer);
+        const platformKeypair = StellarSdk.Keypair.fromSecret(this.platformSecretKey);
+        const platformAccount = await this.server.loadAccount(this.platformPublicKey);
+
+        const transaction = new StellarSdk.TransactionBuilder(platformAccount, {
+            fee: await this.getBaseFee(),
+            networkPassphrase: this.networkPassphrase,
+        })
+            .addOperation(
+                StellarSdk.Operation.payment({
+                    destination: farmerPublicKey,
+                    asset,
+                    amount,
+                })
+            )
+            .addMemo(StellarSdk.Memo.text(`HF-upfront:${orderId}`.substring(0, 28)))
+            .setTimeout(30)
+            .build();
+
+        transaction.sign(platformKeypair);
+
+        try {
+            const response = await this.server.submitTransaction(transaction);
+            this.logger.log(`Upfront payment released | txHash=${response.hash}`);
+            return {
+                transactionHash: response.hash,
+                status: 'success',
+                ledger: response.ledger,
+                createdAt: new Date(),
+                fee: '0',
+            };
+        } catch (err) {
+            this.handleStellarError(err, 'releaseUpfrontPayment');
+        }
+    }
 import { Injectable, Logger, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as StellarSdk from 'stellar-sdk';

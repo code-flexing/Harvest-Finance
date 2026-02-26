@@ -1,3 +1,28 @@
+    // ─── releaseUpfrontPayment ────────────────────────────────────────────────
+
+    describe('releaseUpfrontPayment', () => {
+        it('should return success status for upfront payment', async () => {
+            const result = await service.releaseUpfrontPayment({
+                orderId: 'order-001',
+                farmerPublicKey: MOCK_FARMER_KP.publicKey(),
+                amount: '60',
+                assetCode: 'XLM',
+            });
+            expect(result.status).toBe('success');
+            expect(result.transactionHash).toBe('mock_tx_hash_abc123');
+        });
+
+        it('should reject invalid farmer public key', async () => {
+            await expect(
+                service.releaseUpfrontPayment({
+                    orderId: 'order-001',
+                    farmerPublicKey: 'INVALID_KEY',
+                    amount: '60',
+                    assetCode: 'XLM',
+                })
+            ).rejects.toThrow(BadRequestException);
+        });
+    });
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
