@@ -73,6 +73,18 @@ export class User {
   @Column({ name: 'profile_image_url', nullable: true })
   profileImageUrl: string | null;
 
+  @Column({ name: 'last_login', nullable: true })
+  lastLogin: Date | null;
+
+  @Column({ name: 'refresh_token', select: false, nullable: true })
+  refreshToken: string | null;
+
+  @Column({ name: 'reset_password_token', select: false, nullable: true })
+  resetPasswordToken: string | null;
+
+  @Column({ name: 'reset_password_expires', nullable: true })
+  resetPasswordExpires: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
