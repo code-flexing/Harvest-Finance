@@ -1,3 +1,11 @@
+  @Post(':id/upfront')
+  @ApiOperation({ summary: 'Release upfront payment (60%) to farmer' })
+  async releaseUpfront(@Req() req: any, @Param('id') id: string) {
+    const role = req.headers['x-user-role'];
+    if (role !== 'FARMER') throw new NotFoundException('Only farmers can receive upfront payment');
+    const farmerPublicKey = req.headers['x-user-public-key'];
+    return this.service.releaseUpfrontPayment(id, farmerPublicKey);
+  }
 import {
   Controller,
   Post,

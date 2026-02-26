@@ -20,10 +20,19 @@ export interface EscrowResult {
     orderId: string;
 }
 
+
 export interface ReleasePaymentParams {
     balanceId: string;
     farmerPublicKey: string;
     farmerSecretKey: string;
+}
+
+export interface ReleaseUpfrontPaymentParams {
+    orderId: string;
+    farmerPublicKey: string;
+    amount: string;
+    assetCode?: string;
+    assetIssuer?: string;
 }
 
 export interface RefundParams {
