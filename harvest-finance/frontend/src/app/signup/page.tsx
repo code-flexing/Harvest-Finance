@@ -290,10 +290,6 @@ export default function SignupPage() {
             </p>
           </div>
         </div>
-
-        <p className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
-          Built with ❤️ for farmers worldwide
-        </p>
       </div>
     </div>
   );
