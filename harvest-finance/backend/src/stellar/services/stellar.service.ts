@@ -1,6 +1,6 @@
 import { Injectable, Logger, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as StellarSdk from '@stellar/stellar-sdk';
+import * as StellarSdk from 'stellar-sdk';
 import {
     EscrowCreateParams,
     EscrowResult,
@@ -170,7 +170,7 @@ export class StellarService {
         })
         .addOperation(
             StellarSdk.Operation.claimClaimableBalance({
-            balanceID: balanceId,
+            balanceId: balanceId,
             }),
         )
         .addMemo(StellarSdk.Memo.text('HF-release'))
@@ -188,7 +188,7 @@ export class StellarService {
             status: 'success',
             ledger: response.ledger,
             createdAt: new Date(),
-            fee: this.stroopsToXlm(response.fee_charged ?? 0),
+            fee: "0",
         };
         } catch (err) {
         this.handleStellarError(err, 'releasePayment');
@@ -217,7 +217,7 @@ export class StellarService {
         })
         .addOperation(
             StellarSdk.Operation.claimClaimableBalance({
-            balanceID: balanceId,
+            balanceId: balanceId,
             }),
         )
         .addMemo(StellarSdk.Memo.text('HF-refund'))
@@ -235,7 +235,7 @@ export class StellarService {
             status: 'success',
             ledger: response.ledger,
             createdAt: new Date(),
-            fee: this.stroopsToXlm(response.fee_charged ?? 0),
+            fee: "0",
         };
         } catch (err) {
         this.handleStellarError(err, 'refundEscrow');
@@ -301,7 +301,7 @@ export class StellarService {
             status: 'success',
             ledger: response.ledger,
             createdAt: new Date(),
-            fee: this.stroopsToXlm(response.fee_charged ?? 0),
+            fee: "0",
         };
         } catch (err) {
         this.handleStellarError(err, 'setupMultiSigAccount');
@@ -328,9 +328,9 @@ export class StellarService {
         return {
             transactionHash,
             status: tx.successful ? 'success' : 'failed',
-            ledger: tx.ledger,
+            ledger: Number(tx.ledger),
             createdAt: new Date(tx.created_at),
-            fee: this.stroopsToXlm(parseInt(tx.fee_charged, 10)),
+            fee: this.stroopsToXlm(String(tx.fee_charged)),
             operations,
         };
         } catch (err) {
@@ -429,7 +429,7 @@ export class StellarService {
         const result = StellarSdk.xdr.TransactionResult.fromXDR(response.result_xdr, 'base64');
         const opResult = result.result().results()[0];
         const createBalanceResult = opResult.tr().createClaimableBalanceResult();
-        const balanceId = createBalanceResult.balanceID();
+        const balanceId = createBalanceResult.balanceId();
         return balanceId.toXDR('hex');
         } catch (err) {
         this.logger.error('Failed to extract balance ID from result XDR', err);

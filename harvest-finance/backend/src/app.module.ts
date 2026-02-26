@@ -7,13 +7,10 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { OrdersModule } from './orders/orders.module';
 import { HealthModule } from './health/health.module';
-<<<<<<< HEAD
 import { VerificationModule } from './verification/verification.module';
-=======
 import { DatabaseModule } from './database/database.module';
 import { User, Order, Transaction, Verification, CreditScore } from './database/entities';
 import { CreateInitialSchema1700000000000 } from './database/migrations/1700000000000-CreateInitialSchema';
->>>>>>> 5bb2c01b633283a4a5f2bbbcd6d6c2600c5ae3a4
 
 @Module({
   imports: [
@@ -55,11 +52,8 @@ import { CreateInitialSchema1700000000000 } from './database/migrations/17000000
     }),
     HealthModule,
     OrdersModule,
-<<<<<<< HEAD
     VerificationModule,
-=======
     DatabaseModule,
->>>>>>> 5bb2c01b633283a4a5f2bbbcd6d6c2600c5ae3a4
   ],
   controllers: [AppController],
   providers: [AppService],
