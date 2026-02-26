@@ -18,18 +18,256 @@
     <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
   <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
 </p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
 
 ## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Harvest Finance Backend - Agricultural Marketplace API with JWT Authentication and Role-Based Access Control (RBAC).
 
-## Project setup
+## Project Setup
 
 ```bash
+# Install dependencies
 $ npm install
 ```
+
+## Environment Variables
+
+Copy `.env.example` to `.env` and configure the following:
+
+```env
+# Application
+PORT=5000
+
+# Database (TypeORM + PostgreSQL)
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=password
+DB_NAME=harvest_finance
+
+# Redis Cache
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+# Authentication
+JWT_SECRET=super_secret_jwt_key
+JWT_EXPIRES_IN=1h
+JWT_REFRESH_SECRET=super_secret_refresh_jwt_key
+JWT_REFRESH_EXPIRES_IN=7d
+
+# Rate Limiting
+THROTTLE_TTL=60000
+THROTTLE_LIMIT=100
+```
+
+## Authentication Guide
+
+### Overview
+
+The system implements JWT-based authentication with Role-Based Access Control (RBAC) supporting four roles:
+
+- **FARMER** - Agricultural product sellers
+- **BUYER** - Product purchasers
+- **INSPECTOR** - Quality verification personnel
+- **ADMIN** - System administrators
+
+### User Registration
+
+Register a new user with the following endpoint:
+
+```bash
+POST /api/v1/auth/register
+Content-Type: application/json
+
+{
+  "email": "farmer@example.com",
+  "password": "SecurePass123!",
+  "role": "FARMER",
+  "full_name": "John Doe",
+  "phone_number": "+1234567890",
+  "stellar_address": "GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+}
+```
+
+**Password Requirements:**
+- Minimum 8 characters
+- At least one uppercase letter
+- At least one lowercase letter
+- At least one number
+- At least one special character (@$!%*?&)
+
+**Response:**
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": "uuid",
+    "email": "farmer@example.com",
+    "role": "FARMER",
+    "full_name": "John Doe",
+    "phone_number": "+1234567890",
+    "stellar_address": "GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+  }
+}
+```
+
+### User Login
+
+Login with email and password:
+
+```bash
+POST /api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "farmer@example.com",
+  "password": "SecurePass123!"
+}
+```
+
+**Response:**
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": "uuid",
+    "email": "farmer@example.com",
+    "role": "FARMER",
+    "full_name": "John Doe"
+  }
+}
+```
+
+### Token Usage
+
+The access token should be included in the Authorization header for protected routes:
+
+```bash
+GET /api/v1/orders
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**Token Expiration:**
+- Access Token: 1 hour
+- Refresh Token: 7 days
+
+### Refresh Token Flow
+
+When the access token expires, use the refresh token to get a new one:
+
+```bash
+POST /api/v1/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+**Response:**
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+### Logout
+
+To logout and invalidate the current token:
+
+```bash
+POST /api/v1/auth/logout
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Logged out successfully"
+}
+```
+
+### Password Reset
+
+Request a password reset:
+
+```bash
+POST /api/v1/auth/forgot-password
+Content-Type: application/json
+
+{
+  "email": "farmer@example.com"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "If the email exists, a reset link will be sent"
+}
+```
+
+Reset password with token:
+
+```bash
+POST /api/v1/auth/reset-password
+Content-Type: application/json
+
+{
+  "token": "abc123def456...",
+  "new_password": "NewSecurePass123!"
+}
+```
+
+### Role-Based Access Control
+
+Use the `@Roles()` decorator to protect routes based on user roles:
+
+```typescript
+import { Roles } from './auth/decorators/roles.decorator';
+import { UserRole } from './database/entities/user.entity';
+import { RolesGuard } from './auth/guards/roles.guard';
+
+@Controller('api/v1/orders')
+@UseGuards(JwtAuthGuard, RolesGuard)
+export class OrdersController {
+  // Only FARMER and ADMIN can create orders
+  @Post()
+  @Roles(UserRole.FARMER, UserRole.ADMIN)
+  async createOrder() {
+    // ...
+  }
+
+  // All authenticated users can view orders
+  @Get()
+  async getOrders() {
+    // ...
+  }
+
+  // Only ADMIN can delete orders
+  @Delete(':id')
+  @Roles(UserRole.ADMIN)
+  async deleteOrder() {
+    // ...
+  }
+}
+```
+
+### Rate Limiting
+
+The API implements rate limiting to prevent brute force attacks:
+
+- **Registration:** 5 requests per 15 minutes
+- **Login:** 10 requests per 15 minutes
+- **General:** Configurable via ThrottlerModule
+
+## API Documentation
+
+Interactive API documentation is available at `/api/docs` when the server is running.
 
 ## Compile and run the project
 
@@ -56,6 +294,17 @@ $ npm run test:e2e
 # test coverage
 $ npm run test:cov
 ```
+
+## Security Checklist
+
+✅ Passwords are hashed using bcrypt (salt rounds = 10)  
+✅ Secrets stored in environment variables  
+✅ Input validation using class-validator  
+✅ SQL injection prevention via TypeORM parameterized queries  
+✅ JWT tokens signed with secure secrets  
+✅ Token blacklist for logout  
+✅ Rate limiting for brute force protection  
+✅ Passwords never returned in responses  
 
 ## Deployment
 
