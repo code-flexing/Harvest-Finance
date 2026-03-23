@@ -1,26 +1,122 @@
 @import "tailwindcss";
 
+/* Harvest Finance UI - Custom Theme Configuration */
 :root {
+  /* Primary Agricultural Green Palette */
+  --color-harvest-green-50: #f0fdf4;
+  --color-harvest-green-100: #dcfce7;
+  --color-harvest-green-200: #bbf7d0;
+  --color-harvest-green-300: #86efac;
+  --color-harvest-green-400: #4ade80;
+  --color-harvest-green-500: #22c55e;
+  --color-harvest-green-600: #16a34a;
+  --color-harvest-green-700: #15803d;
+  --color-harvest-green-800: #166534;
+  --color-harvest-green-900: #14532d;
+  
+  /* Semantic Colors */
+  --color-success-light: #dcfce7;
+  --color-warning-light: #fef3c7;
+  --color-error-light: #fee2e2;
+  --color-info-light: #dbeafe;
+  
+  /* Base Colors */
   --background: #ffffff;
   --foreground: #171717;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* Base Styles */
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Focus Visible Styles */
+*:focus-visible {
+  outline: 2px solid var(--color-harvest-green-500);
+  outline-offset: 2px;
+}
+
+/* Selection Styles */
+::selection {
+  background-color: var(--color-harvest-green-200);
+  color: var(--color-harvest-green-900);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-harvest-green-50);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-harvest-green-300);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-harvest-green-400);
+}
+
+/* Animation Utilities */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Utility Classes for Animations */
+.animate-fade-in {
+  animation: fadeIn 200ms ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 300ms ease-out forwards;
+}
+
+.animate-slide-down {
+  animation: slideDown 300ms ease-out forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn 200ms ease-out forwards;
+}
+
+.animate-pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
 }
