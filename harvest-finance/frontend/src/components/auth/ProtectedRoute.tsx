@@ -15,6 +15,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   useEffect(() => {
     hydrate();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsChecking(false);
   }, [hydrate]);
 
