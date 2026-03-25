@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { User, Order, Transaction, Verification, CreditScore } from './entities';
+import { User, Order, Transaction, Verification, CreditScore, Vault, VaultDeposit } from './entities';
 
 /**
  * Database Module
@@ -16,6 +16,8 @@ import { User, Order, Transaction, Verification, CreditScore } from './entities'
       Transaction,
       Verification,
       CreditScore,
+      Vault,
+      VaultDeposit,
     ]),
   ],
   exports: [TypeOrmModule],

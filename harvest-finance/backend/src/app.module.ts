@@ -12,6 +12,7 @@ import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './auth/auth.module';
 import { User, Order, Transaction, Verification, CreditScore, Vault, VaultDeposit } from './database/entities';
 import { CreateInitialSchema1700000000000 } from './database/migrations/1700000000000-CreateInitialSchema';
+import { VaultsModule } from './vaults/vaults.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { CreateInitialSchema1700000000000 } from './database/migrations/17000000
     OrdersModule,
     VerificationModule,
     DatabaseModule,
+    VaultsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
