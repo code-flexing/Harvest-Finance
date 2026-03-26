@@ -29,9 +29,11 @@ export const Header = () => {
             <Button variant="outline" className="border-harvest-green-200 text-harvest-green-700 hover:bg-harvest-green-50">
               Log In
             </Button>
-            <Button className="bg-harvest-green-600 hover:bg-harvest-green-700 text-white">
-              Launch App
-            </Button>
+            <Link href="/vaults">
+              <Button className="bg-harvest-green-600 hover:bg-harvest-green-700 text-white">
+                Launch App
+              </Button>
+            </Link>
           </Inline>
 
           <button className="md:hidden p-2 text-zinc-600 dark:text-zinc-400">

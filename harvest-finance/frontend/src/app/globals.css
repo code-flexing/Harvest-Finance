@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* Harvest Finance UI - Custom Theme Configuration */
-:root {
+@theme {
   /* Primary Agricultural Green Palette */
   --color-harvest-green-50: #f0fdf4;
   --color-harvest-green-100: #dcfce7;
@@ -19,7 +19,9 @@
   --color-warning-light: #fef3c7;
   --color-error-light: #fee2e2;
   --color-info-light: #dbeafe;
-  
+}
+
+:root {
   /* Base Colors */
   --background: #ffffff;
   --foreground: #171717;
