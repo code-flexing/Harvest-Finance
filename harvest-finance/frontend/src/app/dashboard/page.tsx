@@ -3,11 +3,24 @@
 import React from "react";
 import { VaultOverview } from "@/components/dashboard/VaultOverview";
 import { SeasonalTipsList, MilestoneNotification } from "@/components/seasonal-tips";
+import { AIAssistantChat } from "@/components/ai-assistant";
 import { TrendingUp, Wallet, ArrowRight } from "lucide-react";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { useSeasonalTipsStore } from "@/hooks/useSeasonalTips";
 
 export default function DashboardPage() {
+  const { selectedCrop, selectedSeason, vaultProgress } = useSeasonalTipsStore();
+
+  const aiContext = {
+    selectedCrop,
+    currentSeason: selectedSeason,
+    vaultBalance: vaultProgress.vaultBalance,
+    vaultTarget: vaultProgress.vaultTarget,
+    progressPercent: vaultProgress.progressPercent,
+    currentMilestone: vaultProgress.milestoneReached || undefined,
+  };
+
   return (
     <div className="space-y-8 pb-10">
       {/* Dashboard Header */}
@@ -82,6 +95,9 @@ export default function DashboardPage() {
       <div className="pt-4 border-t border-gray-200">
         <VaultOverview />
       </div>
+
+      {/* AI Assistant */}
+      <AIAssistantChat context={aiContext} />
     </div>
   );
 }
