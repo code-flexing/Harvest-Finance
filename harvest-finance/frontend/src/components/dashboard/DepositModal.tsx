@@ -24,9 +24,10 @@ interface DepositModalProps {
     walletBalance: string;
     tvl: string;
   } | null;
+  onDepositSuccess?: (vaultId: string, amount: number) => void;
 }
 
-export const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, vault }) => {
+export const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, vault, onDepositSuccess }) => {
   const [amount, setAmount] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -77,7 +78,12 @@ export const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, vau
     
     setIsLoading(false);
     setIsSuccess(true);
-    
+
+    const depositAmount = parseFloat(amount);
+    if (vault && !isNaN(depositAmount) && depositAmount > 0) {
+      onDepositSuccess?.(vault.id, depositAmount);
+    }
+
     // Auto close after success
     setTimeout(() => {
       onClose();
