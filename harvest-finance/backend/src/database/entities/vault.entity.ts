@@ -4,6 +4,13 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+ feature/portfolio-page
+  OneToMany,
+} from 'typeorm';
+import { VaultDeposit } from './vault-deposit.entity';
+
+@Entity('vaults')
+=======
   Index,
   OneToMany,
   ManyToOne,
@@ -44,10 +51,21 @@ export enum VaultStatus {
 @Index('idx_vaults_owner', ['ownerId'])
 @Index('idx_vaults_type', ['type'])
 @Index('idx_vaults_status', ['status'])
+main
 export class Vault {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+ feature/portfolio-page
+  @Column()
+  name: string;
+
+  @Column({ type: 'decimal', precision: 18, scale: 6, default: 0 })
+  totalDeposits: number;
+
+  @Column({ type: 'decimal', precision: 18, scale: 6, default: 0 })
+  liquidity: number;
+=======
   @Column({ name: 'owner_id' })
   ownerId: string;
 
@@ -111,6 +129,7 @@ export class Vault {
 
   @Column({ name: 'is_public', default: true })
   isPublic: boolean;
+ main
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
@@ -118,6 +137,10 @@ export class Vault {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
+ feature/portfolio-page
+  @OneToMany(() => VaultDeposit, deposit => deposit.vault)
+  deposits: VaultDeposit[];
+=======
   // Relationships
   
   /** Owner of the vault */
@@ -146,4 +169,5 @@ export class Vault {
   get isFullCapacity(): boolean {
     return Number(this.totalDeposits) >= Number(this.maxCapacity);
   }
+ main
 }
