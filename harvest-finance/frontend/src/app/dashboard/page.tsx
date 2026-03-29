@@ -9,8 +9,14 @@ import { TrendingUp, Wallet, ArrowRight } from "lucide-react";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useSeasonalTipsStore } from "@/hooks/useSeasonalTips";
+import { OfflineIndicator } from "@/components/layout/OfflineIndicator";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { useOfflineSync } from "@/hooks/useOfflineSync";
 
 export default function DashboardPage() {
+  const online = useOnlineStatus();
+  useOfflineSync(online);
+
   const { selectedCrop, selectedSeason, vaultProgress } = useSeasonalTipsStore();
 
   const aiContext = {
@@ -30,19 +36,25 @@ export default function DashboardPage() {
   }, [openChat]);
 
   return (
-    <div className="space-y-8 pb-10">
+    <div className="space-y-6 sm:space-y-8 pb-8 sm:pb-10">
+      <OfflineIndicator />
+
       {/* Dashboard Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
             Dashboard
           </h1>
-          <p className="text-gray-500 mt-1">
+          <p className="text-gray-500 mt-1 text-sm sm:text-base">
             Welcome back. Here is an overview of your portfolio.
           </p>
         </div>
-        <div className="flex items-center">
-          <Button variant="primary" leftIcon={<Wallet className="w-4 h-4" />}>
+        <div className="flex items-stretch sm:items-center">
+          <Button
+            variant="primary"
+            leftIcon={<Wallet className="w-4 h-4" />}
+            className="min-h-[48px] w-full sm:w-auto touch-manipulation justify-center"
+          >
             Connect Wallet
           </Button>
         </div>
@@ -52,9 +64,9 @@ export default function DashboardPage() {
       <MilestoneNotification />
 
       {/* Quick Stats Section */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         <Card variant="default">
-          <CardBody className="p-5 flex items-center gap-4">
+          <CardBody className="p-4 sm:p-5 flex items-center gap-4 min-h-[88px]">
             <div className="w-12 h-12 rounded-full bg-harvest-green-50 flex items-center justify-center text-harvest-green-600 flex-shrink-0">
               <Wallet className="w-6 h-6" />
             </div>
@@ -66,7 +78,7 @@ export default function DashboardPage() {
         </Card>
 
         <Card variant="default">
-          <CardBody className="p-5 flex items-center gap-4">
+          <CardBody className="p-4 sm:p-5 flex items-center gap-4 min-h-[88px]">
             <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 flex-shrink-0">
               <TrendingUp className="w-6 h-6" />
             </div>
@@ -82,7 +94,7 @@ export default function DashboardPage() {
           variant="default"
           className="hidden lg:block bg-gradient-to-br from-harvest-green-600 to-harvest-green-800 text-white border-none"
         >
-          <CardBody className="p-5 flex flex-col justify-center h-full">
+          <CardBody className="p-4 sm:p-5 flex flex-col justify-center h-full min-h-[88px]">
             <h3 className="font-semibold text-lg mb-1">Discover Vaults</h3>
             <p className="text-harvest-green-100 text-sm mb-3">
               Earn yield on your crypto assets safely.

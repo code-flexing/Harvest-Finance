@@ -9,9 +9,6 @@ import { HealthModule } from './health/health.module';
 import { VerificationModule } from './verification/verification.module';
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './auth/auth.module';
- feature/portfolio-page
-import { User, Order, Transaction, Verification, CreditScore, Vault, VaultDeposit } from './database/entities';
-=======
 import { UsersModule } from './users/users.module';
 import { VaultsModule } from './vaults/vaults.module';
 import { FarmIntelligenceModule } from './farm-intelligence/farm-intelligence.module';
@@ -36,7 +33,6 @@ import {
   CropCycle,
   FarmVault,
 } from './database/entities';
- main
 import { CreateInitialSchema1700000000000 } from './database/migrations/1700000000000-CreateInitialSchema';
 import { CreateAchievements1700000000004 } from './database/migrations/1700000000004-CreateAchievements';
 import { CreateRewards1700000000005 } from './database/migrations/1700000000005-CreateRewards';
@@ -59,10 +55,6 @@ import { CreateFarmVaults1700000000008 } from './database/migrations/17000000000
         username: configService.get<string>('DB_USER'),
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_NAME'),
- feature/portfolio-page
-        entities: [User, Order, Transaction, Verification, CreditScore, Vault, VaultDeposit],
-        migrations: [CreateInitialSchema1700000000000],
-=======
         entities: [
           User,
           Order,
@@ -87,7 +79,6 @@ import { CreateFarmVaults1700000000008 } from './database/migrations/17000000000
           CreateWithdrawals1700000000007,
           CreateFarmVaults1700000000008,
         ],
- main
         synchronize: false, // Disable auto-sync, use migrations
         migrationsRun: false, // Run migrations manually
         logging: configService.get<string>('NODE_ENV') === 'development',

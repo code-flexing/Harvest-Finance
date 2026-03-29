@@ -69,7 +69,7 @@ export const UserActivity: React.FC<UserActivityProps> = ({ activities }) => {
             {activities.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-12 text-gray-500">
-                  <Stack align="center" spacing="sm">
+                  <Stack align="center" gap="sm">
                     <Clock className="w-8 h-8 text-gray-300" />
                     <p>No recent activity found.</p>
                   </Stack>

@@ -33,6 +33,10 @@ export const DepositModal: React.FC<DepositModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  if (!vault) {
+    return null;
+  }
+
   const handleDeposit = async () => {
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       setError('Please enter a valid amount');
@@ -68,7 +72,9 @@ export const DepositModal: React.FC<DepositModalProps> = ({
               <p className="text-xs font-semibold text-harvest-green-700 uppercase tracking-wider">Active Vault</p>
               <h4 className="font-bold text-gray-900">{vault.name}</h4>
             </div>
-            <Badge variant="success">APY: {vault.cropCycle?.yieldRate}%</Badge>
+            <Badge variant="success">
+              APY: {vault.cropCycle?.yieldRate ?? vault.apy}
+            </Badge>
           </div>
 
           <Input 
@@ -89,7 +95,15 @@ export const DepositModal: React.FC<DepositModalProps> = ({
             </p>
             <p className="flex justify-between">
               <span>Estimated Seasonal Yield:</span>
-              <span className="font-bold text-harvest-green-600">+${((Number(amount) || 0) * (vault.cropCycle?.yieldRate || 0) / 100).toFixed(2)}</span>
+              <span className="font-bold text-harvest-green-600">
+                +$
+                {(
+                  (Number(amount) || 0) *
+                  (Number(String(vault.cropCycle?.yieldRate ?? vault.apy).replace(/[^0-9.]/g, '')) ||
+                    0) /
+                  100
+                ).toFixed(2)}
+              </span>
             </p>
           </div>
         </Stack>

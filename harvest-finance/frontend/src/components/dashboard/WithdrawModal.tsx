@@ -33,6 +33,10 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  if (!vault) {
+    return null;
+  }
+
   const handleWithdraw = async () => {
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       setError('Please enter a valid amount');

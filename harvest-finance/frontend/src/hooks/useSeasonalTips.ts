@@ -14,6 +14,10 @@ import {
   fetchSeasonalTips,
   fetchTipsByMilestone,
 } from '@/lib/api/seasonal-tips-client';
+import {
+  saveSeasonalTipsCache,
+  loadSeasonalTipsCache,
+} from '@/lib/offline/db';
 
 interface SeasonalTipsState {
   tips: SeasonalTip[];
@@ -73,6 +77,10 @@ export const useSeasonalTipsStore = create<SeasonalTipsState>((set, get) => ({
 
   fetchTips: async (params) => {
     set({ isLoading: true, error: null });
+    const cached = await loadSeasonalTipsCache();
+    if (cached?.data?.length) {
+      set({ tips: cached.data, meta: cached.meta });
+    }
     try {
       const { selectedCrop, selectedSeason } = get();
       const query: TipsQueryParams = {
@@ -83,11 +91,16 @@ export const useSeasonalTipsStore = create<SeasonalTipsState>((set, get) => ({
         ...params,
       };
       const response = await fetchSeasonalTips(query);
-      set({ tips: response.data, meta: response.meta, isLoading: false });
+      set({ tips: response.data, meta: response.meta, isLoading: false, error: null });
+      await saveSeasonalTipsCache(response);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Failed to fetch seasonal tips';
-      set({ error: message, isLoading: false });
+      if (cached?.data?.length) {
+        set({ error: null, isLoading: false });
+      } else {
+        set({ error: message, isLoading: false });
+      }
     }
   },
 

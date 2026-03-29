@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -15,6 +15,19 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Harvest Finance — Empowering Farmers Through Blockchain",
   description: "A decentralized platform connecting farmers, buyers, and inspectors for transparent agricultural finance.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    title: "Harvest",
+    statusBarStyle: "default",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#16a34a",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
 };
 
 export default function RootLayout({

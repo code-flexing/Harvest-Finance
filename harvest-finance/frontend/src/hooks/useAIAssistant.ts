@@ -7,14 +7,15 @@ import {
   FarmContext,
   ChatResponse,
 } from '@/lib/api/ai-assistant-client';
+import type { ChatEntry } from '@/types/ai-chat';
+import {
+  saveAiSession,
+  loadAiSession,
+  loadAiInsights,
+  enqueueSyncItem,
+} from '@/lib/offline/db';
 
-export interface ChatEntry {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-  suggestions?: string[];
-}
+export type { ChatEntry };
 
 interface AIAssistantState {
   messages: ChatEntry[];
@@ -71,6 +72,32 @@ export const useAIAssistantStore = create<AIAssistantState>((set, get) => ({
       error: null,
     }));
 
+    const offline =
+      typeof navigator !== 'undefined' && !navigator.onLine;
+
+    if (offline) {
+      await enqueueSyncItem('chat', { message, context });
+      const insights = await loadAiInsights();
+      const assistantEntry: ChatEntry = {
+        id: generateId(),
+        role: 'assistant',
+        content: insights
+          ? `Sin conexión. Último consejo guardado: ${insights.summary}`
+          : 'Sin conexión. Tu mensaje quedó en cola y se enviará al recuperar la conexión.',
+        timestamp: new Date(),
+        suggestions: insights?.suggestions?.length
+          ? insights.suggestions
+          : get().suggestions,
+      };
+      set((state) => ({
+        messages: [...state.messages, assistantEntry],
+        isLoading: false,
+        suggestions: assistantEntry.suggestions || state.suggestions,
+      }));
+      await saveAiSession(get().messages, get().suggestions);
+      return;
+    }
+
     try {
       const history = buildHistory(get().messages);
       const response = await sendChatMessage({ message, context, history });
@@ -88,12 +115,23 @@ export const useAIAssistantStore = create<AIAssistantState>((set, get) => ({
         isLoading: false,
         suggestions: response.suggestions || state.suggestions,
       }));
+      await saveAiSession(get().messages, get().suggestions);
     } catch (err) {
+      const cached = await loadAiSession();
       const errorMsg =
         err instanceof Error
           ? err.message
           : 'Failed to get response. Please try again.';
-      set({ error: errorMsg, isLoading: false });
+      if (cached?.messages?.length) {
+        set({
+          error: null,
+          isLoading: false,
+          messages: cached.messages,
+          suggestions: cached.suggestions,
+        });
+      } else {
+        set({ error: errorMsg, isLoading: false });
+      }
     }
   },
 
@@ -154,13 +192,12 @@ export const useAIAssistantStore = create<AIAssistantState>((set, get) => ({
   clearError: () => set({ error: null }),
 }));
 
-// Persist chat to sessionStorage
+// Persist chat to sessionStorage and IndexedDB
 try {
   const key = 'ai-assistant-state-v1';
   const stored = sessionStorage.getItem(key);
   if (stored) {
     const parsed = JSON.parse(stored);
-    // hydrate store with persisted values
     useAIAssistantStore.setState({
       messages: (parsed.messages || []).map((m: any) => ({
         ...m,
@@ -170,20 +207,37 @@ try {
       suggestions: parsed.suggestions || undefined,
     });
   }
+  void loadAiSession().then((fromDb) => {
+    if (!fromDb?.messages?.length) return;
+    if (useAIAssistantStore.getState().messages.length > 0) return;
+    useAIAssistantStore.setState({
+      messages: fromDb.messages.map((m) => ({
+        ...m,
+        timestamp:
+          m.timestamp instanceof Date
+            ? m.timestamp
+            : new Date(m.timestamp as unknown as string),
+      })),
+      suggestions: fromDb.suggestions,
+    });
+  });
 
-  // subscribe to changes and save
   useAIAssistantStore.subscribe((state) => {
     const toStore = {
-      messages: state.messages.map((m) => ({ ...m, timestamp: m.timestamp?.toISOString() })),
+      messages: state.messages.map((m) => ({
+        ...m,
+        timestamp: m.timestamp?.toISOString(),
+      })),
       isOpen: state.isOpen,
       suggestions: state.suggestions,
     };
     try {
       sessionStorage.setItem(key, JSON.stringify(toStore));
-    } catch (e) {
-      // ignore storage errors
+    } catch {
+      // ignore
     }
+    void saveAiSession(state.messages, state.suggestions);
   });
-} catch (e) {
+} catch {
   // server-side or storage not available
 }

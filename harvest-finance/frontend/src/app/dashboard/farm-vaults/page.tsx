@@ -222,7 +222,7 @@ export default function FarmVaultsPage() {
             </Card>
 
             {/* AI Assistant Placeholder */}
-            <Card variant="outline" className="bg-gradient-to-br from-harvest-green-900 to-harvest-green-800 border-none relative overflow-hidden group">
+            <Card variant="outlined" className="bg-gradient-to-br from-harvest-green-900 to-harvest-green-800 border-none relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl group-hover:bg-white/20 transition-all duration-700" />
               <CardBody className="p-8 relative z-10">
                 <div className="flex flex-col md:flex-row items-center gap-8">
@@ -284,10 +284,10 @@ export default function FarmVaultsPage() {
             )}
 
             {/* Seasonal Info */}
-            <Card variant="outline" className="bg-amber-50 border-amber-100">
-              <CardHeader 
-                title="Seasonal Tips" 
-                icon={<Activity className="w-5 h-5 text-amber-600" />}
+            <Card variant="outlined" className="bg-amber-50 border-amber-100">
+              <CardHeader
+                title="Seasonal Tips"
+                action={<Activity className="w-5 h-5 text-amber-600" />}
               />
               <CardBody>
                <Stack gap="md">

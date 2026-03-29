@@ -75,7 +75,7 @@ export function FarmVaultCard({ vault, onUpdate }: { vault: any; onUpdate: () =>
           </div>
           <div className="relative z-10 flex justify-between items-start">
             <Stack gap="xs">
-              <Badge variant="outline" className="text-white border-white/30 bg-white/10">
+              <Badge variant="secondary" className="text-white border-white/30 bg-white/10">
                 {vault.cropCycle.name}
               </Badge>
               <h3 className="text-xl font-bold">{vault.name}</h3>

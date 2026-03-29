@@ -99,16 +99,18 @@ export default function VaultsPage() {
       
       <Footer />
       
-      <DepositModal 
-        isOpen={isDepositOpen} 
-        onClose={() => setIsDepositOpen(false)} 
-        vault={selectedVault} 
+      <DepositModal
+        isOpen={isDepositOpen}
+        onClose={() => setIsDepositOpen(false)}
+        vault={selectedVault}
+        onSuccess={() => {}}
       />
-      
-      <WithdrawModal 
-        isOpen={isWithdrawOpen} 
-        onClose={() => setIsWithdrawOpen(false)} 
-        vault={selectedVault} 
+
+      <WithdrawModal
+        isOpen={isWithdrawOpen}
+        onClose={() => setIsWithdrawOpen(false)}
+        vault={selectedVault}
+        onSuccess={() => {}}
       />
     </div>
   );
