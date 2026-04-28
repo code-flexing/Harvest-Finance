@@ -5,6 +5,7 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { redisStore } from 'cache-manager-redis-yet';
 import { SorobanEvent } from '../database/entities/soroban-event.entity';
 import { AuthModule } from '../auth/auth.module';
+import { CommonModule } from '../common/common.module';
 import { SorobanController } from './soroban.controller';
 import { SorobanIndexerService } from './soroban-indexer.service';
 
@@ -13,6 +14,7 @@ import { SorobanIndexerService } from './soroban-indexer.service';
     ConfigModule,
     TypeOrmModule.forFeature([SorobanEvent]),
     AuthModule,
+    CommonModule,
     CacheModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (config: ConfigService) => ({
