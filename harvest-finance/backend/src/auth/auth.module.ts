@@ -7,6 +7,7 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { StellarStrategy } from './strategies/stellar.strategy';
 import { User } from '../database/entities/user.entity';
+import { CommonModule } from '../common/common.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { User } from '../database/entities/user.entity';
         expiresIn: '1h',
       },
     }),
+    CommonModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, StellarStrategy],
