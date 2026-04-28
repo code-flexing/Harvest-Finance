@@ -18,6 +18,8 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../database/entities/notification.entity';
 import { CustomLoggerService } from '../logger/custom-logger.service';
 import { VaultGateway } from '../realtime/vault.gateway';
+import { ContractCacheService } from '../common/cache/contract-cache.service';
+import { InputSanitizerService } from '../common/sanitization/input-sanitizer.service';
 
 @Injectable()
 export class VaultsService {
@@ -32,19 +34,27 @@ export class VaultsService {
     private notificationsService: NotificationsService,
     private logger: CustomLoggerService,
     private vaultGateway: VaultGateway,
+    private contractCache: ContractCacheService,
+    private sanitizer: InputSanitizerService,
   ) {}
 
   async getVaultById(vaultId: string): Promise<Vault> {
-    const vault = await this.vaultRepository.findOne({
-      where: { id: vaultId },
-      relations: ['deposits', 'owner'],
+    // Sanitize and validate vault ID
+    const sanitizedVaultId = this.sanitizer.validateUUID(vaultId);
+
+    // Use cache to reduce database queries
+    return this.contractCache.getVaultState(sanitizedVaultId, async () => {
+      const vault = await this.vaultRepository.findOne({
+        where: { id: sanitizedVaultId },
+        relations: ['deposits', 'owner'],
+      });
+
+      if (!vault) {
+        throw new NotFoundException('Vault not found');
+      }
+
+      return vault;
     });
-
-    if (!vault) {
-      throw new NotFoundException('Vault not found');
-    }
-
-    return vault;
   }
 
   async depositToVault(
