@@ -5,6 +5,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { ThrottlerException } from '@nestjs/throttler';
+import { Response } from 'express';
 
 /**
  * Global exception filter that intercepts ThrottlerException and converts it
@@ -35,7 +36,7 @@ export class ThrottlerExceptionFilter implements ExceptionFilter {
   catch(_: ThrottlerException, host: ArgumentsHost) {
     // Assumes HTTP context. See skip conditions in the class comment above
     // before adding WebSocket or GraphQL support.
-    const response = host.switchToHttp().getResponse();
+    const response = host.switchToHttp().getResponse<Response>();
 
     // Return a uniform 429 envelope so API consumers always see the same shape.
     // The message is intentionally generic — avoid leaking rate-limit thresholds
