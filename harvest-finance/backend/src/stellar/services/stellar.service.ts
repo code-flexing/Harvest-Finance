@@ -1,6 +1,6 @@
 import { Injectable, Logger, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as StellarSdk from 'stellar-sdk';
+import * as StellarSdk from '@stellar/stellar-sdk';
 import {
     EscrowCreateParams,
     EscrowResult,
@@ -366,27 +366,27 @@ export class StellarService {
 
     async getTransactionStatus(transactionHash: string): Promise<TransactionStatus> {
         try {
-        const tx = await this.server.transactions().transaction(transactionHash).call();
-        const ops = await this.server.operations().forTransaction(transactionHash).call();
+            const tx = await this.server.transactions().transaction(transactionHash).call();
+            const ops = await this.server.operations().forTransaction(transactionHash).call();
 
-        const operations = ops.records.map((op: any) => ({
-            type: op.type,
-            from: op.from,
-            to: op.to,
-            amount: op.amount,
-            asset: op.asset_type === 'native' ? 'XLM' : `${op.asset_code}:${op.asset_issuer}`,
-        }));
+            const operations = ops.records.map((op: any) => ({
+                type: op.type,
+                from: op.from,
+                to: op.to,
+                amount: op.amount,
+                asset: op.asset_type === 'native' ? 'XLM' : `${op.asset_code}:${op.asset_issuer}`,
+            }));
 
-        return {
-            transactionHash,
-            status: tx.successful ? 'success' : 'failed',
-            ledger: Number(tx.ledger),
-            createdAt: new Date(tx.created_at),
-            fee: this.stroopsToXlm(String(tx.fee_charged)),
-            operations,
-        };
+            return {
+                transactionHash,
+                status: tx.successful ? 'success' : 'failed',
+                ledger: Number(tx.ledger),
+                createdAt: new Date(tx.created_at),
+                fee: this.stroopsToXlm(String(tx.fee_charged)),
+                operations,
+            };
         } catch (err) {
-        this.handleStellarError(err, 'getTransactionStatus');
+            this.handleStellarError(err, 'getTransactionStatus');
         }
     }
 
