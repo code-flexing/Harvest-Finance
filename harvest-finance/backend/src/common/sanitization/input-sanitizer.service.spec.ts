@@ -44,4 +44,40 @@ describe('InputSanitizerService', () => {
       },
     );
   });
+
+  describe('validateEmail', () => {
+    it('accepts and normalizes valid standard emails', () => {
+      expect(service.validateEmail('user@domain.com')).toBe('user@domain.com');
+      expect(service.validateEmail('  USER@domain.COM  ')).toBe('user@domain.com');
+    });
+
+    it('accepts valid internationalized and subdomain emails', () => {
+      expect(service.validateEmail('user@domain.co.uk')).toBe('user@domain.co.uk');
+      expect(service.validateEmail('user@sub.domain.company')).toBe('user@sub.domain.company');
+    });
+
+    it.each([
+      '',
+      '   ',
+      'plain-text',
+      '@domain.com',
+      'user@',
+      'user@domain',
+      'user@domain.',
+      'user @domain.com',
+      'user@ domain.com',
+      'user@domain. com',
+    ])('rejects invalid email format "%s"', (value) => {
+      expect(() => service.validateEmail(value)).toThrow(BadRequestException);
+    });
+
+    it.each([null, undefined, 1234, {}, []])(
+      'rejects non-string email value %p',
+      (value) => {
+        expect(() => service.validateEmail(value as unknown as string)).toThrow(
+          BadRequestException,
+        );
+      },
+    );
+  });
 });

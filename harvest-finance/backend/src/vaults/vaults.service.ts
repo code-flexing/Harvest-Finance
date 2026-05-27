@@ -109,6 +109,8 @@ export class VaultsService {
       throw new BadRequestException('Vault has reached maximum capacity');
     }
 
+    // Verify if the requested deposit amount is within the available capacity of the vault.
+    // The available capacity is derived from the formula: availableCapacity = maxCapacity - totalDeposits.
     if (amount > vault.availableCapacity) {
       throw new BadRequestException(
         `Deposit amount exceeds available vault capacity. Available: ${vault.availableCapacity}`,

@@ -12,15 +12,25 @@ import { Logger, UseGuards } from '@nestjs/common';
 
 /**
  * WebSocket gateway for real-time analytics events.
+ * 
+ * Room Naming Conventions & Access Rules:
+ * ========================================================
+ * 1. Admin Room: "admin"
+ *    - Purpose: Broadcast platform-wide metrics and system alerts.
+ *    - Access Rule: Restricted to administrators. Subscribed to by clients calling 'join:admin'.
+ *    - Room Name Pattern: Exactly "admin".
  *
- * Rooms:
- *  - "admin"        → platform-wide metrics (admin only)
- *  - "farmer:<id>"  → per-farmer KPI updates
+ * 2. Farmer Room: "farmer:<id>"
+ *    - Purpose: Send targeted, farmer-specific KPI updates and alerts.
+ *    - Access Rule: Restricted to the specific farmer user.
+ *    - Room Name Pattern: "farmer:<userId>" where <userId> is the UUID of the farmer.
+ *      Subscribed to by clients who call the 'join:farmer' event with their `userId`.
+ * ========================================================
  *
  * Events emitted by server:
- *  - "metrics:platform"   → PlatformMetricsEvent
- *  - "metrics:farmer"     → FarmerMetricsEvent
- *  - "alert:threshold"    → AlertEvent
+ *  - "metrics:platform"   → PlatformMetricsEvent (sent to "admin" room)
+ *  - "metrics:farmer"     → FarmerMetricsEvent (sent to specific "farmer:<userId>" room)
+ *  - "alert:threshold"    → AlertEvent (sent to "admin" room or specific "farmer:<userId>" room)
  */
 @WebSocketGateway({
   cors: { origin: '*' },
@@ -71,7 +81,12 @@ export class RealtimeGateway
     this.server.to(`farmer:${userId}`).emit('metrics:farmer', payload);
   }
 
-  /** Broadcast an alert to a specific farmer or all admins */
+  /** 
+   * Broadcast an alert to a specific farmer or all admins.
+   * Resolves target to room:
+   *  - if target is 'admin', resolves to 'admin' room.
+   *  - otherwise, resolves to 'farmer:<target>' room.
+   */
   emitAlert(target: 'admin' | string, payload: Record<string, unknown>) {
     const room = target === 'admin' ? 'admin' : `farmer:${target}`;
     this.server.to(room).emit('alert:threshold', payload);
