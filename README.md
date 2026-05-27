@@ -12,6 +12,9 @@
 </p>
 
 ---
+> **Adding a new endpoint?** Read the [API Versioning Guide](versioning.md) first.  
+> All routes must follow the URI versioning strategy (`/api/v{N}/resource`).
+
 
 ## 🎯 The Vision
 
