@@ -1,0 +1,5 @@
+
+> backend@0.0.1 test
+> jest --testPathIgnorePatterns=src/stellar/tests
+
+PASS src/auth/auth.service.spec.ts
