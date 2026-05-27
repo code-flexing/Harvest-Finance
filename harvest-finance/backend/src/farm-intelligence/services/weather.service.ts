@@ -1,9 +1,5 @@
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import {
-  Inject,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Cache } from 'cache-manager';
 import axios from 'axios';
 import type {
@@ -61,7 +57,9 @@ export class WeatherService {
 
   constructor(@Inject(CACHE_MANAGER) private readonly cacheManager: Cache) {}
 
-  async getWeatherSummary(params: WeatherLookupParams): Promise<WeatherSummaryDto> {
+  async getWeatherSummary(
+    params: WeatherLookupParams,
+  ): Promise<WeatherSummaryDto> {
     const resolvedLocation = await this.resolveLocation(params);
     const cacheKey = this.buildCacheKey(resolvedLocation);
     const cached = await this.cacheManager.get<WeatherSummaryDto>(cacheKey);
@@ -102,7 +100,11 @@ export class WeatherService {
         },
       );
 
-      const summary = this.buildSummary(resolvedLocation, response.data, 'open-meteo');
+      const summary = this.buildSummary(
+        resolvedLocation,
+        response.data,
+        'open-meteo',
+      );
       await this.cacheManager.set(cacheKey, summary, WEATHER_CACHE_TTL_MS);
       return summary;
     } catch (error) {
@@ -115,7 +117,9 @@ export class WeatherService {
     }
   }
 
-  private async resolveLocation(params: WeatherLookupParams): Promise<ResolvedLocation> {
+  private async resolveLocation(
+    params: WeatherLookupParams,
+  ): Promise<ResolvedLocation> {
     const { latitude, longitude, location } = params;
 
     if (
@@ -193,26 +197,32 @@ export class WeatherService {
     response: OpenMeteoForecastResponse,
     source: string,
   ): WeatherSummaryDto {
-    const forecast: ForecastDayDto[] = response.daily.time.map((date, index) => {
-      const weatherCode = response.daily.weather_code[index];
-      const descriptor = this.getWeatherDescriptor(weatherCode);
+    const forecast: ForecastDayDto[] = response.daily.time.map(
+      (date, index) => {
+        const weatherCode = response.daily.weather_code[index];
+        const descriptor = this.getWeatherDescriptor(weatherCode);
 
-      return {
-        date,
-        dayLabel: this.getDayLabel(date),
-        minTempC: Math.round(response.daily.temperature_2m_min[index]),
-        maxTempC: Math.round(response.daily.temperature_2m_max[index]),
-        rainfallMm: this.roundValue(response.daily.precipitation_sum[index]),
-        windSpeedKph: this.roundValue(response.daily.wind_speed_10m_max[index]),
-        precipitationChance: Math.round(
-          response.daily.precipitation_probability_max[index] || 0,
-        ),
-        condition: descriptor.label,
-        icon: descriptor.icon,
-      };
-    });
+        return {
+          date,
+          dayLabel: this.getDayLabel(date),
+          minTempC: Math.round(response.daily.temperature_2m_min[index]),
+          maxTempC: Math.round(response.daily.temperature_2m_max[index]),
+          rainfallMm: this.roundValue(response.daily.precipitation_sum[index]),
+          windSpeedKph: this.roundValue(
+            response.daily.wind_speed_10m_max[index],
+          ),
+          precipitationChance: Math.round(
+            response.daily.precipitation_probability_max[index] || 0,
+          ),
+          condition: descriptor.label,
+          icon: descriptor.icon,
+        };
+      },
+    );
 
-    const currentDescriptor = this.getWeatherDescriptor(response.current.weather_code);
+    const currentDescriptor = this.getWeatherDescriptor(
+      response.current.weather_code,
+    );
     const alerts = this.buildAlerts(response, forecast);
     const recommendation = this.buildRecommendation(response, alerts);
 
@@ -238,7 +248,9 @@ export class WeatherService {
     };
   }
 
-  private buildFallbackSummary(location: WeatherLocationDto): WeatherSummaryDto {
+  private buildFallbackSummary(
+    location: WeatherLocationDto,
+  ): WeatherSummaryDto {
     const today = new Date();
     const forecast: ForecastDayDto[] = Array.from({ length: 7 }, (_, index) => {
       const date = new Date(today);
@@ -247,7 +259,15 @@ export class WeatherService {
       const minimums = [24, 24, 23, 23, 22, 22, 23];
       const rainfall = [0, 0.8, 3.2, 5.4, 1.1, 0, 0];
       const wind = [14, 16, 21, 26, 20, 15, 14];
-      const icons = ['sun', 'cloud-sun', 'cloud-rain', 'cloud-rain', 'cloud', 'sun', 'sun'];
+      const icons = [
+        'sun',
+        'cloud-sun',
+        'cloud-rain',
+        'cloud-rain',
+        'cloud',
+        'sun',
+        'sun',
+      ];
       const conditions = [
         'Sunny',
         'Mostly clear',
@@ -352,14 +372,18 @@ export class WeatherService {
     return alerts.slice(0, 3);
   }
 
-  private buildSeasonalOutlook(latitude: number, forecast: ForecastDayDto[]): string {
+  private buildSeasonalOutlook(
+    latitude: number,
+    forecast: ForecastDayDto[],
+  ): string {
     const month = new Date().getUTCMonth();
     const isNorthernHemisphere = latitude >= 0;
     const season = isNorthernHemisphere
       ? this.getNorthernSeason(month)
       : this.getSouthernSeason(month);
     const avgRainfall =
-      forecast.reduce((total, day) => total + day.rainfallMm, 0) / forecast.length;
+      forecast.reduce((total, day) => total + day.rainfallMm, 0) /
+      forecast.length;
 
     if (avgRainfall >= 8) {
       return `${season} conditions are trending wetter than normal this week. Prioritize drainage access, harvest timing, and dry storage checks.`;
@@ -380,7 +404,10 @@ export class WeatherService {
       return 'Review harvest logistics, pause nonessential outdoor work during peak weather risk, and protect produce before the alert window.';
     }
 
-    if (response.current.precipitation > 0 || alerts.some((alert) => alert.severity === 'warning')) {
+    if (
+      response.current.precipitation > 0 ||
+      alerts.some((alert) => alert.severity === 'warning')
+    ) {
       return 'Keep transport and storage plans flexible this week, and align field tasks with the drier parts of the forecast.';
     }
 

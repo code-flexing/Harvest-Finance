@@ -72,9 +72,13 @@ export class FarmVaultsService {
     });
 
     // Check milestone progress and emit if crossed
-    const progressPercentage = Math.round((Number(saved.balance) / Number(vault.targetAmount)) * 100);
+    const progressPercentage = Math.round(
+      (Number(saved.balance) / Number(vault.targetAmount)) * 100,
+    );
     const milestones = [25, 50, 75, 100];
-    const prevProgress = Math.round(((Number(saved.balance) - amount) / Number(vault.targetAmount)) * 100);
+    const prevProgress = Math.round(
+      ((Number(saved.balance) - amount) / Number(vault.targetAmount)) * 100,
+    );
     for (const target of milestones) {
       if (prevProgress < target && progressPercentage >= target) {
         this.vaultGateway.emitMilestone({

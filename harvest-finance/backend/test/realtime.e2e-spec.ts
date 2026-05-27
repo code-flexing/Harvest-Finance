@@ -145,7 +145,9 @@ describe('VaultActivity WebSocket (e2e)', () => {
       // Check that event was received
       const receivedEvent = await Promise.race([
         activityPromise,
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Event timeout')), 5000)),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Event timeout')), 5000),
+        ),
       ]);
 
       expect(receivedEvent.type).toBe('deposit');
@@ -196,7 +198,9 @@ describe('VaultActivity WebSocket (e2e)', () => {
 
       const receivedEvent = await Promise.race([
         activityPromise,
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Event timeout')), 5000)),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Event timeout')), 5000),
+        ),
       ]);
 
       expect(receivedEvent.type).toBe('harvest');

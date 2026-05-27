@@ -16,7 +16,10 @@ export class GpsValidationService {
   private readonly validationRadiusMeters: number;
 
   constructor(private readonly configService: ConfigService) {
-    this.validationRadiusMeters = this.configService.get<number>('GPS_VALIDATION_RADIUS_METERS', 100);
+    this.validationRadiusMeters = this.configService.get<number>(
+      'GPS_VALIDATION_RADIUS_METERS',
+      100,
+    );
   }
 
   /**

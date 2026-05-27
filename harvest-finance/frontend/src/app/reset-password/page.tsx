@@ -161,19 +161,36 @@ export default function ResetPasswordPage() {
               ) : null}
             </div>
 
-            <div className="rounded-[24px] border border-[rgba(47,122,66,0.12)] bg-[#f8fbf5] p-4">
-              <p className="text-sm font-semibold text-slate-900">Password requirements</p>
-              <ul className="mt-3 space-y-2" aria-label="Password requirements">
+            <div className="rounded-[20px] border border-[rgba(47,122,66,0.14)] dark:border-[rgba(141,187,85,0.18)] bg-[#f4faf0] dark:bg-[#162a1a] overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-[rgba(47,122,66,0.1)] dark:border-[rgba(141,187,85,0.1)]">
+                <p className="text-sm font-semibold text-slate-800 dark:text-gray-100">Password requirements</p>
+                <span className="text-xs font-medium tabular-nums text-slate-500 dark:text-gray-400">
+                  {requirementChecks(password).filter((r) => r.test).length}
+                  <span className="text-slate-300 dark:text-gray-600 mx-0.5">/</span>
+                  {requirementChecks(password).length} met
+                </span>
+              </div>
+              <ul className="px-4 py-3 space-y-2.5" aria-label="Password requirements">
                 {requirementChecks(password).map(({ test, label }) => (
-                  <li key={label} className="flex items-center gap-2 text-sm">
+                  <li key={label} className="flex items-center gap-2.5 text-sm transition-all duration-200">
                     <span
-                      className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-xs ${
-                        test ? 'bg-[var(--brand-soft)] text-[var(--brand-strong)]' : 'bg-slate-200 text-slate-500'
+                      className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-all duration-200 ${
+                        test
+                          ? 'bg-[var(--brand-soft)] dark:bg-[rgba(74,222,128,0.15)] text-[var(--brand-strong)] dark:text-[#4ade80]'
+                          : 'bg-slate-200/70 dark:bg-[#1a3020] text-slate-400 dark:text-gray-600'
                       }`}
                     >
-                      {test ? 'v' : '+'}
+                      {test ? '✓' : '–'}
                     </span>
-                    <span className={test ? 'text-slate-900' : 'text-slate-500'}>{label}</span>
+                    <span
+                      className={`transition-colors duration-200 ${
+                        test
+                          ? 'text-slate-800 dark:text-gray-100 font-medium'
+                          : 'text-slate-400 dark:text-gray-500'
+                      }`}
+                    >
+                      {label}
+                    </span>
                   </li>
                 ))}
               </ul>

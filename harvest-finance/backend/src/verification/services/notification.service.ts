@@ -38,7 +38,8 @@ export class NotificationService implements OnModuleInit {
       sentAt: new Date(),
     });
 
-    const savedNotification = await this.notificationRepository.save(notification);
+    const savedNotification =
+      await this.notificationRepository.save(notification);
 
     // Emit event for external handlers (email, SMS, etc.)
     this.eventEmitter.emit('notification.sent', {
@@ -135,7 +136,10 @@ export class NotificationService implements OnModuleInit {
   /**
    * Get notifications for a user
    */
-  async getUserNotifications(userId: string, limit = 20): Promise<Notification[]> {
+  async getUserNotifications(
+    userId: string,
+    limit = 20,
+  ): Promise<Notification[]> {
     return this.notificationRepository.find({
       where: { userId },
       order: { createdAt: 'DESC' },
@@ -154,13 +158,18 @@ export class NotificationService implements OnModuleInit {
    * Handle notification events - mock email/SMS sending
    */
   @OnEvent('notification.sent')
-  handleNotificationSent(payload: { notification: Notification; type: NotificationType }) {
+  handleNotificationSent(payload: {
+    notification: Notification;
+    type: NotificationType;
+  }) {
     // Mock email sending - in production, integrate with SendGrid, AWS SES, etc.
     this.logger.log(
       `[MOCK EMAIL] Sending ${payload.type} email to ${payload.notification.userEmail}`,
     );
 
     // Mock SMS sending - in production, integrate with Twilio, AWS SNS, etc.
-    this.logger.log(`[MOCK SMS] Sending SMS notification to user ${payload.notification.userId}`);
+    this.logger.log(
+      `[MOCK SMS] Sending SMS notification to user ${payload.notification.userId}`,
+    );
   }
 }

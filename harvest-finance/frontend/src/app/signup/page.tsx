@@ -132,11 +132,11 @@ export default function SignupPage() {
                   aria-pressed={selected}
                   className={`role-card ${selected ? 'role-card--active' : 'role-card--idle'}`}
                 >
-                  <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-xs font-semibold uppercase tracking-[0.18em] text-[var(--brand-strong)] shadow-sm">
+                  <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white dark:bg-[#0d1f12] text-xs font-semibold uppercase tracking-[0.18em] text-[var(--brand-strong)] shadow-sm">
                     {role.icon}
                   </span>
-                  <p className="mt-3 text-sm font-semibold text-slate-900">{role.label}</p>
-                  <p className="mt-1 text-xs leading-5 text-slate-600">{role.description}</p>
+                  <p className="mt-3 text-sm font-semibold text-slate-900 dark:text-white">{role.label}</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-gray-400">{role.description}</p>
                 </button>
               );
             })}
@@ -217,14 +217,14 @@ export default function SignupPage() {
           </div>
         </div>
 
-        <label className="flex items-start gap-3 rounded-2xl border border-[rgba(51,93,60,0.12)] bg-[#fafcf8] p-4 text-sm text-slate-600">
+        <label className="flex items-start gap-3 rounded-2xl border border-[rgba(51,93,60,0.12)] dark:border-[rgba(141,187,85,0.2)] bg-[#fafcf8] dark:bg-[#1a3020] p-4 text-sm text-slate-600 dark:text-gray-300">
           <input
             {...register('agreeToTerms')}
             type="checkbox"
             id="agreeToTerms"
             aria-invalid={!!errors.agreeToTerms}
             disabled={isLoading}
-            className="mt-1 h-4 w-4 rounded border-slate-300 text-[var(--brand)] focus:ring-[var(--brand)]"
+            className="mt-1 h-4 w-4 rounded border-slate-300 dark:border-[rgba(141,187,85,0.4)] text-[var(--brand)] focus:ring-[var(--brand)]"
           />
           <span>I agree to the platform terms, verification requirements, and settlement policies.</span>
         </label>

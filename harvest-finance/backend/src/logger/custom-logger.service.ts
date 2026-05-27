@@ -1,68 +1,154 @@
-import { LoggerService, Injectable } from '@nestjs/common';
-import * as fs from 'fs';
+import { Injectable, LoggerService, Optional } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as path from 'path';
+import pino, {
+  DestinationStream,
+  Logger as PinoLogger,
+  TransportTargetOptions,
+} from 'pino';
+
+type LogPayload = unknown;
+type ContextOrMeta = string | Record<string, unknown> | undefined;
 
 @Injectable()
 export class CustomLoggerService implements LoggerService {
-  private readonly logDirectory = path.join(process.cwd(), 'logs');
-  private readonly logFilePath = path.join(this.logDirectory, 'application.log');
-  private readonly errorFilePath = path.join(this.logDirectory, 'error.log');
+  private readonly pino: PinoLogger;
 
-  constructor() {
-    if (!fs.existsSync(this.logDirectory)) {
-      fs.mkdirSync(this.logDirectory, { recursive: true });
-    }
+  constructor(@Optional() private readonly config?: ConfigService) {
+    this.pino = createPinoLogger(this.config);
   }
 
-  private writeToFile(filepath: string, message: any, context?: string, level: string = 'info') {
-    const timestamp = new Date().toISOString();
-    
-    // Safely stringify objects
-    let strMessage = message;
-    if (typeof message === 'object') {
-      try {
-        strMessage = JSON.stringify(message);
-      } catch (e) {
-        strMessage = String(message);
-      }
-    }
-
-    const logEntry = JSON.stringify({ timestamp, level, context, message: strMessage }) + '\n';
-    try {
-      fs.appendFileSync(filepath, logEntry);
-    } catch (error) {
-      console.error('Failed to write log to file', error);
-    }
-    
-    const consoleMsg = `[Nest] ${process.pid}  - ${timestamp}     ${level.toUpperCase()} [${context || 'Application'}] ${strMessage}`;
-    if (level === 'error') {
-      console.error('\x1b[31m%s\x1b[0m', consoleMsg); // Red
-    } else if (level === 'warn') {
-      console.warn('\x1b[33m%s\x1b[0m', consoleMsg); // Yellow
-    } else {
-      console.log('\x1b[32m%s\x1b[0m', consoleMsg); // Green
-    }
+  log(message: LogPayload, context?: string): void {
+    const { fields, msg } = unpack(message, context);
+    this.pino.info(fields, msg);
   }
 
-  log(message: any, context?: string) {
-    this.writeToFile(this.logFilePath, message, context, 'info');
+  error(
+    message: LogPayload,
+    traceOrMeta?: ContextOrMeta,
+    context?: string,
+  ): void {
+    const meta = mergeMeta(traceOrMeta, context);
+    const { fields, msg } = unpack(message, meta.context);
+    this.pino.error({ ...fields, ...meta.fields }, msg);
   }
 
-  error(message: any, trace?: string, context?: string) {
-    const errorMsg = trace ? `${message} - Trace: ${trace}` : message;
-    this.writeToFile(this.errorFilePath, errorMsg, context, 'error');
-    this.writeToFile(this.logFilePath, errorMsg, context, 'error');
+  warn(message: LogPayload, context?: string): void {
+    const { fields, msg } = unpack(message, context);
+    this.pino.warn(fields, msg);
   }
 
-  warn(message: any, context?: string) {
-    this.writeToFile(this.logFilePath, message, context, 'warn');
+  debug?(message: LogPayload, context?: string): void {
+    const { fields, msg } = unpack(message, context);
+    this.pino.debug(fields, msg);
   }
 
-  debug?(message: any, context?: string) {
-    this.writeToFile(this.logFilePath, message, context, 'debug');
+  verbose?(message: LogPayload, context?: string): void {
+    const { fields, msg } = unpack(message, context);
+    this.pino.trace(fields, msg);
   }
 
-  verbose?(message: any, context?: string) {
-    this.writeToFile(this.logFilePath, message, context, 'verbose');
+  /**
+   * Emit a structured event log at error level (e.g. `stellar_tx_failed`).
+   * Use this for known failure modes that telemetry should be able to filter on.
+   */
+  errorEvent(
+    event: string,
+    fields: Record<string, unknown>,
+    context?: string,
+  ): void {
+    this.pino.error({ event, ...fields, context }, event);
   }
+}
+
+function unpack(
+  message: LogPayload,
+  context?: string,
+): { fields: Record<string, unknown>; msg: string } {
+  if (message instanceof Error) {
+    return {
+      fields: { context, err: message },
+      msg: message.message,
+    };
+  }
+  if (message && typeof message === 'object') {
+    const obj = message as Record<string, unknown>;
+    const { msg, message: msgAlt, ...rest } = obj;
+    return {
+      fields: { context, ...rest },
+      msg:
+        typeof msg === 'string'
+          ? msg
+          : typeof msgAlt === 'string'
+            ? msgAlt
+            : '',
+    };
+  }
+  if (message == null) return { fields: { context }, msg: '' };
+  if (typeof message === 'string') return { fields: { context }, msg: message };
+  return { fields: { context }, msg: safeStringify(message) };
+}
+
+function safeStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value) ?? '';
+  } catch {
+    return '[unserialisable value]';
+  }
+}
+
+function mergeMeta(
+  traceOrMeta: ContextOrMeta,
+  context?: string,
+): { fields: Record<string, unknown>; context?: string } {
+  if (traceOrMeta == null) return { fields: {}, context };
+  if (typeof traceOrMeta === 'string') {
+    return { fields: { trace: traceOrMeta }, context };
+  }
+  const { context: ctxFromMeta, ...rest } = traceOrMeta;
+  return {
+    fields: rest,
+    context:
+      context ?? (typeof ctxFromMeta === 'string' ? ctxFromMeta : undefined),
+  };
+}
+
+function createPinoLogger(config?: ConfigService): PinoLogger {
+  const level =
+    config?.get<string>('LOG_LEVEL') ?? process.env.LOG_LEVEL ?? 'info';
+  const isProduction = (process.env.NODE_ENV ?? 'development') === 'production';
+  const logDirectory = path.join(process.cwd(), 'logs');
+
+  const targets: TransportTargetOptions[] = [
+    isProduction
+      ? {
+          target: 'pino/file',
+          options: { destination: 1 },
+          level: 'trace',
+        }
+      : {
+          target: 'pino-pretty',
+          options: { colorize: true, translateTime: 'SYS:standard' },
+          level: 'trace',
+        },
+    {
+      target: 'pino/file',
+      options: {
+        destination: path.join(logDirectory, 'application.log'),
+        mkdir: true,
+      },
+      level: 'trace',
+    },
+    {
+      target: 'pino/file',
+      options: {
+        destination: path.join(logDirectory, 'error.log'),
+        mkdir: true,
+      },
+      level: 'error',
+    },
+  ];
+
+  const transport = pino.transport({ targets }) as DestinationStream;
+  return pino({ level, base: { pid: process.pid } }, transport);
 }

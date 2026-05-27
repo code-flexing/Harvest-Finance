@@ -32,9 +32,15 @@ export class CreateNotifications1700000000006 implements MigrationInterface {
       )
     `);
 
-    await queryRunner.query(`CREATE INDEX "idx_notifications_user_id" ON "notifications" ("user_id")`);
-    await queryRunner.query(`CREATE INDEX "idx_notifications_admin_only" ON "notifications" ("admin_only")`);
-    await queryRunner.query(`CREATE INDEX "idx_notifications_is_read" ON "notifications" ("is_read")`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_notifications_user_id" ON "notifications" ("user_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_notifications_admin_only" ON "notifications" ("admin_only")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_notifications_is_read" ON "notifications" ("is_read")`,
+    );
   }
 
   async down(queryRunner: QueryRunner): Promise<void> {

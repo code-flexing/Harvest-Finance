@@ -23,10 +23,10 @@ export interface CreditScoreHistoryEntry {
 
 /**
  * CreditScore entity representing farmer credit ratings
- * 
+ *
  * Relationships:
  * - One CreditScore belongs to one User (farmer)
- * 
+ *
  * PostgreSQL-specific features:
  * - history field uses JSONB for flexible data storage
  */
@@ -52,10 +52,22 @@ export class CreditScore {
   @Column({ name: 'failed_transactions', type: 'int', default: 0 })
   failedTransactions: number;
 
-  @Column({ name: 'total_volume', type: 'decimal', precision: 14, scale: 2, default: 0 })
+  @Column({
+    name: 'total_volume',
+    type: 'decimal',
+    precision: 14,
+    scale: 2,
+    default: 0,
+  })
   totalVolume: number;
 
-  @Column({ name: 'average_rating', type: 'decimal', precision: 3, scale: 2, default: 0 })
+  @Column({
+    name: 'average_rating',
+    type: 'decimal',
+    precision: 3,
+    scale: 2,
+    default: 0,
+  })
   averageRating: number;
 
   @Column({ name: 'total_ratings', type: 'int', default: 0 })

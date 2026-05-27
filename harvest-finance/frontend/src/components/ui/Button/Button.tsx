@@ -57,17 +57,23 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       secondary: cn(
         'bg-harvest-green-100 text-harvest-green-800',
         'hover:bg-harvest-green-200 active:bg-harvest-green-300',
-        'focus-visible:ring-harvest-green-500'
+        'focus-visible:ring-harvest-green-500',
+        'dark:bg-harvest-green-900 dark:text-harvest-green-300',
+        'dark:hover:bg-harvest-green-800 dark:active:bg-harvest-green-700'
       ),
       outline: cn(
         'border-2 border-harvest-green-600 text-harvest-green-600',
         'bg-transparent hover:bg-harvest-green-50 active:bg-harvest-green-100',
-        'focus-visible:ring-harvest-green-500'
+        'focus-visible:ring-harvest-green-500',
+        'dark:border-harvest-green-500 dark:text-harvest-green-400',
+        'dark:hover:bg-harvest-green-900 dark:active:bg-harvest-green-800'
       ),
       ghost: cn(
         'text-harvest-green-700',
         'hover:bg-harvest-green-100 active:bg-harvest-green-200',
-        'focus-visible:ring-harvest-green-500'
+        'focus-visible:ring-harvest-green-500',
+        'dark:text-harvest-green-400',
+        'dark:hover:bg-harvest-green-900 dark:active:bg-harvest-green-800'
       ),
       danger: cn(
         'bg-red-600 text-white',

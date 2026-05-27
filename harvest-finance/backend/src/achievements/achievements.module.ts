@@ -8,7 +8,10 @@ import { AchievementsService } from './achievements.service';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Achievement, Deposit, Vault]), AuthModule],
+  imports: [
+    TypeOrmModule.forFeature([Achievement, Deposit, Vault]),
+    AuthModule,
+  ],
   controllers: [AchievementsController],
   providers: [AchievementsService],
   exports: [AchievementsService],

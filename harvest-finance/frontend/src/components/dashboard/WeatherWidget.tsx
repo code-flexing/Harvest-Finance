@@ -34,19 +34,19 @@ const alertTone: Record<
   { bg: string; border: string; text: string }
 > = {
   info: {
-    bg: 'bg-sky-50',
-    border: 'border-sky-100',
-    text: 'text-sky-800',
+    bg: 'bg-sky-50 dark:bg-sky-900/20',
+    border: 'border-sky-100 dark:border-sky-900/40',
+    text: 'text-sky-800 dark:text-sky-300',
   },
   warning: {
-    bg: 'bg-amber-50',
-    border: 'border-amber-100',
-    text: 'text-amber-900',
+    bg: 'bg-amber-50 dark:bg-amber-900/20',
+    border: 'border-amber-100 dark:border-amber-900/40',
+    text: 'text-amber-900 dark:text-amber-300',
   },
   critical: {
-    bg: 'bg-red-50',
-    border: 'border-red-100',
-    text: 'text-red-900',
+    bg: 'bg-red-50 dark:bg-red-900/20',
+    border: 'border-red-100 dark:border-red-900/40',
+    text: 'text-red-900 dark:text-red-300',
   },
 };
 
@@ -58,22 +58,22 @@ export function WeatherWidget() {
       <Card variant="default" className="overflow-hidden">
         <CardBody className="p-6">
           <div className="animate-pulse space-y-4">
-            <div className="h-6 w-48 rounded bg-gray-200" />
+            <div className="h-6 w-48 rounded bg-gray-200 dark:bg-[#1a3020]" />
             <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-              <div className="rounded-2xl bg-gray-100 p-5">
-                <div className="h-12 w-24 rounded bg-gray-200" />
-                <div className="mt-4 h-4 w-36 rounded bg-gray-200" />
+              <div className="rounded-2xl bg-gray-100 dark:bg-[#162a1a] p-5">
+                <div className="h-12 w-24 rounded bg-gray-200 dark:bg-[#1a3020]" />
+                <div className="mt-4 h-4 w-36 rounded bg-gray-200 dark:bg-[#1a3020]" />
                 <div className="mt-6 grid grid-cols-3 gap-3">
-                  <div className="h-20 rounded-xl bg-gray-200" />
-                  <div className="h-20 rounded-xl bg-gray-200" />
-                  <div className="h-20 rounded-xl bg-gray-200" />
+                  <div className="h-20 rounded-xl bg-gray-200 dark:bg-[#1a3020]" />
+                  <div className="h-20 rounded-xl bg-gray-200 dark:bg-[#1a3020]" />
+                  <div className="h-20 rounded-xl bg-gray-200 dark:bg-[#1a3020]" />
                 </div>
               </div>
-              <div className="rounded-2xl bg-gray-100 p-5">
-                <div className="h-4 w-28 rounded bg-gray-200" />
+              <div className="rounded-2xl bg-gray-100 dark:bg-[#162a1a] p-5">
+                <div className="h-4 w-28 rounded bg-gray-200 dark:bg-[#1a3020]" />
                 <div className="mt-3 space-y-3">
-                  <div className="h-16 rounded-xl bg-gray-200" />
-                  <div className="h-16 rounded-xl bg-gray-200" />
+                  <div className="h-16 rounded-xl bg-gray-200 dark:bg-[#1a3020]" />
+                  <div className="h-16 rounded-xl bg-gray-200 dark:bg-[#1a3020]" />
                 </div>
               </div>
             </div>
@@ -89,8 +89,8 @@ export function WeatherWidget() {
         <CardBody className="p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Farm weather</h3>
-              <p className="mt-1 text-sm text-gray-500">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Farm weather</h3>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                 {error || 'Weather data could not be loaded.'}
               </p>
             </div>
@@ -180,25 +180,25 @@ export function WeatherWidget() {
             </div>
 
             <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-              <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-                <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-                  <Thermometer className="h-4 w-4 text-harvest-green-600" />
+              <div className="rounded-2xl border border-gray-100 dark:border-[rgba(141,187,85,0.15)] bg-gray-50 dark:bg-[#1a3020] p-4">
+                <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
+                  <Thermometer className="h-4 w-4 text-harvest-green-600 dark:text-harvest-green-400" />
                   Seasonal outlook
                 </div>
-                <p className="mt-3 text-sm leading-6 text-gray-600">
+                <p className="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">
                   {data.seasonalOutlook}
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-                <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+              <div className="rounded-2xl border border-gray-100 dark:border-[rgba(141,187,85,0.15)] bg-gray-50 dark:bg-[#1a3020] p-4">
+                <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
+                  <AlertTriangle className="h-4 w-4 text-amber-500 dark:text-amber-400" />
                   Planning recommendation
                 </div>
-                <p className="mt-3 text-sm leading-6 text-gray-600">
+                <p className="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">
                   {data.recommendation}
                 </p>
-                <p className="mt-3 text-xs uppercase tracking-wide text-gray-400">
+                <p className="mt-3 text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">
                   Source: {data.source}
                 </p>
               </div>
@@ -206,8 +206,8 @@ export function WeatherWidget() {
 
             <div>
               <div className="mb-3 flex items-center justify-between">
-                <h4 className="text-sm font-semibold text-gray-900">7-day forecast</h4>
-                <p className="text-xs text-gray-500">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white">7-day forecast</h4>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   Forecast icons and rainfall estimates for the coming week.
                 </p>
               </div>
@@ -219,26 +219,26 @@ export function WeatherWidget() {
                   return (
                     <div
                       key={day.date}
-                      className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+                      className="rounded-2xl border border-gray-100 dark:border-[rgba(141,187,85,0.15)] bg-white dark:bg-[#1a3020] p-4 shadow-sm dark:shadow-none"
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-semibold text-gray-900">
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white">
                             {day.dayLabel}
                           </p>
-                          <p className="text-xs text-gray-500">{day.condition}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{day.condition}</p>
                         </div>
-                        <ForecastIcon className="h-5 w-5 text-harvest-green-600" />
+                        <ForecastIcon className="h-5 w-5 text-harvest-green-600 dark:text-harvest-green-400" />
                       </div>
 
                       <div className="mt-4 flex items-end justify-between">
                         <div>
-                          <p className="text-2xl font-bold text-gray-900">
+                          <p className="text-2xl font-bold text-gray-900 dark:text-white">
                             {day.maxTempC}°
                           </p>
-                          <p className="text-sm text-gray-500">{day.minTempC}° low</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">{day.minTempC}° low</p>
                         </div>
-                        <div className="text-right text-xs text-gray-500">
+                        <div className="text-right text-xs text-gray-500 dark:text-gray-400">
                           <p>{day.rainfallMm} mm rain</p>
                           <p>{day.precipitationChance}% chance</p>
                         </div>
@@ -251,10 +251,10 @@ export function WeatherWidget() {
           </section>
 
           <section className="space-y-4">
-            <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+            <div className="rounded-2xl border border-gray-100 dark:border-[rgba(141,187,85,0.15)] bg-white dark:bg-[#162a1a] p-5 shadow-sm dark:shadow-none">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-amber-500" />
-                <h4 className="text-sm font-semibold text-gray-900">
+                <AlertTriangle className="h-5 w-5 text-amber-500 dark:text-amber-400" />
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
                   Weather alerts
                 </h4>
               </div>
@@ -284,21 +284,21 @@ export function WeatherWidget() {
                     );
                   })
                 ) : (
-                  <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm text-emerald-900">
+                  <div className="rounded-2xl border border-emerald-100 dark:border-[rgba(74,222,128,0.2)] bg-emerald-50 dark:bg-[rgba(74,222,128,0.08)] p-4 text-sm text-emerald-900 dark:text-emerald-300">
                     No severe weather alerts are active. Conditions are stable for regular farm operations.
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-5">
-              <h4 className="text-sm font-semibold text-gray-900">
+            <div className="rounded-2xl border border-gray-200 dark:border-[rgba(141,187,85,0.15)] bg-gray-50 dark:bg-[#1a3020] p-5">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
                 This week at a glance
               </h4>
-              <div className="mt-4 space-y-3 text-sm text-gray-600">
-                <div className="flex items-center justify-between rounded-xl bg-white px-4 py-3">
+              <div className="mt-4 space-y-3 text-sm text-gray-600 dark:text-gray-300">
+                <div className="flex items-center justify-between rounded-xl bg-white dark:bg-[#162a1a] px-4 py-3">
                   <span>Warmest day</span>
-                  <span className="font-semibold text-gray-900">
+                  <span className="font-semibold text-gray-900 dark:text-white">
                     {
                       [...data.forecast].sort(
                         (left, right) => right.maxTempC - left.maxTempC,
@@ -306,9 +306,9 @@ export function WeatherWidget() {
                     }
                   </span>
                 </div>
-                <div className="flex items-center justify-between rounded-xl bg-white px-4 py-3">
+                <div className="flex items-center justify-between rounded-xl bg-white dark:bg-[#162a1a] px-4 py-3">
                   <span>Wettest day</span>
-                  <span className="font-semibold text-gray-900">
+                  <span className="font-semibold text-gray-900 dark:text-white">
                     {
                       [...data.forecast].sort(
                         (left, right) => right.rainfallMm - left.rainfallMm,
@@ -316,9 +316,9 @@ export function WeatherWidget() {
                     }
                   </span>
                 </div>
-                <div className="flex items-center justify-between rounded-xl bg-white px-4 py-3">
+                <div className="flex items-center justify-between rounded-xl bg-white dark:bg-[#162a1a] px-4 py-3">
                   <span>Windiest day</span>
-                  <span className="font-semibold text-gray-900">
+                  <span className="font-semibold text-gray-900 dark:text-white">
                     {
                       [...data.forecast].sort(
                         (left, right) => right.windSpeedKph - left.windSpeedKph,

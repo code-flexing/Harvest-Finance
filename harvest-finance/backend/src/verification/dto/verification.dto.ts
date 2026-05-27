@@ -94,7 +94,9 @@ export class ApproveVerificationDto {
  * DTO for querying verifications
  */
 export class QueryVerificationDto {
-  @ApiPropertyOptional({ enum: ['PENDING', 'PARTIALLY_APPROVED', 'VERIFIED', 'REJECTED'] })
+  @ApiPropertyOptional({
+    enum: ['PENDING', 'PARTIALLY_APPROVED', 'VERIFIED', 'REJECTED'],
+  })
   @IsOptional()
   @IsString()
   status?: string;
@@ -224,7 +226,9 @@ export class VerificationResponseDto {
   @ApiProperty()
   gpsLng: number;
 
-  @ApiProperty({ enum: ['PENDING', 'PARTIALLY_APPROVED', 'VERIFIED', 'REJECTED'] })
+  @ApiProperty({
+    enum: ['PENDING', 'PARTIALLY_APPROVED', 'VERIFIED', 'REJECTED'],
+  })
   status: string;
 
   @ApiPropertyOptional()

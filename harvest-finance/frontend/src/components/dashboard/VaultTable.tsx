@@ -11,6 +11,8 @@ import {
   Badge,
   Button,
   Inline,
+  StrategyBadge,
+  Tooltip,
 } from '@/components/ui';
 import { 
   ArrowUpDown, 
@@ -19,8 +21,10 @@ import {
   Coins, 
   Zap, 
   Leaf, 
-  Shield 
+  Shield,
+  Info,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Vault } from '@/types/vault';
 import { 
   sortVaults, 
@@ -30,6 +34,7 @@ import {
   formatPercentage, 
   getRiskVariant 
 } from '@/lib/vault-utils';
+import { getTermTooltip } from '@/lib/defi-terms';
 
 interface VaultTableProps {
   vaults: Vault[];
@@ -42,6 +47,7 @@ export const VaultTable: React.FC<VaultTableProps> = ({
   onDeposit,
   onWithdraw,
 }) => {
+  const { t } = useTranslation();
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection }>({
     key: 'tvl',
     direction: 'desc',
@@ -81,47 +87,70 @@ export const VaultTable: React.FC<VaultTableProps> = ({
   };
 
   return (
-    <div className="rounded-xl border border-gray-100 bg-white dark:border-zinc-800 dark:bg-zinc-950 overflow-hidden shadow-sm">
+    <div className="rounded-xl border border-gray-100 bg-white dark:border-[rgba(141,187,85,0.15)] dark:bg-[#162a1a] overflow-hidden shadow-sm">
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead 
-              className="cursor-pointer hover:bg-gray-100 transition-colors"
+              className="cursor-pointer hover:bg-gray-100 dark:hover:bg-[#1a3020] transition-colors"
               onClick={() => handleSort('name')}
             >
               <Inline gap="none" align="center">
-                <span>Vault Name</span>
+                <span>{t('dashboard.vault_name')}</span>
                 {renderSortIcon('name')}
               </Inline>
             </TableHead>
             <TableHead 
-              className="cursor-pointer hover:bg-gray-100 transition-colors"
+              className="cursor-pointer hover:bg-gray-100 dark:hover:bg-[#1a3020] transition-colors"
               onClick={() => handleSort('apy')}
             >
               <Inline gap="none" align="center">
-                <span>APY</span>
+                <Tooltip content={getTermTooltip('apy')} position="bottom">
+                  <span className="flex items-center gap-1 cursor-help">
+                    <span>{t('dashboard.apy')}</span>
+                    <Info className="w-3 h-3 opacity-60" />
+                  </span>
+                </Tooltip>
                 {renderSortIcon('apy')}
               </Inline>
             </TableHead>
             <TableHead 
-              className="cursor-pointer hover:bg-gray-100 transition-colors"
+              className="cursor-pointer hover:bg-gray-100 dark:hover:bg-[#1a3020] transition-colors"
               onClick={() => handleSort('tvl')}
             >
               <Inline gap="none" align="center">
-                <span>TVL</span>
+                <Tooltip content={getTermTooltip('tvl')} position="bottom">
+                  <span className="flex items-center gap-1 cursor-help">
+                    <span>{t('dashboard.tvl')}</span>
+                    <Info className="w-3 h-3 opacity-60" />
+                  </span>
+                </Tooltip>
                 {renderSortIcon('tvl')}
               </Inline>
             </TableHead>
             <TableHead 
-              className="cursor-pointer hover:bg-gray-100 transition-colors"
+              className="cursor-pointer hover:bg-gray-100 dark:hover:bg-[#1a3020] transition-colors"
               onClick={() => handleSort('riskLevel')}
             >
               <Inline gap="none" align="center">
-                <span>Risk Level</span>
+                <Tooltip content={getTermTooltip('risk_level')} position="bottom">
+                  <span className="flex items-center gap-1 cursor-help">
+                    <span>{t('dashboard.risk_level')}</span>
+                    <Info className="w-3 h-3 opacity-60" />
+                  </span>
+                </Tooltip>
                 {renderSortIcon('riskLevel')}
               </Inline>
             </TableHead>
-            <TableHead className="text-right">Actions</TableHead>
+            <TableHead>
+              <Tooltip content={getTermTooltip('strategy')} position="bottom">
+                <span className="flex items-center gap-1 cursor-help">
+                  <span>{t('dashboard.strategy')}</span>
+                  <Info className="w-3 h-3 opacity-60" />
+                </span>
+              </Tooltip>
+            </TableHead>
+            <TableHead className="text-right">{t('dashboard.actions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -133,8 +162,8 @@ export const VaultTable: React.FC<VaultTableProps> = ({
                     {vault.icon || getVaultIcon(vault.iconName)}
                   </div>
                   <div>
-                    <div className="font-bold text-gray-900 dark:text-zinc-50">{vault.name}</div>
-                    <div className="text-xs text-gray-500 dark:text-zinc-400">{vault.asset}</div>
+                    <div className="font-bold text-gray-900 dark:text-white">{vault.name}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{vault.asset}</div>
                   </div>
                 </div>
               </TableCell>
@@ -143,13 +172,16 @@ export const VaultTable: React.FC<VaultTableProps> = ({
                   {formatPercentage(vault.apy)}
                 </Badge>
               </TableCell>
-              <TableCell className="font-medium text-gray-700 dark:text-zinc-300">
+              <TableCell className="font-medium text-gray-700 dark:text-gray-200">
                 {formatCurrency(vault.tvl)}
               </TableCell>
               <TableCell>
                 <Badge variant={getRiskVariant(vault.riskLevel)} size="sm">
                   {vault.riskLevel}
                 </Badge>
+              </TableCell>
+              <TableCell>
+                {vault.strategyType ? <StrategyBadge strategyType={vault.strategyType} /> : <span className="text-gray-400">—</span>}
               </TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end gap-2 items-center">
@@ -159,15 +191,15 @@ export const VaultTable: React.FC<VaultTableProps> = ({
                     onClick={() => onDeposit(vault.id)}
                     className="opacity-0 group-hover:opacity-100 transition-opacity bg-harvest-green-600 hover:bg-harvest-green-700 text-white h-8"
                   >
-                    Deposit
+                    {t('common.deposit')}
                   </Button>
                   <Button 
                     variant="outline" 
                     size="sm"
                     onClick={() => onWithdraw(vault.id)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity border-gray-200 dark:border-zinc-800 h-8"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity border-gray-200 dark:border-[rgba(141,187,85,0.25)] text-gray-700 dark:text-gray-200 h-8"
                   >
-                    Withdraw
+                    {t('common.withdraw')}
                   </Button>
                 </div>
               </TableCell>
@@ -176,8 +208,8 @@ export const VaultTable: React.FC<VaultTableProps> = ({
           ))}
           {sortedVaults.length === 0 && (
             <TableRow>
-              <TableCell colSpan={5} className="h-24 text-center text-gray-500">
-                No vaults found.
+              <TableCell colSpan={6} className="h-24 text-center text-gray-500 dark:text-gray-400">
+                {t('dashboard.no_vaults_found')}
               </TableCell>
             </TableRow>
           )}

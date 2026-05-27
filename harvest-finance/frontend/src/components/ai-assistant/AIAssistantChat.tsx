@@ -71,20 +71,22 @@ export function AIAssistantChat({ context }: AIAssistantChatProps) {
             className={cn(
               'fixed bottom-6 right-6 z-50',
               'w-14 h-14 rounded-full',
-              'bg-harvest-green-600 text-white',
-              'shadow-lg hover:shadow-xl',
+              'bg-harvest-green-600 dark:bg-harvest-green-500 text-white',
+              'shadow-lg shadow-harvest-green-900/20 hover:shadow-xl',
+              'dark:shadow-[0_8px_32px_rgba(74,222,128,0.25)] dark:hover:shadow-[0_12px_40px_rgba(74,222,128,0.35)]',
               'flex items-center justify-center',
-              'transition-colors duration-200',
-              'hover:bg-harvest-green-700',
-              'focus:outline-none focus-visible:ring-2 focus-visible:ring-harvest-green-500 focus-visible:ring-offset-2',
+              'transition-all duration-200',
+              'hover:bg-harvest-green-700 dark:hover:bg-harvest-green-400',
+              'ring-2 ring-white/25 dark:ring-harvest-green-400/40',
+              'focus:outline-none focus-visible:ring-2 focus-visible:ring-harvest-green-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900',
             )}
             aria-label="Open AI Assistant"
           >
             <Sparkles className="w-6 h-6" />
             {/* Pulse indicator */}
             <span className="absolute top-0 right-0 w-3.5 h-3.5">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-harvest-green-300 opacity-75 animate-ping" />
-              <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-harvest-green-400 border-2 border-white" />
+              <span className="absolute inline-flex h-full w-full rounded-full bg-harvest-green-300 dark:bg-harvest-green-400 opacity-75 animate-ping" />
+              <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-harvest-green-400 dark:bg-harvest-green-300 border-2 border-white dark:border-[#0f2015]" />
             </span>
           </motion.button>
         )}
@@ -102,8 +104,8 @@ export function AIAssistantChat({ context }: AIAssistantChatProps) {
               'fixed bottom-6 right-6 z-50',
               'w-[calc(100vw-3rem)] sm:w-[420px]',
               'h-[calc(100vh-6rem)] sm:h-[600px] sm:max-h-[calc(100vh-6rem)]',
-              'bg-white rounded-2xl shadow-2xl',
-              'border border-gray-200',
+              'bg-white dark:bg-[#162a1a] rounded-2xl shadow-2xl',
+              'border border-gray-200 dark:border-[rgba(141,187,85,0.18)]',
               'flex flex-col overflow-hidden',
             )}
           >
@@ -124,7 +126,7 @@ export function AIAssistantChat({ context }: AIAssistantChatProps) {
                 {messages.length > 0 && (
                   <button
                     onClick={clearChat}
-                    className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                    className="p-2 rounded-lg text-white hover:bg-white/20 active:bg-white/30 transition-colors"
                     aria-label="Clear chat"
                     title="Clear chat"
                   >
@@ -133,7 +135,7 @@ export function AIAssistantChat({ context }: AIAssistantChatProps) {
                 )}
                 <button
                   onClick={closeChat}
-                  className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                  className="p-2 rounded-lg text-white hover:bg-white/20 active:bg-white/30 transition-colors"
                   aria-label="Close chat"
                 >
                   <X className="w-4 h-4" />
@@ -142,16 +144,16 @@ export function AIAssistantChat({ context }: AIAssistantChatProps) {
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-[#0f2015]">
               {messages.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full text-center px-4">
-                  <div className="w-16 h-16 rounded-full bg-harvest-green-50 flex items-center justify-center mb-4">
-                    <MessageCircle className="w-8 h-8 text-harvest-green-500" />
+                  <div className="w-16 h-16 rounded-full bg-harvest-green-50 dark:bg-[rgba(74,222,128,0.1)] flex items-center justify-center mb-4">
+                    <MessageCircle className="w-8 h-8 text-harvest-green-500 dark:text-harvest-green-400" />
                   </div>
-                  <h3 className="font-semibold text-gray-800 mb-2">
+                  <h3 className="font-semibold text-gray-800 dark:text-white mb-2">
                     Welcome to Farm AI Assistant
                   </h3>
-                  <p className="text-sm text-gray-500 mb-6 max-w-xs">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 max-w-xs">
                     Get personalized advice on crop management, seasonal tips, vault strategies,
                     and milestone tracking.
                   </p>
@@ -165,8 +167,8 @@ export function AIAssistantChat({ context }: AIAssistantChatProps) {
                         onClick={() => handleSuggestionClick(suggestion)}
                         className={cn(
                           'w-full text-left text-sm px-4 py-3 rounded-xl',
-                          'bg-white border border-gray-200 text-gray-700',
-                          'hover:border-harvest-green-300 hover:bg-harvest-green-50',
+                          'bg-white dark:bg-[#1a3020] border border-gray-200 dark:border-[rgba(141,187,85,0.2)] text-gray-700 dark:text-gray-200',
+                          'hover:border-harvest-green-300 dark:hover:border-[rgba(141,187,85,0.4)] hover:bg-harvest-green-50 dark:hover:bg-[rgba(74,222,128,0.08)]',
                           'transition-all duration-150',
                           'focus:outline-none focus-visible:ring-2 focus-visible:ring-harvest-green-500',
                         )}
@@ -194,14 +196,14 @@ export function AIAssistantChat({ context }: AIAssistantChatProps) {
                   animate={{ opacity: 1 }}
                   className="flex gap-3"
                 >
-                  <div className="w-8 h-8 rounded-full bg-harvest-green-50 border border-harvest-green-200 flex items-center justify-center flex-shrink-0">
-                    <Sparkles className="w-4 h-4 text-harvest-green-600 animate-pulse" />
+                  <div className="w-8 h-8 rounded-full bg-harvest-green-50 dark:bg-[rgba(74,222,128,0.1)] border border-harvest-green-200 dark:border-[rgba(141,187,85,0.2)] flex items-center justify-center flex-shrink-0">
+                    <Sparkles className="w-4 h-4 text-harvest-green-600 dark:text-harvest-green-400 animate-pulse" />
                   </div>
-                  <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-md px-4 py-3 shadow-sm">
+                  <div className="bg-white dark:bg-[#1a3020] border border-gray-200 dark:border-[rgba(141,187,85,0.15)] rounded-2xl rounded-bl-md px-4 py-3 shadow-sm">
                     <div className="flex gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <span className="w-2 h-2 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <span className="w-2 h-2 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: '300ms' }} />
+                      <span className="w-2 h-2 rounded-full bg-gray-300 dark:bg-[rgba(141,187,85,0.5)] animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-2 h-2 rounded-full bg-gray-300 dark:bg-[rgba(141,187,85,0.5)] animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-2 h-2 rounded-full bg-gray-300 dark:bg-[rgba(141,187,85,0.5)] animate-bounce" style={{ animationDelay: '300ms' }} />
                     </div>
                   </div>
                 </motion.div>
@@ -214,11 +216,11 @@ export function AIAssistantChat({ context }: AIAssistantChatProps) {
                   animate={{ opacity: 1, y: 0 }}
                   className="mx-auto max-w-xs"
                 >
-                  <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-center">
-                    <p className="text-sm text-red-700">{error}</p>
+                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/50 rounded-xl px-4 py-3 text-center">
+                    <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
                     <button
                       onClick={clearError}
-                      className="mt-1 text-xs text-red-500 hover:text-red-700 underline"
+                      className="mt-1 text-xs text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 underline"
                     >
                       Dismiss
                     </button>

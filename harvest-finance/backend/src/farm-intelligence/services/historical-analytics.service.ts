@@ -28,14 +28,17 @@ export class HistoricalAnalyticsService {
       const key = format(d.createdAt, 'yyyy-MM');
       monthlyMap.set(key, (monthlyMap.get(key) ?? 0) + Number(d.amount));
     }
-    const monthlyDeposits: TimeSeriesPoint[] = Array.from(monthlyMap.entries()).map(
-      ([date, value]) => ({ date, value: parseFloat(value.toFixed(2)) }),
-    );
+    const monthlyDeposits: TimeSeriesPoint[] = Array.from(
+      monthlyMap.entries(),
+    ).map(([date, value]) => ({ date, value: parseFloat(value.toFixed(2)) }));
 
     let running = 0;
     const vaultGrowth: TimeSeriesPoint[] = deposits.map((d) => {
       running += Number(d.amount);
-      return { date: d.createdAt.toISOString(), value: parseFloat(running.toFixed(2)) };
+      return {
+        date: d.createdAt.toISOString(),
+        value: parseFloat(running.toFixed(2)),
+      };
     });
 
     return { transactionHistory, monthlyDeposits, vaultGrowth };

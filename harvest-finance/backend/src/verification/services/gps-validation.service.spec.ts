@@ -47,7 +47,12 @@ describe('GpsValidationService', () => {
   describe('validateWithinRadius', () => {
     it('should return valid when coordinates are within radius', () => {
       // Same coordinates should have 0 distance
-      const result = service.validateWithinRadius(40.7128, -74.006, 40.7128, -74.006);
+      const result = service.validateWithinRadius(
+        40.7128,
+        -74.006,
+        40.7128,
+        -74.006,
+      );
       expect(result.valid).toBe(true);
       expect(result.distance).toBe(0);
     });
@@ -57,8 +62,8 @@ describe('GpsValidationService', () => {
       const result = service.validateWithinRadius(
         40.7128,
         -74.006,
-        40.7200,
-        -74.0100,
+        40.72,
+        -74.01,
       );
       expect(result.valid).toBe(false);
       expect(result.distance).toBeGreaterThan(100);

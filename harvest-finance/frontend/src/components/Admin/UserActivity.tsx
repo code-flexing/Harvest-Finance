@@ -15,7 +15,7 @@ import {
   Inline,
   Stack
 } from '@/components/ui';
-import { ArrowUpRight, ArrowDownLeft, Clock, Search } from 'lucide-react';
+import { ArrowDownLeft, Clock, Search } from 'lucide-react';
 
 interface Activity {
   id: string;
@@ -104,7 +104,7 @@ export const UserActivity: React.FC<UserActivityProps> = ({ activities }) => {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-sm text-gray-500">
-                    {new Date(activity.createdAt).toLocaleDateString()}
+                    {new Date(activity.createdAt).toLocaleDateString('en-US')}
                   </TableCell>
                 </TableRow>
               ))

@@ -8,9 +8,7 @@ import { Reward } from '../database/entities/reward.entity';
 import { User } from '../database/entities/user.entity';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Deposit, Withdrawal, Reward, User]),
-  ],
+  imports: [TypeOrmModule.forFeature([Deposit, Withdrawal, Reward, User])],
   providers: [ExportService],
   controllers: [ExportController],
   exports: [ExportService],

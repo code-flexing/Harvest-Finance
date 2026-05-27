@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Badge,
   Button,
@@ -11,17 +12,23 @@ import {
 } from "@/components/ui";
 import { Bot, Leaf, MapPin, Sprout, Waves } from "lucide-react";
 
-interface RecommendationItem {
-  crop: string;
-  reason: string;
-  guidance: string;
-  considerations: string;
+interface CropRecommendation {
+  topic: 'planting' | 'fertilization' | 'irrigation' | 'pest_management';
+  title: string;
+  advice: string;
+  impact: string;
+  priority: 'low' | 'medium' | 'high';
 }
 
-interface RecommendationResponse {
-  summary: string;
-  recommendations: RecommendationItem[];
-  cached: boolean;
+interface CropAdvisory {
+  userId: string;
+  recommendations: CropRecommendation[];
+  generatedAt: string;
+  context: {
+    weatherSummary: string;
+    marketTrend: string;
+    soilHealth: string;
+  };
 }
 
 interface CropRecommendationPanelProps {
@@ -38,6 +45,7 @@ const seasons = [
 export function CropRecommendationPanel({
   isOnline,
 }: CropRecommendationPanelProps) {
+  const { t } = useTranslation();
   const [form, setForm] = useState({
     location: "Kaduna",
     season: "Rainy season",
@@ -46,7 +54,7 @@ export function CropRecommendationPanel({
     farmSize: "4 hectares",
   });
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<RecommendationResponse | null>(null);
+  const [result, setResult] = useState<CropAdvisory | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const updateField = (field: keyof typeof form, value: string) => {
@@ -65,10 +73,9 @@ export function CropRecommendationPanel({
     setError(null);
 
     try {
-      const response = await fetch("/api/v1/ai-assistant/recommend", {
-        method: "POST",
+      const response = await fetch("/api/v1/farm-intelligence/recommendations", {
+        method: "GET",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
       });
 
       const data = await response.json();
@@ -94,63 +101,16 @@ export function CropRecommendationPanel({
   return (
     <Card variant="default" className="overflow-hidden">
       <CardHeader
-        title="AI Crop Recommendation"
-        subtitle="Request practical crop ideas based on region, season, soil, and your own preferences."
+        title={t('dashboard.assistant_title')}
+        subtitle={t('dashboard.assistant_subtitle')}
         action={
           <Badge variant={isOnline ? "success" : "warning"} size="sm" isPill>
-            {isOnline ? "Live AI ready" : "Offline cache only"}
+            {isOnline ? t('common.success') : t('common.cached')}
           </Badge>
         }
       />
       <CardBody className="space-y-6 p-6">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-          <Input
-            label="Location"
-            value={form.location}
-            onChange={(event) => updateField("location", event.target.value)}
-            leftIcon={<MapPin className="h-4 w-4" />}
-            placeholder="e.g. Kaduna"
-          />
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-gray-700">
-              Season
-            </label>
-            <select
-              className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 outline-none transition focus:border-harvest-green-500 focus:ring-2 focus:ring-harvest-green-200"
-              value={form.season}
-              onChange={(event) => updateField("season", event.target.value)}
-            >
-              {seasons.map((season) => (
-                <option key={season} value={season}>
-                  {season}
-                </option>
-              ))}
-            </select>
-          </div>
-          <Input
-            label="Preferred Crop"
-            value={form.preferredCrop}
-            onChange={(event) =>
-              updateField("preferredCrop", event.target.value)
-            }
-            leftIcon={<Sprout className="h-4 w-4" />}
-            placeholder="Optional"
-          />
-          <Input
-            label="Soil Type"
-            value={form.soilType}
-            onChange={(event) => updateField("soilType", event.target.value)}
-            leftIcon={<Leaf className="h-4 w-4" />}
-            placeholder="Optional"
-          />
-          <Input
-            label="Farm Size"
-            value={form.farmSize}
-            onChange={(event) => updateField("farmSize", event.target.value)}
-            leftIcon={<Waves className="h-4 w-4" />}
-            placeholder="Optional"
-          />
-        </div>
+        {/* Inputs removed as recommendations are now auto-generated based on user profile and real-time context */}
 
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <p className="text-sm text-gray-500">
@@ -163,7 +123,7 @@ export function CropRecommendationPanel({
             isLoading={isLoading}
             leftIcon={<Bot className="h-4 w-4" />}
           >
-            Get crop ideas
+            {t('dashboard.refresh')}
           </Button>
         </div>
 
@@ -171,39 +131,41 @@ export function CropRecommendationPanel({
 
         {result && (
           <div className="space-y-4">
-            <div className="rounded-2xl bg-harvest-green-50 p-4 text-sm text-harvest-green-900">
-              {result.summary}
-              {result.cached && (
-                <span className="ml-2 font-semibold">(served from cache)</span>
-              )}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
+                <p className="text-xs text-gray-500 uppercase tracking-wider">{t('dashboard.advisory_weather')}</p>
+                <p className="text-sm font-medium">{result.context.weatherSummary}</p>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
+                <p className="text-xs text-gray-500 uppercase tracking-wider">{t('dashboard.advisory_market')}</p>
+                <p className="text-sm font-medium">{result.context.marketTrend}</p>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
+                <p className="text-xs text-gray-500 uppercase tracking-wider">{t('dashboard.advisory_soil')}</p>
+                <p className="text-sm font-medium">{result.context.soilHealth}</p>
+              </div>
             </div>
             <div className="grid gap-4 lg:grid-cols-3">
-              {result.recommendations.map((item) => (
+              {result.recommendations.map((item, idx) => (
                 <div
-                  key={item.crop}
-                  className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
+                  key={`${item.topic}-${idx}`}
+                  className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-sm"
                 >
                   <div className="mb-3 flex items-center justify-between gap-3">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {item.crop}
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                      {item.title}
                     </h3>
-                    <Badge variant="primary" size="sm">
-                      Recommended
+                    <Badge variant={item.priority === 'high' ? 'danger' : item.priority === 'medium' ? 'warning' : 'primary'} size="sm">
+                      {item.priority}
                     </Badge>
                   </div>
-                  <p className="mb-3 text-sm text-gray-600">{item.reason}</p>
-                  <div className="space-y-2 text-sm text-gray-700">
+                  <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">{item.advice}</p>
+                  <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
                     <p>
-                      <span className="font-semibold text-gray-900">
-                        Planting guidance:
+                      <span className="font-semibold text-gray-900 dark:text-white">
+                        {t('dashboard.advisory_impact')}:
                       </span>{" "}
-                      {item.guidance}
-                    </p>
-                    <p>
-                      <span className="font-semibold text-gray-900">
-                        Seasonal watchout:
-                      </span>{" "}
-                      {item.considerations}
+                      {item.impact}
                     </p>
                   </div>
                 </div>

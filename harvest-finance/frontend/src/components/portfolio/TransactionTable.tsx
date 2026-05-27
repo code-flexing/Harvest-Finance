@@ -9,16 +9,20 @@ import {
   Badge, 
   StatusBadge, 
   Button,
-  Input
+  Input,
+  TransactionRowSkeleton,
 } from '@/components/ui';
 import { Transaction, TransactionType } from '@/lib/mock-data';
 import { Search, ChevronDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface TransactionTableProps {
   transactions: Transaction[];
+  isLoading?: boolean;
 }
 
-export const TransactionTable: React.FC<TransactionTableProps> = ({ transactions }) => {
+export const TransactionTable: React.FC<TransactionTableProps> = ({ transactions, isLoading = false }) => {
+  const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<TransactionType | 'All'>('All');
   const [visibleCount, setVisibleCount] = useState(5);
@@ -37,15 +41,15 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({ transactions
   return (
     <Card variant="default" className="w-full overflow-hidden">
       <CardHeader 
-        title="Transaction History" 
-        subtitle="Recent interactions with Harvest vaults"
+        title={t('portfolio.transaction_history')} 
+        subtitle={t('portfolio.transaction_desc')}
       />
       
       <CardBody>
         <div className="flex flex-col md:flex-row gap-4 mb-6 mt-4">
           <div className="flex-1">
             <Input
-              placeholder="Search by vault or token..."
+              placeholder={t('common.search_placeholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               leftIcon={<Search className="w-4 h-4 text-gray-400" />}
@@ -59,7 +63,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({ transactions
                 size="sm"
                 onClick={() => setFilterType(type)}
               >
-                {type}
+                {type === 'All' ? t('common.all') : t(`common.${type.toLowerCase()}`)}
               </Button>
             ))}
           </div>
@@ -68,15 +72,18 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({ transactions
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-gray-100 bg-gray-50/50">
-                <th className="py-4 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                <th className="py-4 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</th>
-                <th className="py-4 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Vault</th>
-                <th className="py-4 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
-                <th className="py-4 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+              <tr className="border-b border-gray-100 dark:border-[rgba(141,187,85,0.12)] bg-gray-50/50 dark:bg-[#1a3020]">
+                <th className="py-4 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('common.date')}</th>
+                <th className="py-4 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('common.type')}</th>
+                <th className="py-4 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('dashboard.vault')}</th>
+                <th className="py-4 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('common.amount')}</th>
+                <th className="py-4 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('common.status')}</th>
               </tr>
             </thead>
             <tbody>
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => <TransactionRowSkeleton key={i} />)
+              ) : (
               <AnimatePresence mode="popLayout">
                 {filteredTransactions.slice(0, visibleCount).map((tx) => (
                   <motion.tr
@@ -85,9 +92,9 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({ transactions
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ duration: 0.2 }}
-                    className="group border-b border-gray-50 hover:bg-harvest-green-50/30 transition-colors"
+                    className="group border-b border-gray-50 dark:border-[rgba(141,187,85,0.08)] hover:bg-harvest-green-50/30 dark:hover:bg-[rgba(74,222,128,0.05)] transition-colors"
                   >
-                    <td className="py-4 px-4 text-sm text-gray-600">{tx.date}</td>
+                    <td className="py-4 px-4 text-sm text-gray-600 dark:text-gray-400">{tx.date}</td>
                     <td className="py-4 px-4">
                       <Badge 
                         variant={
@@ -96,13 +103,13 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({ transactions
                         }
                         size="sm"
                       >
-                        {tx.type}
+                        {t(`common.${tx.type.toLowerCase()}`)}
                       </Badge>
                     </td>
-                    <td className="py-4 px-4 font-medium text-gray-900">{tx.vault}</td>
+                    <td className="py-4 px-4 font-medium text-gray-900 dark:text-white">{tx.vault}</td>
                     <td className="py-4 px-4">
-                      <span className="font-semibold text-gray-900">{tx.amount}</span>
-                      <span className="ml-1 text-xs text-gray-500">{tx.token}</span>
+                      <span className="font-semibold text-gray-900 dark:text-white">{tx.amount}</span>
+                      <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">{tx.token}</span>
                     </td>
                     <td className="py-4 px-4">
                       {tx.status === 'Completed' ? <StatusBadge.Completed /> : 
@@ -112,6 +119,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({ transactions
                   </motion.tr>
                 ))}
               </AnimatePresence>
+              )}
             </tbody>
           </table>
         </div>
@@ -119,7 +127,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({ transactions
         {visibleCount < filteredTransactions.length && (
           <div className="mt-8 text-center">
             <Button variant="outline" onClick={loadMore} rightIcon={<ChevronDown className="w-4 h-4" />}>
-              Load More
+              {t('common.load_more')}
             </Button>
           </div>
         )}

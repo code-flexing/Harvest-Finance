@@ -2,13 +2,21 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useWalletStore, shortenAddress } from '@/store/wallet';
-import { Button } from '@/components/ui';
+import { Button, Tooltip } from '@/components/ui';
 import { Badge } from '@/components/ui';
+import { useToastStore } from '@/store/useToastStore';
+import { Info, Wallet as WalletIconLucide } from 'lucide-react';
+import { getTermTooltip } from '@/lib/defi-terms';
+import { WalletConnectModal } from './WalletConnectModal';
 
 export function WalletButton() {
   const { address, isConnected, isConnecting, error, connect, disconnect } = useWalletStore();
+  const { showToast } = useToastStore();
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showConnectModal, setShowConnectModal] = useState(false);
+  const [isCopying, setIsCopying] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const connectButtonRef = useRef<HTMLButtonElement>(null);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -21,63 +29,134 @@ export function WalletButton() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Show toast notifications for connection events
+  useEffect(() => {
+    if (isConnected && address) {
+      showToast(`Connected to ${shortenAddress(address)}`, 'success');
+    }
+  }, [isConnected, address, showToast]);
+
+  useEffect(() => {
+    if (error) {
+      showToast(error, 'error');
+    }
+  }, [error, showToast]);
+
+  const handleConnect = () => {
+    setShowConnectModal(true);
+  };
+
+  const handleCopyAddress = async () => {
+    if (!address) return;
+
+    setIsCopying(true);
+    try {
+      await navigator.clipboard.writeText(address);
+      showToast('Address copied to clipboard', 'success');
+    } catch (err) {
+      showToast('Failed to copy address', 'error');
+    } finally {
+      setIsCopying(false);
+    }
+  };
+
+  const handleDisconnect = () => {
+    disconnect();
+    setShowDropdown(false);
+    showToast('Wallet disconnected', 'info');
+  };
+
+  // Handle keyboard navigation
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Escape') {
+      setShowDropdown(false);
+    }
+  };
+
   if (!isConnected) {
     return (
-      <div className="flex flex-col items-end gap-1">
+      <div className="flex flex-col items-end gap-2">
         <Button
+          ref={connectButtonRef}
           variant="primary"
           size="md"
-          onClick={connect}
+          onClick={handleConnect}
           isLoading={isConnecting}
-          leftIcon={<WalletIcon />}
+          leftIcon={<WalletIconLucide className="w-4 h-4" />}
+          disabled={isConnecting}
+          className="rounded-xl font-bold shadow-lg shadow-harvest-green-500/20"
+          aria-label={isConnecting ? 'Connecting to wallet...' : 'Connect wallet'}
         >
           {isConnecting ? 'Connecting...' : 'Connect Wallet'}
         </Button>
-        {error && (
-          <span className="text-xs text-red-500 max-w-[200px] text-right">{error}</span>
-        )}
+        <WalletConnectModal 
+          isOpen={showConnectModal} 
+          onClose={() => setShowConnectModal(false)} 
+        />
       </div>
     );
   }
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative" onKeyDown={handleKeyDown}>
       <button
         onClick={() => setShowDropdown(!showDropdown)}
-        className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:border-harvest-green-300 hover:shadow-sm transition-all duration-200"
+        className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:border-harvest-green-300 hover:shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-harvest-green-500 focus:ring-offset-2"
+        aria-expanded={showDropdown}
+        aria-haspopup="menu"
+        aria-label={`Wallet connected: ${shortenAddress(address!)}. Click to view options.`}
       >
-        <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-        <span className="font-medium text-gray-700">{shortenAddress(address!)}</span>
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" aria-hidden="true" />
+          <span className="font-medium text-gray-700">{shortenAddress(address!)}</span>
+        </div>
         <ChevronIcon isOpen={showDropdown} />
       </button>
 
       {showDropdown && (
-        <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden z-50">
+        <div
+          ref={dropdownRef}
+          className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden z-50 animate-in slide-in-from-top-2 duration-200"
+          role="menu"
+          aria-label="Wallet options"
+        >
           <div className="p-4 border-b border-gray-100">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-500">Connected</span>
-              <Badge variant="success" size="sm">Active</Badge>
+              <span className="text-sm text-gray-500">Connected Wallet</span>
+              <Badge variant="success" size="sm" aria-label="Wallet status: Active">
+                Active
+              </Badge>
             </div>
-            <p className="font-mono text-sm text-gray-800 break-all">{address}</p>
+            <p
+              className="font-mono text-sm text-gray-800 break-all"
+              aria-label={`Full wallet address: ${address}`}
+            >
+              {address}
+            </p>
+            <Tooltip content={getTermTooltip('trustlines')} position="bottom">
+              <div className="mt-2 text-xs text-gray-500 flex items-center gap-1 cursor-help">
+                <Info className="w-3 h-3 opacity-60" />
+                Trustlines manage which assets your wallet can hold
+              </div>
+            </Tooltip>
           </div>
 
-          <div className="p-2">
+          <div className="p-2" role="none">
             <button
-              onClick={() => {
-                navigator.clipboard.writeText(address!);
-                setShowDropdown(false);
-              }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+              onClick={handleCopyAddress}
+              disabled={isCopying}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors focus:outline-none focus:bg-gray-50 disabled:opacity-50"
+              role="menuitem"
+              aria-label="Copy wallet address to clipboard"
             >
               <CopyIcon />
-              Copy Address
+              {isCopying ? 'Copying...' : 'Copy Address'}
             </button>
             <button
-              onClick={() => {
-                disconnect();
-                setShowDropdown(false);
-              }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              onClick={handleDisconnect}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors focus:outline-none focus:bg-red-50"
+              role="menuitem"
+              aria-label="Disconnect wallet"
             >
               <DisconnectIcon />
               Disconnect

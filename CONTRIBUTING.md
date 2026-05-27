@@ -1,165 +1,123 @@
 # 🤝 Contributing to Harvest Finance
 
-Thank you for your interest in contributing to **Harvest Finance**! 🚜 ✨  
-We're building a blockchain-based supply chain financing platform to empower smallholder farmers, and we'd love for you to be part of this journey.
+Thank you for helping empower smallholder farmers! This guide covers everything you need to contribute effectively.
 
 ---
 
-## 🏗️ Architecture & Project Structure
-
-Harvest Finance is a full-stack decentralized application built on the **Stellar Blockchain**. We are currently participating in the **Drips Wave** program, aiming to expand our contributor base and accelerate the development of sustainable agricultural financing tools.
-
-### Repository Structure
-
-```text
-harvest-finance/
-├── backend/              # NestJS API Server (TypeScript)
-│   ├── src/              # Source code (controllers, services, entities)
-│   ├── test/             # Unit and E2E tests
-│   └── .env.example      # Environment template
-├── frontend/             # Next.js Web Dashboard (TypeScript)
-│   ├── src/              # React components, pages, hooks
-│   ├── public/           # Static assets (images, icons)
-│   └── next.config.ts    # Next.js configuration
-└── (root)                # Documentation & global configs
-```
-
-### Key Technologies
-- **Blockchain**: Stellar (Stellar SDK, Claimable Balances)
-- **Backend**: Node.js, NestJS, TypeORM, PostgreSQL, Redis
-- **Frontend**: React, Next.js, TailwindCSS, Framer Motion
-- **Tooling**: TypeScript, ESLint, Prettier, Jest
+## 📋 Table of Contents
+- [Getting Started](#getting-started)
+- [Branch Naming](#branch-naming)
+- [Commit Messages](#commit-messages)
+- [Pull Request Workflow](#pull-request-workflow)
+- [Coding Standards](#coding-standards)
+- [Testing Requirements](#testing-requirements)
 
 ---
 
-## 🚀 Setting Up Your Local Environment
+## Getting Started
 
-### 1. Prerequisites
-Ensure you have the following installed on your machine:
-- **Node.js**: v18.x or later
-- **npm**: v8.x or later
-- **PostgreSQL**: v14.x or later (Running locally or via Docker)
-- **Redis**: v6.x or later (Used for caching)
-- **Git**: For version control
-
-### 2. Fork & Clone
+### 1. Fork & Clone
 ```bash
-# 1. Fork the repo on GitHub
-# 2. Clone your fork
-git clone https://github.com/your-username/Harvest-Finance.git
+git clone https://github.com/<your-username>/Harvest-Finance.git
 cd Harvest-Finance
 ```
 
-### 3. Backend Setup
-Navigate to the `harvest-finance/backend` directory:
+### 2. Setup Backend
 ```bash
 cd harvest-finance/backend
-
-# Install dependencies
 npm install
-
-# Setup environment variables
-cp .env.example .env
-
-# Edit .env with your local DB & Redis credentials
-# (Default values usually work if you have local Postgres/Redis)
-```
-
-**Initialize Database:**
-```bash
-# Run migrations to create tables
+cp .env.example .env   # fill in DB_HOST, DB_PASSWORD, JWT_SECRET, etc.
 npm run migration:run
-
-# (Optional) Seed the database with demo data
-npm run seed
+npm run start:dev       # runs on http://localhost:5000
 ```
 
-**Start Backend Development Server:**
-```bash
-npm run start:dev
-```
-The API should now be running at `http://localhost:5000` (or `http://localhost:5000/api` for Swagger docs).
-
-### 4. Frontend Setup
-Open a new terminal and navigate to the `harvest-finance/frontend` directory:
+### 3. Setup Frontend
 ```bash
 cd harvest-finance/frontend
-
-# Install dependencies (using npm or bun)
 npm install
-
-# Setup environment variables
-# (Ensure NEXT_PUBLIC_API_URL points to your backend: http://localhost:5000)
 cp .env.example .env
+npm run dev             # runs on http://localhost:3000
 ```
 
-**Start Frontend Development Server:**
+### 4. Setup Contracts (optional)
 ```bash
-npm run dev
+# Install Foundry: https://book.getfoundry.sh/getting-started/installation
+cd contracts
+forge install
+forge test
 ```
-The dashboard will be available at `http://localhost:3000`.
 
 ---
 
-## 🛠️ Contribution Workflow
+## Branch Naming
 
-### 1. Picking an Issue
-Visit our [GitHub Issues](https://github.com/code-flexing/Harvest-Finance/issues) and look for tags:
-- `good-first-issue`: Perfect for new contributors.
-- `help-wanted`: High priority or complex tasks.
-- `frontend` / `backend`: Tech-specific tasks.
+| Type | Pattern | Example |
+|---|---|---|
+| Feature | `feat/<short-description>` | `feat/login-page-ui` |
+| Bug fix | `fix/<short-description>` | `fix/vault-deposit-overflow` |
+| Docs | `docs/<short-description>` | `docs/api-readme` |
+| Refactor | `refactor/<short-description>` | `refactor/vault-modular` |
+| Test | `test/<short-description>` | `test/vault-edge-cases` |
 
-Before starting work, **please comment on the issue** to express your interest—this avoids duplicate work!
-
-### 2. Branching Strategy
-We use a simple branching model. Always create a new branch from `main`:
-- `feature/your-feature-name` (e.g., `feature/ farmer-id-verification`)
-- `fix/your-fix-name` (e.g., `fix/auth-token-expiry`)
-- `docs/your-doc-update` (e.g., `docs/api-guide`)
-
-### 3. Coding Standards
-- **Linting**: Run `npm run lint` before committing.
-- **Formatting**: We use Prettier. Ensure your editor is configured to use our `.prettierrc`.
-- **Testing**: If you're adding logic, please include unit or integration tests.
-
-### 4. Commit Messages
-We follow [Conventional Commits](https://www.conventionalcommits.org/):
-- `feat: add new escrow contract handler`
-- `fix: resolve transaction fee calculation bug`
-- `docs: update setup guide`
-- `chore: update dependencies`
-
-### 5. Pull Requests
-1. **Push your changes** to your fork.
-2. **Open a PR** against our `main` branch.
-3. **Fill out the PR Template** (if available) with:
-   - What changed?
-   - How to test it?
-   - Screenshots (if UI-related).
-4. **Wait for review**. We try to review PRs within 48 hours!
+Always branch off `main` unless the issue specifies otherwise.
 
 ---
 
-## 🏷️ Issue Labels Guide
+## Commit Messages
 
-| Label | Description |
-| :--- | :--- |
-| `good-first-issue` | Beginner-friendly tasks with clear instructions. |
-| `enhancement` | A new feature or improvement to existing logic. |
-| `bug` | Something isn't working as expected. |
-| `backend` | Involves the NestJS API, Database, or Stellar logic. |
-| `frontend` | Involves the React UI, Framer Motion, or styling. |
-| `documentation` | Updates to README, Wiki, or code comments. |
-| `urgent` | Needs immediate attention for stability or security. |
+Follow [Conventional Commits](https://www.conventionalcommits.org/):
 
----
+```
+feat: add analytics dashboard endpoint
+fix: correct vault totalDeposits drift on withdrawal
+docs: update API README with state-sync endpoints
+test: add fuzz tests for VaultLib.toShares
+refactor: extract share math into VaultLib
+```
 
-## 🎨 Project Visual Identity
-When contributing UI elements, keep in mind our brand aesthetics:
-- **Primary Color**: Forest Green (Agriculture & Growth)
-- **Secondary Color**: Gold (Finance & Value)
-- **Tone**: Clean, Minimalist, Professional, Trustworthy
+Reference the issue number in the PR description with `Closes #<issue>`.
 
 ---
 
-**Happy Coding!** 🌾 We can't wait to see what you build.
+## Pull Request Workflow
+
+1. **Claim** the issue by commenting on it
+2. **Create** your branch from `main`
+3. **Implement** your changes with tests
+4. **Run** the test suite locally before pushing
+5. **Open** a PR against `main` with:
+   - Clear title matching the issue
+   - Description of what changed and why
+   - Screenshots for UI changes
+   - `Closes #<issue-number>`
+6. **Address** review feedback promptly
+
+---
+
+## Coding Standards
+
+### TypeScript (Backend / Frontend)
+- Use `async/await`, not raw Promises
+- Validate all inputs with `class-validator` DTOs
+- Never return passwords or secrets in responses
+- Use NestJS guards for all protected routes
+
+### Solidity (Contracts)
+- Follow [Checks-Effects-Interactions](https://docs.soliditylang.org/en/latest/security-considerations.html)
+- Use `ReentrancyGuard` on all state-mutating functions
+- Add NatSpec (`@notice`, `@param`, `@return`) to all public functions
+- Prefer libraries for reusable pure math
+
+---
+
+## Testing Requirements
+
+| Layer | Minimum Coverage | Command |
+|---|---|---|
+| Backend unit | ≥ 90% | `npm run test:cov` |
+| Backend e2e | Key flows | `npm run test:e2e` |
+| Contracts fuzz | 10,000 runs | `forge test` |
+
+- All PRs must pass CI before merge
+- New features must include corresponding tests
+- Bug fixes must include a regression test

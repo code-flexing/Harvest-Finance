@@ -4,13 +4,13 @@ import { generateSeedData, clearSeedData } from './seed.data';
 
 /**
  * Seed Service
- * 
+ *
  * Handles database seeding operations for development and testing.
- * 
+ *
  * Usage:
  * - Run migrations first: npm run migration:run
  * - Then seed data: npm run seed
- * 
+ *
  * Or programmatically:
  * - SeedService.seed() - populates database with test data
  * - SeedService.clear() - removes all seeded data
@@ -28,19 +28,19 @@ export class SeedService implements OnModuleInit {
 
   /**
    * Seed the database with test data
-   * 
+   *
    * Creates sample users, orders, transactions, verifications, and credit scores
    */
   async seed(): Promise<void> {
     this.logger.log('Starting database seeding...');
-    
+
     try {
       // Clear existing seed data first
       await clearSeedData(this.dataSource);
-      
+
       // Generate new seed data
       await generateSeedData(this.dataSource);
-      
+
       this.logger.log('Database seeding completed successfully!');
     } catch (error) {
       this.logger.error('Error seeding database:', error);
@@ -53,7 +53,7 @@ export class SeedService implements OnModuleInit {
    */
   async clear(): Promise<void> {
     this.logger.log('Clearing seed data...');
-    
+
     try {
       await clearSeedData(this.dataSource);
       this.logger.log('Seed data cleared successfully!');

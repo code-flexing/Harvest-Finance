@@ -96,7 +96,7 @@ export function FarmActivityMap() {
       <CardBody className="space-y-6 p-6">
         <div className="grid gap-3 md:grid-cols-3">
           <select
-            className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 outline-none focus:border-harvest-green-500 focus:ring-2 focus:ring-harvest-green-200"
+            className="h-10 rounded-lg border border-gray-300 dark:border-[rgba(141,187,85,0.2)] bg-white dark:bg-[#1a3020] px-3 text-sm text-gray-900 dark:text-gray-100 outline-none focus:border-harvest-green-500 focus:ring-2 focus:ring-harvest-green-200 dark:focus:ring-[rgba(74,222,128,0.1)]"
             value={regionFilter}
             onChange={(event) => setRegionFilter(event.target.value)}
           >
@@ -107,7 +107,7 @@ export function FarmActivityMap() {
             ))}
           </select>
           <select
-            className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 outline-none focus:border-harvest-green-500 focus:ring-2 focus:ring-harvest-green-200"
+            className="h-10 rounded-lg border border-gray-300 dark:border-[rgba(141,187,85,0.2)] bg-white dark:bg-[#1a3020] px-3 text-sm text-gray-900 dark:text-gray-100 outline-none focus:border-harvest-green-500 focus:ring-2 focus:ring-harvest-green-200 dark:focus:ring-[rgba(74,222,128,0.1)]"
             value={cropFilter}
             onChange={(event) => setCropFilter(event.target.value)}
           >
@@ -118,7 +118,7 @@ export function FarmActivityMap() {
             ))}
           </select>
           <select
-            className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 outline-none focus:border-harvest-green-500 focus:ring-2 focus:ring-harvest-green-200"
+            className="h-10 rounded-lg border border-gray-300 dark:border-[rgba(141,187,85,0.2)] bg-white dark:bg-[#1a3020] px-3 text-sm text-gray-900 dark:text-gray-100 outline-none focus:border-harvest-green-500 focus:ring-2 focus:ring-harvest-green-200 dark:focus:ring-[rgba(74,222,128,0.1)]"
             value={seasonFilter}
             onChange={(event) => setSeasonFilter(event.target.value)}
           >
@@ -142,44 +142,44 @@ export function FarmActivityMap() {
             onMarkerClick={(marker) => setSelectedId(marker.id)}
           />
 
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
+          <div className="rounded-2xl border border-gray-200 dark:border-[rgba(141,187,85,0.15)] bg-gray-50 dark:bg-[#162a1a] p-5">
             {selectedRegion ? (
               <div className="space-y-4">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
                     Selected region
                   </p>
-                  <h3 className="text-xl font-semibold text-gray-900">
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
                     {selectedRegion.name}
                   </h3>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-xl bg-white p-3">
-                    <p className="text-xs text-gray-500">Active farmers</p>
-                    <p className="text-lg font-semibold text-gray-900">
+                  <div className="rounded-xl bg-white dark:bg-[#1a3020] border border-transparent dark:border-[rgba(141,187,85,0.1)] p-3">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Active farmers</p>
+                    <p className="text-lg font-semibold text-gray-900 dark:text-white">
                       {selectedRegion.farmers}
                     </p>
                   </div>
-                  <div className="rounded-xl bg-white p-3">
-                    <p className="text-xs text-gray-500">Vault deposits</p>
-                    <p className="text-lg font-semibold text-gray-900">
+                  <div className="rounded-xl bg-white dark:bg-[#1a3020] border border-transparent dark:border-[rgba(141,187,85,0.1)] p-3">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Vault deposits</p>
+                    <p className="text-lg font-semibold text-gray-900 dark:text-white">
                       ${selectedRegion.deposits.toLocaleString()}
                     </p>
                   </div>
                 </div>
-                <div className="space-y-2 text-sm text-gray-700">
+                <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
                   <p>
-                    <span className="font-semibold text-gray-900">
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">
                       Crop focus:
                     </span>{" "}
                     {selectedRegion.crop}
                   </p>
                   <p>
-                    <span className="font-semibold text-gray-900">Season:</span>{" "}
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">Season:</span>{" "}
                     {selectedRegion.season}
                   </p>
                   <p>
-                    <span className="font-semibold text-gray-900">
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">
                       Progress:
                     </span>{" "}
                     {selectedRegion.progress}
@@ -187,7 +187,7 @@ export function FarmActivityMap() {
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 No activity matches the selected filters.
               </p>
             )}

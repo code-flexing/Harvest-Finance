@@ -1,5 +1,23 @@
 @import "tailwindcss";
 
+/* Class-based dark mode for next-themes */
+@variant dark (&:where(.dark, .dark *));
+
+/* Register harvest-green as Tailwind utilities (bg-harvest-green-*, text-harvest-green-*, etc.) */
+@theme {
+  --color-harvest-green-50: #f0fdf4;
+  --color-harvest-green-100: #dcfce7;
+  --color-harvest-green-200: #bbf7d0;
+  --color-harvest-green-300: #86efac;
+  --color-harvest-green-400: #4ade80;
+  --color-harvest-green-500: #22c55e;
+  --color-harvest-green-600: #16a34a;
+  --color-harvest-green-700: #15803d;
+  --color-harvest-green-800: #166534;
+  --color-harvest-green-900: #14532d;
+  --color-harvest-green-950: #052e16;
+}
+
 /* Harvest Finance UI - Custom Theme Configuration */
 :root {
   /* Primary Agricultural Green Palette */
@@ -37,25 +55,154 @@
   --shadow: 0 24px 60px rgba(32, 75, 42, 0.12);
 }
 
+/* Dark Mode Variables */
+.dark {
+  --background: #0d1f12;
+  --foreground: #e8f5e9;
+  --surface: rgba(18, 38, 22, 0.92);
+  --surface-strong: #162a1a;
+  --surface-muted: #1a3020;
+  --border: rgba(141, 187, 85, 0.15);
+  --border-strong: rgba(141, 187, 85, 0.28);
+  --brand: #4ade80;
+  --brand-strong: #22c55e;
+  --brand-soft: #14532d;
+  --accent: #86efac;
+  --danger-soft: #3b0a0a;
+  --danger: #f87171;
+  --shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+
 /* Base Styles */
 body {
   background:
     radial-gradient(circle at top, rgba(141, 187, 85, 0.22), transparent 28%),
     linear-gradient(180deg, #fbfdf8 0%, var(--background) 100%);
   color: var(--foreground);
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  font-family:
+    "Inter",
+    system-ui,
+    -apple-system,
+    sans-serif;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.dark body {
+  background:
+    radial-gradient(circle at top, rgba(34, 197, 94, 0.06), transparent 28%),
+    linear-gradient(180deg, #0f2015 0%, var(--background) 100%);
 }
 
 * {
   box-sizing: border-box;
 }
 
+/* Premium Design Utilities */
+@layer utilities {
+  .glass-panel {
+    @apply backdrop-blur-xl bg-white/5 border border-white/10 shadow-2xl;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .glass-panel::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  }
+
+  .glass-rim {
+    @apply border border-emerald-500/10 dark:border-emerald-500/20 shadow-[0_0_15px_rgba(34,197,94,0.05)];
+  }
+
+  .animate-shimmer {
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.03),
+      transparent
+    );
+    background-size: 200% 100%;
+    animation: shimmer 8s infinite linear;
+  }
+
+  @keyframes shimmer {
+    from { background-position: -200% 0; }
+    to { background-position: 200% 0; }
+  }
+
+  .animate-shake {
+    animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+  }
+
+  @keyframes shake {
+    10%, 90% { transform: translate3d(-1px, 0, 0); }
+    20%, 80% { transform: translate3d(2px, 0, 0); }
+    30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+    40%, 60% { transform: translate3d(4px, 0, 0); }
+  }
+
+  .text-gradient-emerald {
+    @apply bg-gradient-to-r from-emerald-400 to-harvest-green-600 bg-clip-text text-transparent;
+  }
+}
+
 *:focus-visible {
   outline: 2px solid var(--color-harvest-green-500);
   outline-offset: 2px;
+}
+
+/* Skip to main content link for screen readers */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 6px;
+  background: var(--color-harvest-green-600);
+  color: white;
+  padding: 8px;
+  text-decoration: none;
+  border-radius: 4px;
+  z-index: 1000;
+}
+
+.skip-link:focus {
+  top: 6px;
+}
+
+/* Improve focus indicators */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--color-harvest-green-500);
+  outline-offset: 2px;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  :root {
+    --background: #ffffff;
+    --foreground: #000000;
+    --border: #000000;
+  }
 }
 
 html {
@@ -121,23 +268,43 @@ input {
   }
 
   .support-text {
-    @apply text-sm leading-7 text-slate-600 sm:text-base;
+    @apply text-sm leading-7 text-slate-600 dark:text-gray-300 sm:text-base;
   }
 
   .field-label {
-    @apply mb-2 block text-sm font-medium text-slate-700;
+    @apply mb-2 block text-sm font-medium text-slate-700 dark:text-gray-100;
   }
 
   /* Forms */
   .input-field {
     background: #fcfdfb;
     border: 1px solid rgba(51, 93, 60, 0.18);
-    @apply h-12 w-full rounded-2xl px-4 text-sm text-slate-900 shadow-sm outline-none placeholder:text-slate-400;
+    color: #0f172a;
+    @apply h-12 w-full rounded-2xl px-4 text-sm shadow-sm outline-none placeholder:text-slate-400;
+
+    @variant dark {
+      background: #1a3020;
+      border-color: rgba(141, 187, 85, 0.25);
+      color: #f3f4f6;
+    }
+  }
+
+  .input-field::placeholder {
+    color: #94a3b8;
+
+    @variant dark {
+      color: #6b7280;
+    }
   }
 
   .input-field:focus {
     border-color: rgba(47, 122, 66, 0.5);
     box-shadow: 0 0 0 4px rgba(47, 122, 66, 0.12);
+
+    @variant dark {
+      border-color: rgba(74, 222, 128, 0.5);
+      box-shadow: 0 0 0 4px rgba(74, 222, 128, 0.1);
+    }
   }
 
   .input-field:disabled {
@@ -146,8 +313,16 @@ input {
 
   /* Buttons */
   .btn-primary {
-    background: linear-gradient(135deg, var(--brand) 0%, var(--brand-strong) 100%);
+    background: linear-gradient(
+      135deg,
+      var(--brand) 0%,
+      var(--brand-strong) 100%
+    );
     @apply inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-green-900/15;
+
+    @variant dark {
+      color: #0d1a0d;
+    }
   }
 
   .btn-primary:hover {
@@ -164,10 +339,20 @@ input {
     background: rgba(255, 255, 255, 0.9);
     border: 1px solid rgba(51, 93, 60, 0.18);
     @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-semibold text-slate-800;
+
+    @variant dark {
+      background: #1a3020;
+      border-color: rgba(141, 187, 85, 0.2);
+      color: #e8f5e9;
+    }
   }
 
   .btn-secondary:hover {
     background: #f5f8f2;
+
+    @variant dark {
+      background: #1f3826;
+    }
   }
 
   .inline-link {
@@ -194,6 +379,12 @@ input {
     background: #edf7e8;
     border-color: rgba(47, 122, 66, 0.12);
     color: var(--brand-strong);
+
+    @variant dark {
+      background: rgba(34, 197, 94, 0.1);
+      border-color: rgba(74, 222, 128, 0.2);
+      color: #86efac;
+    }
   }
 
   /* Password Toggle */
@@ -220,7 +411,7 @@ input {
     background: var(--surface); /* Add surface-card styles directly */
     border: 1px solid var(--border);
     box-shadow: var(--shadow);
-    border-radius: 28px; 
+    border-radius: 28px;
   }
 
   .auth-grid {
@@ -231,6 +422,11 @@ input {
     background: rgba(255, 255, 255, 0.72);
     border: 1px solid rgba(47, 122, 66, 0.1);
     @apply rounded-2xl p-4;
+
+    @variant dark {
+      background: rgba(18, 38, 22, 0.92);
+      border: 1px solid rgba(141, 187, 85, 0.15);
+    }
   }
 
   .role-card {
@@ -241,11 +437,21 @@ input {
     background: #edf7e8;
     border-color: rgba(47, 122, 66, 0.34);
     box-shadow: 0 0 0 4px rgba(47, 122, 66, 0.08);
+
+    @variant dark {
+      background: rgba(74, 222, 128, 0.1);
+      border-color: rgba(74, 222, 128, 0.3);
+    }
   }
 
   .role-card--idle {
     background: #fcfdfb;
     border-color: rgba(51, 93, 60, 0.12);
+
+    @variant dark {
+      background: #1a3020;
+      border-color: rgba(141, 187, 85, 0.15);
+    }
   }
 
   /* Navigation */
@@ -262,7 +468,7 @@ input {
   }
 
   .nav-link {
-    @apply rounded-full px-4 py-2 text-sm font-medium text-slate-700;
+    @apply rounded-full px-4 py-2 text-sm font-medium text-slate-700 dark:text-gray-300;
   }
 
   .nav-link:hover {
@@ -273,8 +479,17 @@ input {
   /* Metrics & Charts */
   .metric-card {
     @apply rounded-[24px] border p-5;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 248, 240, 0.88));
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.98),
+      rgba(244, 248, 240, 0.88)
+    );
     border-color: rgba(47, 122, 66, 0.12);
+
+    @variant dark {
+      background: linear-gradient(180deg, #1a3020 0%, #162a1a 100%);
+      border-color: rgba(141, 187, 85, 0.15);
+    }
   }
 
   .chart-row {
@@ -283,11 +498,64 @@ input {
 
   .chart-bar {
     @apply flex-1 rounded-t-2xl;
-    background: linear-gradient(180deg, rgba(141, 187, 85, 0.95), rgba(47, 122, 66, 0.95));
+    background: linear-gradient(
+      180deg,
+      rgba(141, 187, 85, 0.95),
+      rgba(47, 122, 66, 0.95)
+    );
   }
 
   .muted-divider {
     @apply border-t;
     border-color: rgba(51, 93, 60, 0.1);
+
+    @variant dark {
+      border-color: rgba(74, 222, 128, 0.1);
+    }
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .safe-area-inset-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-area-inset-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .touch-manipulation {
+    touch-action: manipulation;
+  }
+
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  @media (max-width: 640px) {
+    .page-shell {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+  }
+
+  @media (hover: none) and (pointer: coarse) {
+    .hover\:bg-gray-100:hover {
+      background-color: transparent;
+    }
+
+    .hover\:shadow-md:hover {
+      box-shadow: none;
+    }
   }
 }

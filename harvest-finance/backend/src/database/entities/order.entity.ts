@@ -29,7 +29,7 @@ export enum OrderStatus {
 
 /**
  * Order entity representing agricultural product orders
- * 
+ *
  * Relationships:
  * - Many Orders belong to one User (farmer/seller)
  * - Many Orders belong to one User (buyer)

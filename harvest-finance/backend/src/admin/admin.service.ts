@@ -9,7 +9,10 @@ import { Vault, VaultStatus } from '../database/entities/vault.entity';
 import { Deposit, DepositStatus } from '../database/entities/deposit.entity';
 import { User, UserRole } from '../database/entities/user.entity';
 import { Reward } from '../database/entities/reward.entity';
-import { Withdrawal, WithdrawalStatus } from '../database/entities/withdrawal.entity';
+import {
+  Withdrawal,
+  WithdrawalStatus,
+} from '../database/entities/withdrawal.entity';
 import { DashboardStatsDto } from './dto/dashboard-stats.dto';
 import { CreateVaultDto, UpdateVaultDto } from './dto/vault-crud.dto';
 import { PlatformAnalyticsDto } from './dto/analytics.dto';
@@ -34,7 +37,14 @@ export class AdminService {
    * Get overall dashboard metrics
    */
   async getDashboardStats(): Promise<DashboardStatsDto> {
-    const [totalUsers, activeUsersCount, totalDepositsResult, totalRewardsResult, activeVaultsCount, avgApyResult] = await Promise.all([
+    const [
+      totalUsers,
+      activeUsersCount,
+      totalDepositsResult,
+      totalRewardsResult,
+      activeVaultsCount,
+      avgApyResult,
+    ] = await Promise.all([
       // Total number of users in the system
       this.userRepository.count(),
 
@@ -47,7 +57,7 @@ export class AdminService {
         .select('SUM(deposit.amount)', 'total')
         .where('deposit.status = :status', { status: DepositStatus.CONFIRMED })
         .getRawOne(),
-      
+
       // Total Rewards Distributed
       this.rewardRepository
         .createQueryBuilder('reward')
@@ -112,7 +122,10 @@ export class AdminService {
     });
   }
 
-  async createVault(createVaultDto: CreateVaultDto, adminId: string): Promise<Vault> {
+  async createVault(
+    createVaultDto: CreateVaultDto,
+    adminId: string,
+  ): Promise<Vault> {
     const vault = this.vaultRepository.create({
       ...createVaultDto,
       ownerId: adminId,
@@ -122,7 +135,10 @@ export class AdminService {
     return this.vaultRepository.save(vault);
   }
 
-  async updateVault(id: string, updateVaultDto: UpdateVaultDto): Promise<Vault> {
+  async updateVault(
+    id: string,
+    updateVaultDto: UpdateVaultDto,
+  ): Promise<Vault> {
     const vault = await this.vaultRepository.findOne({ where: { id } });
     if (!vault) {
       throw new NotFoundException(`Vault with ID ${id} not found`);
@@ -133,7 +149,10 @@ export class AdminService {
   }
 
   async deleteVault(id: string): Promise<void> {
-    const vault = await this.vaultRepository.findOne({ where: { id }, relations: ['deposits'] });
+    const vault = await this.vaultRepository.findOne({
+      where: { id },
+      relations: ['deposits'],
+    });
     if (!vault) {
       throw new NotFoundException(`Vault with ID ${id} not found`);
     }
@@ -163,10 +182,15 @@ export class AdminService {
    * Platform Analytics - time-series data for charts
    */
   async getPlatformAnalytics(): Promise<PlatformAnalyticsDto> {
-    const [userGrowthRaw, depositTrendsRaw, withdrawalTrendsRaw, vaultDistRaw, totalWithdrawalsResult] =
-      await Promise.all([
-        // Monthly user registrations over last 12 months
-        this.dataSource.query(`
+    const [
+      userGrowthRaw,
+      depositTrendsRaw,
+      withdrawalTrendsRaw,
+      vaultDistRaw,
+      totalWithdrawalsResult,
+    ] = await Promise.all([
+      // Monthly user registrations over last 12 months
+      this.dataSource.query(`
           SELECT TO_CHAR(DATE_TRUNC('month', created_at), 'YYYY-MM') AS period,
                  COUNT(*)::int AS value
           FROM users
@@ -175,8 +199,8 @@ export class AdminService {
           ORDER BY period ASC
         `),
 
-        // Monthly confirmed deposit totals over last 12 months
-        this.dataSource.query(`
+      // Monthly confirmed deposit totals over last 12 months
+      this.dataSource.query(`
           SELECT TO_CHAR(DATE_TRUNC('month', created_at), 'YYYY-MM') AS period,
                  COALESCE(SUM(amount), 0)::float AS deposits
           FROM deposits
@@ -186,8 +210,8 @@ export class AdminService {
           ORDER BY period ASC
         `),
 
-        // Monthly confirmed withdrawal totals over last 12 months
-        this.dataSource.query(`
+      // Monthly confirmed withdrawal totals over last 12 months
+      this.dataSource.query(`
           SELECT TO_CHAR(DATE_TRUNC('month', created_at), 'YYYY-MM') AS period,
                  COALESCE(SUM(amount), 0)::float AS withdrawals
           FROM withdrawals
@@ -197,8 +221,8 @@ export class AdminService {
           ORDER BY period ASC
         `),
 
-        // Vault type distribution
-        this.dataSource.query(`
+      // Vault type distribution
+      this.dataSource.query(`
           SELECT type,
                  COUNT(*)::int AS count,
                  COALESCE(SUM(total_deposits), 0)::float AS "totalDeposits"
@@ -208,21 +232,27 @@ export class AdminService {
           ORDER BY count DESC
         `),
 
-        // Total confirmed withdrawals
-        this.withdrawalRepository
-          .createQueryBuilder('w')
-          .select('SUM(w.amount)', 'total')
-          .where('w.status = :status', { status: WithdrawalStatus.CONFIRMED })
-          .getRawOne(),
-      ]);
+      // Total confirmed withdrawals
+      this.withdrawalRepository
+        .createQueryBuilder('w')
+        .select('SUM(w.amount)', 'total')
+        .where('w.status = :status', { status: WithdrawalStatus.CONFIRMED })
+        .getRawOne(),
+    ]);
 
     // Merge deposit and withdrawal trends by period
-    const periodMap = new Map<string, { deposits: number; withdrawals: number }>();
+    const periodMap = new Map<
+      string,
+      { deposits: number; withdrawals: number }
+    >();
     for (const row of depositTrendsRaw) {
       periodMap.set(row.period, { deposits: row.deposits, withdrawals: 0 });
     }
     for (const row of withdrawalTrendsRaw) {
-      const existing = periodMap.get(row.period) ?? { deposits: 0, withdrawals: 0 };
+      const existing = periodMap.get(row.period) ?? {
+        deposits: 0,
+        withdrawals: 0,
+      };
       periodMap.set(row.period, { ...existing, withdrawals: row.withdrawals });
     }
     const depositWithdrawTrends = Array.from(periodMap.entries())
@@ -230,7 +260,10 @@ export class AdminService {
       .map(([period, vals]) => ({ period, ...vals }));
 
     return {
-      userGrowth: userGrowthRaw.map((r: any) => ({ period: r.period, value: r.value })),
+      userGrowth: userGrowthRaw.map((r: any) => ({
+        period: r.period,
+        value: r.value,
+      })),
       depositWithdrawTrends,
       vaultDistribution: vaultDistRaw.map((r: any) => ({
         type: r.type,

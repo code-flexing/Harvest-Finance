@@ -16,7 +16,10 @@ export class PaymentService {
   private readonly processedTransactions = new Map<string, PaymentResult>();
 
   constructor(private readonly configService: ConfigService) {
-    this.autoReleaseEnabled = this.configService.get<boolean>('PAYMENT_AUTO_RELEASE', true);
+    this.autoReleaseEnabled = this.configService.get<boolean>(
+      'PAYMENT_AUTO_RELEASE',
+      true,
+    );
   }
 
   /**
@@ -58,7 +61,11 @@ export class PaymentService {
       );
 
       // Mock payment processing - in production, integrate with actual payment gateway
-      const transactionId = await this.processMockPayment(deliveryId, amount, recipientId);
+      const transactionId = await this.processMockPayment(
+        deliveryId,
+        amount,
+        recipientId,
+      );
 
       const result: PaymentResult = {
         success: true,
@@ -106,7 +113,9 @@ export class PaymentService {
     const transactionId = `txn_${Date.now()}_${deliveryId.substring(0, 8)}_${Math.random().toString(36).substring(7)}`;
 
     // Log the mock payment details
-    this.logger.debug(`Mock payment: ${amount} to ${recipientId}, txn: ${transactionId}`);
+    this.logger.debug(
+      `Mock payment: ${amount} to ${recipientId}, txn: ${transactionId}`,
+    );
 
     // In production, this would call actual payment APIs (Stripe, Stellar, etc.)
     return transactionId;
@@ -115,7 +124,10 @@ export class PaymentService {
   /**
    * Check payment status for a delivery
    */
-  async getPaymentStatus(deliveryId: string, recipientId: string): Promise<PaymentResult | null> {
+  async getPaymentStatus(
+    deliveryId: string,
+    recipientId: string,
+  ): Promise<PaymentResult | null> {
     const idempotencyKey = `payment_${deliveryId}_${recipientId}`;
     return this.processedTransactions.get(idempotencyKey) || null;
   }

@@ -24,7 +24,7 @@ export enum UserRole {
 
 /**
  * User entity representing all participants in the marketplace
- * 
+ *
  * Relationships:
  * - One User can have many Orders (as farmer)
  * - One User can have many Orders (as buyer)
@@ -92,7 +92,7 @@ export class User {
   updatedAt: Date;
 
   // Relationships
-  
+
   /** Orders where user is the farmer (seller) */
   @OneToMany(() => Order, (order) => order.farmer)
   ordersAsFarmer: Order[];

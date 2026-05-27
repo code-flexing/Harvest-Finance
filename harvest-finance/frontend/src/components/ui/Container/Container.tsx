@@ -112,10 +112,10 @@ const Section: React.FC<SectionProps> = ({
 }) => {
   // Background styles
   const backgroundStyles: Record<string, string> = {
-    white: "bg-white",
-    gray: "bg-gray-50",
-    green: "bg-harvest-green-50",
-    gradient: "bg-gradient-to-br from-harvest-green-50 to-white",
+    white: "bg-white dark:bg-transparent",
+    gray: "bg-gray-50 dark:bg-[#0d1f12]",
+    green: "bg-harvest-green-50 dark:bg-[#0f2015]",
+    gradient: "bg-gradient-to-br from-harvest-green-50 to-white dark:from-[#0f2015] dark:to-[#0d1f12]",
   };
 
   // Vertical padding styles

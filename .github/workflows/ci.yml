@@ -1,0 +1,240 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop, "feat/**", "fix/**"]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  # ── Backend ──────────────────────────────────────────────────────────────────
+  backend-lint:
+    name: Backend — Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: harvest-finance/backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: harvest-finance/backend/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+
+  backend-test:
+    name: Backend — Unit + Integration Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: harvest-finance/backend
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: harvest
+          POSTGRES_PASSWORD: harvest_test
+          POSTGRES_DB: harvest_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U harvest"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_USER: harvest
+      DB_PASSWORD: harvest_test
+      DB_NAME: harvest_test
+      JWT_SECRET: ci-test-secret
+      JWT_REFRESH_SECRET: ci-test-refresh-secret
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: harvest-finance/backend/package-lock.json
+
+      - run: npm ci
+      - run: npm run build
+      - run: npm test -- --forceExit --passWithNoTests
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-coverage
+          path: harvest-finance/backend/coverage/
+
+  backend-build:
+    name: Backend — Docker Build
+    runs-on: ubuntu-latest
+    needs: [backend-lint, backend-test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: harvest-finance/backend
+          file: harvest-finance/backend/Dockerfile
+          push: false
+          tags: harvest-finance-backend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── Frontend ─────────────────────────────────────────────────────────────────
+  frontend-lint:
+    name: Frontend — Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: harvest-finance/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: harvest-finance/frontend/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+
+  frontend-test:
+    name: Frontend — Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: harvest-finance/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: harvest-finance/frontend/package-lock.json
+
+      - run: npm ci
+      - run: npm test -- --passWithNoTests
+      - run: npm run test:vitest -- --run --passWithNoTests
+
+  frontend-build:
+    name: Frontend — Next.js Build
+    runs-on: ubuntu-latest
+    needs: [frontend-lint, frontend-test]
+    defaults:
+      run:
+        working-directory: harvest-finance/frontend
+    env:
+      NEXT_PUBLIC_API_URL: https://api.harvestfinance.io
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: harvest-finance/frontend/package-lock.json
+
+      - run: npm ci
+      - run: npm run build
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build-${{ github.sha }}
+          path: harvest-finance/frontend/.next/
+          retention-days: 3
+
+  # ── Smart Contracts ───────────────────────────────────────────────────────────
+  contracts-test:
+    name: Contracts — Forge Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Run forge tests
+        working-directory: contracts
+        run: forge test -vvv
+
+      - name: Forge coverage
+        working-directory: contracts
+        run: forge coverage --report lcov
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: contracts-coverage
+          path: contracts/lcov.info
+
+  # ── Smart Contract Fork Tests ─────────────────────────────────────────────────
+  contracts-fork-test:
+    name: Contracts — Mainnet Fork Tests
+    runs-on: ubuntu-latest
+    # Only run on main/develop pushes (not every feature PR) to conserve RPC calls
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Run mainnet fork tests
+        working-directory: contracts
+        env:
+          ETH_RPC_URL: ${{ secrets.ETH_RPC_URL }}
+        run: make test-fork
+
+  # ── All-green gate ────────────────────────────────────────────────────────────
+  all-checks:
+    name: All Checks Passed
+    runs-on: ubuntu-latest
+    needs:
+      - backend-build
+      - frontend-build
+      - contracts-test
+    steps:
+      - run: echo "CI passed ✓"

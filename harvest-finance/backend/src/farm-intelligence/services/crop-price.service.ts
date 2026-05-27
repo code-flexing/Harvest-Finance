@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class CropPriceService {
-
   async getCurrentPrices() {
     return [
       { crop: 'Rice', market: 'West Bengal', price: 2200 },
@@ -22,7 +21,7 @@ export class CropPriceService {
   async getInsights() {
     const prices = await this.getCurrentPrices();
 
-    return prices.map(p => ({
+    return prices.map((p) => ({
       ...p,
       isHighDemand: p.price > 2300,
     }));

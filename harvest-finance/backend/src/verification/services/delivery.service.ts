@@ -152,7 +152,9 @@ export class DeliveryService {
   /**
    * Get inspector assignment history for a delivery
    */
-  async getAssignmentHistory(deliveryId: string): Promise<InspectorAssignment[]> {
+  async getAssignmentHistory(
+    deliveryId: string,
+  ): Promise<InspectorAssignment[]> {
     return this.assignmentRepository.find({
       where: { deliveryId },
       order: { assignedAt: 'DESC' },

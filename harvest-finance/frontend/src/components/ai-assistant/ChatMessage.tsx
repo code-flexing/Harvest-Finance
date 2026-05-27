@@ -12,7 +12,7 @@ interface ChatMessageProps {
 }
 
 function formatTime(date: Date): string {
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 }
 
 function renderContent(content: string): React.ReactNode {
@@ -79,7 +79,7 @@ export function ChatMessage({ message, onSuggestionClick }: ChatMessageProps) {
           'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0',
           isUser
             ? 'bg-harvest-green-600 text-white'
-            : 'bg-harvest-green-50 text-harvest-green-700 border border-harvest-green-200',
+            : 'bg-harvest-green-50 dark:bg-[rgba(74,222,128,0.1)] text-harvest-green-700 dark:text-harvest-green-400 border border-harvest-green-200 dark:border-[rgba(141,187,85,0.2)]',
         )}
       >
         {isUser ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
@@ -92,7 +92,7 @@ export function ChatMessage({ message, onSuggestionClick }: ChatMessageProps) {
             'rounded-2xl px-4 py-3',
             isUser
               ? 'bg-harvest-green-600 text-white rounded-br-md'
-              : 'bg-white border border-gray-200 text-gray-800 rounded-bl-md shadow-sm',
+              : 'bg-white dark:bg-[#1a3020] border border-gray-200 dark:border-[rgba(141,187,85,0.15)] text-gray-800 dark:text-gray-100 rounded-bl-md shadow-sm dark:shadow-none',
           )}
         >
           {isUser ? (
@@ -103,7 +103,7 @@ export function ChatMessage({ message, onSuggestionClick }: ChatMessageProps) {
         </div>
 
         {/* Timestamp */}
-        <span className="text-[10px] text-gray-400 mt-1 px-1">
+        <span className="text-[10px] text-gray-400 dark:text-gray-600 mt-1 px-1">
           {formatTime(message.timestamp)}
         </span>
 
@@ -119,8 +119,8 @@ export function ChatMessage({ message, onSuggestionClick }: ChatMessageProps) {
                 onClick={() => onSuggestionClick(suggestion)}
                 className={cn(
                   'text-xs px-3 py-1.5 rounded-full',
-                  'bg-harvest-green-50 text-harvest-green-700 border border-harvest-green-200',
-                  'hover:bg-harvest-green-100 hover:border-harvest-green-300',
+                  'bg-harvest-green-50 dark:bg-[rgba(74,222,128,0.08)] text-harvest-green-700 dark:text-harvest-green-300 border border-harvest-green-200 dark:border-[rgba(141,187,85,0.2)]',
+                  'hover:bg-harvest-green-100 dark:hover:bg-[rgba(74,222,128,0.15)] hover:border-harvest-green-300 dark:hover:border-[rgba(141,187,85,0.4)]',
                   'transition-colors duration-150',
                   'focus:outline-none focus-visible:ring-2 focus-visible:ring-harvest-green-500',
                 )}

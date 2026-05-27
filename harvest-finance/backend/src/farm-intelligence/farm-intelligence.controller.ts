@@ -5,8 +5,12 @@ import { BudgetRecommendationService } from './services/budget-recommendation.se
 import { AlertsService } from './services/alerts.service';
 import { HistoricalAnalyticsService } from './services/historical-analytics.service';
 import { WeatherService } from './services/weather.service';
+import { CropAdvisoryService } from './services/crop-advisory.service';
 
-@Controller('api/v1/farm-intelligence')
+@Controller({
+  path: 'farm-intelligence',
+  version: '1',
+})
 export class FarmIntelligenceController {
   constructor(
     private readonly projectionService: SavingsProjectionService,
@@ -14,6 +18,7 @@ export class FarmIntelligenceController {
     private readonly alertsService: AlertsService,
     private readonly analyticsService: HistoricalAnalyticsService,
     private readonly weatherService: WeatherService,
+    private readonly advisoryService: CropAdvisoryService,
   ) {}
 
   @Get('projection')
@@ -57,5 +62,11 @@ export class FarmIntelligenceController {
       longitude,
       location,
     });
+  }
+
+  @Get('recommendations')
+  @UseGuards(JwtAuthGuard)
+  getRecommendations(@Query('userId') userId: string) {
+    return this.advisoryService.getAdvice(userId);
   }
 }

@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
-import { Container, Section, Button, Inline, Stack, cn } from "@/components/ui";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Container, Section, Button, Inline, Stack, cn, VaultCardSkeleton, VaultTableRowSkeleton } from "@/components/ui";
 import { DepositModal } from "@/components/dashboard/DepositModal";
 import { MilestoneConfetti } from "@/components/dashboard/MilestoneConfetti";
 import { ProgressBar } from "@/components/dashboard/ProgressBar";
@@ -10,6 +11,8 @@ import { VaultTable } from "@/components/dashboard/VaultTable";
 import { WithdrawModal } from "@/components/dashboard/WithdrawModal";
 import { Footer } from "@/components/landing/Footer";
 import { Header } from "@/components/landing/Header";
+import { useQuery } from "@tanstack/react-query";
+import apiClient from "@/lib/api-client";
 import { useMilestones } from "@/hooks/useMilestones";
 import { calculateProgress, getAchievedMilestones } from "@/lib/milestones";
 import { formatCurrency, formatPercentage } from "@/lib/vault-utils";
@@ -28,6 +31,10 @@ const MOCK_VAULTS: Vault[] = [
     walletBalance: "5000.00",
     iconName: "Coins",
     seasonalTarget: 5000,
+    strategyType: "Audited",
+    totalAssets: 12400000,
+    totalShares: 11800000,
+    shares: 1190,
   },
   {
     id: "2",
@@ -40,6 +47,9 @@ const MOCK_VAULTS: Vault[] = [
     walletBalance: "12,450.00",
     iconName: "Zap",
     seasonalTarget: 10000,
+    strategyType: "Community",
+    totalAssets: 8100000,
+    totalShares: 7900000,
   },
   {
     id: "3",
@@ -52,6 +62,10 @@ const MOCK_VAULTS: Vault[] = [
     walletBalance: "1,200.00",
     iconName: "Leaf",
     seasonalTarget: 2000,
+    strategyType: "Audited",
+    totalAssets: 4200000,
+    totalShares: 4050000,
+    shares: 433,
   },
   {
     id: "4",
@@ -64,6 +78,10 @@ const MOCK_VAULTS: Vault[] = [
     walletBalance: "2500.00",
     iconName: "Shield",
     seasonalTarget: 20000,
+    strategyType: "Experimental",
+    totalAssets: 25900000,
+    totalShares: 25500000,
+    shares: 9845,
   },
 ];
 
@@ -101,7 +119,7 @@ function VaultWithProgress({
         onDeposit={onDeposit} 
         onWithdraw={onWithdraw} 
       />
-      <div className="px-4 py-4 -mt-1 bg-white dark:bg-zinc-950 border border-t-0 border-gray-100 dark:border-zinc-800 rounded-b-xl">
+      <div className="px-4 py-4 -mt-1 bg-white dark:bg-[#162a1a] border border-t-0 border-gray-100 dark:border-[rgba(141,187,85,0.12)] rounded-b-xl">
         <ProgressBar
           progress={progress}
           achievedMilestones={achieved}
@@ -115,6 +133,7 @@ function VaultWithProgress({
 }
 
 export default function VaultsPage() {
+  const { t } = useTranslation();
   const [selectedVault, setSelectedVault] = useState<Vault | null>(null);
   const [isDepositOpen, setIsDepositOpen] = useState(false);
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
@@ -129,6 +148,15 @@ export default function VaultsPage() {
       return map;
     },
   );
+
+  const { data: vaults = [], isLoading } = useQuery<Vault[]>({
+    queryKey: ["vaults"],
+    queryFn: async () => {
+      const response = await apiClient.get("/api/v1/vaults/public");
+      return response.data;
+    },
+    initialData: MOCK_VAULTS,
+  });
 
   const vault1Milestones = useMilestones({
     vaultId: "1",
@@ -155,13 +183,13 @@ export default function VaultsPage() {
   };
 
   const handleDepositClick = (vaultId: string) => {
-    const vault = MOCK_VAULTS.find((item) => item.id === vaultId) || null;
+    const vault = vaults.find((item) => item.id === vaultId) || null;
     setSelectedVault(vault);
     setIsDepositOpen(true);
   };
 
   const handleWithdrawClick = (vaultId: string) => {
-    const vault = MOCK_VAULTS.find((item) => item.id === vaultId) || null;
+    const vault = vaults.find((item) => item.id === vaultId) || null;
     setSelectedVault(vault);
     setIsWithdrawOpen(true);
   };
@@ -184,20 +212,22 @@ export default function VaultsPage() {
     [vaultBalances, milestoneHooks],
   );
 
-  const vaultsWithBalances = MOCK_VAULTS.map((vault) => {
-    const balanceNum = vaultBalances[vault.id] ?? 0;
-    return {
-      ...vault,
-      balance: balanceNum.toFixed(2),
-      projections: {
-        progressPercentage: calculateProgress(balanceNum, vault.seasonalTarget),
-      },
-    };
-  });
+  const vaultsWithBalances = useMemo(() => {
+    return vaults.map((vault) => {
+      const balanceNum = vaultBalances[vault.id] ?? 0;
+      return {
+        ...vault,
+        balance: balanceNum.toFixed(2),
+        projections: {
+          progressPercentage: calculateProgress(balanceNum, vault.seasonalTarget || 10000),
+        },
+      };
+    });
+  }, [vaults, vaultBalances]);
 
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-zinc-950 flex flex-col">
+    <div className="min-h-screen bg-[#f4f8f0] dark:bg-[#0d1f12] flex flex-col">
       <Header />
 
       <main className="flex-1 pt-24 pb-16">
@@ -205,53 +235,62 @@ export default function VaultsPage() {
           <Container size="lg">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
               <div className="max-w-2xl">
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-zinc-50 mb-2">
-                  Smart Farm Vaults
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                  {t('vaults.title')}
                 </h1>
-                <p className="text-gray-600 dark:text-zinc-400">
-                  Deposit your assets into automated yield-generating strategies.
-                  Track your seasonal progress and hit milestones.
+                <p className="text-gray-600 dark:text-gray-400">
+                  {t('vaults.subtitle')}
                 </p>
               </div>
               
-              <div className="flex items-center bg-gray-100 dark:bg-zinc-900 p-1 rounded-lg self-start">
+              <div className="flex items-center bg-gray-100 dark:bg-[#162a1a] border border-transparent dark:border-[rgba(141,187,85,0.12)] p-1 rounded-lg self-start">
                 <button
                   onClick={() => setViewMode('grid')}
                   className={cn(
                     "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all",
-                    viewMode === 'grid' 
-                      ? "bg-white dark:bg-zinc-800 text-harvest-green-600 shadow-sm" 
-                      : "text-gray-500 hover:text-gray-700 dark:hover:text-zinc-300"
+                    viewMode === 'grid'
+                      ? "bg-white dark:bg-[#1a3020] text-harvest-green-600 shadow-sm"
+                      : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                   )}
                 >
                   <LayoutGrid className="w-4 h-4" />
-                  <span>Grid</span>
+                  <span>{t('vaults.grid')}</span>
                 </button>
                 <button
                   onClick={() => setViewMode('list')}
                   className={cn(
                     "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all",
-                    viewMode === 'list' 
-                      ? "bg-white dark:bg-zinc-800 text-harvest-green-600 shadow-sm" 
-                      : "text-gray-500 hover:text-gray-700 dark:hover:text-zinc-300"
+                    viewMode === 'list'
+                      ? "bg-white dark:bg-[#1a3020] text-harvest-green-600 shadow-sm"
+                      : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                   )}
                 >
                   <List className="w-4 h-4" />
-                  <span>List</span>
+                  <span>{t('vaults.list')}</span>
                 </button>
               </div>
             </div>
 
             {viewMode === 'grid' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {vaultsWithBalances.map((vault) => (
-                  <VaultWithProgress
-                    key={vault.id}
-                    vault={vault as any}
-                    onDeposit={handleDepositClick}
-                    onWithdraw={handleWithdrawClick}
-                  />
-                ))}
+                {isLoading
+                  ? Array.from({ length: 4 }).map((_, i) => <VaultCardSkeleton key={i} />)
+                  : vaultsWithBalances.map((vault) => (
+                      <VaultWithProgress
+                        key={vault.id}
+                        vault={vault as any}
+                        onDeposit={handleDepositClick}
+                        onWithdraw={handleWithdrawClick}
+                      />
+                    ))}
+              </div>
+            ) : isLoading ? (
+              <div className="rounded-xl border border-gray-100 bg-white overflow-hidden shadow-sm">
+                <table className="w-full">
+                  <tbody>
+                    {Array.from({ length: 4 }).map((_, i) => <VaultTableRowSkeleton key={i} />)}
+                  </tbody>
+                </table>
               </div>
             ) : (
               <VaultTable 

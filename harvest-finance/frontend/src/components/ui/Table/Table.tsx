@@ -26,7 +26,7 @@ export const TableHeader = React.forwardRef<
   HTMLTableSectionElement,
   React.HTMLAttributes<HTMLTableSectionElement>
 >(({ className, ...props }, ref) => (
-  <thead ref={ref} className={cn('[&_tr]:border-b bg-gray-50/50', className)} {...props} />
+  <thead ref={ref} className={cn('[&_tr]:border-b bg-gray-50/50 dark:bg-[#1a3020] dark:border-[rgba(141,187,85,0.12)]', className)} {...props} />
 ));
 TableHeader.displayName = 'TableHeader';
 
@@ -62,7 +62,7 @@ export const TableRow = React.forwardRef<
     ref={ref}
     className={cn(
       'border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted',
-      'hover:bg-gray-50 transition-colors duration-200',
+      'hover:bg-gray-50 dark:hover:bg-[rgba(74,222,128,0.05)] transition-colors duration-200',
       className
     )}
     {...props}
@@ -77,7 +77,7 @@ export const TableHead = React.forwardRef<
   <th
     ref={ref}
     className={cn(
-      'h-12 px-4 text-left align-middle font-semibold text-gray-900 [&:has([role=checkbox])]:pr-0',
+      'h-12 px-4 text-left align-middle font-semibold text-gray-900 dark:text-gray-300 [&:has([role=checkbox])]:pr-0',
       className
     )}
     {...props}
@@ -108,3 +108,11 @@ export const TableCaption = React.forwardRef<
   />
 ));
 TableCaption.displayName = 'TableCaption';
+
+export interface TableHeaderProps extends React.HTMLAttributes<HTMLTableSectionElement> {}
+export interface TableBodyProps extends React.HTMLAttributes<HTMLTableSectionElement> {}
+export interface TableFooterProps extends React.HTMLAttributes<HTMLTableSectionElement> {}
+export interface TableHeadProps extends React.ThHTMLAttributes<HTMLTableCellElement> {}
+export interface TableRowProps extends React.HTMLAttributes<HTMLTableRowElement> {}
+export interface TableCellProps extends React.TdHTMLAttributes<HTMLTableCellElement> {}
+export interface TableCaptionProps extends React.HTMLAttributes<HTMLTableCaptionElement> {}

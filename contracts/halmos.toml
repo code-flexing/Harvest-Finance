@@ -1,0 +1,13 @@
+# Halmos configuration for the Vault formal verification suite.
+# See: https://github.com/a16z/halmos
+#
+# Run with:
+#   halmos --config halmos.toml
+# or simply:
+#   halmos
+[global]
+contract = "VaultFormalSpec"
+function = "check_"
+loop = 3
+solver-timeout-assertion = 60000
+storage-layout = "solidity"

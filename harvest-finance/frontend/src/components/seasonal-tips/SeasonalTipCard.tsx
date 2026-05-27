@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardHeader, CardBody, CardFooter } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -110,7 +109,7 @@ export function SeasonalTipCard({ tip, index = 0, compact = false }: SeasonalTip
         className={cn(
           'h-full flex flex-col transition-all',
           isMilestone &&
-            'border-harvest-green-300 bg-gradient-to-br from-harvest-green-50 to-white',
+            'border-harvest-green-300 dark:border-harvest-green-700 bg-linear-to-br from-harvest-green-50 to-white dark:from-[rgba(74,222,128,0.08)] dark:to-[#162a1a]',
           compact ? 'p-0' : '',
         )}
         padding={compact ? 'none' : 'md'}
@@ -123,7 +122,7 @@ export function SeasonalTipCard({ tip, index = 0, compact = false }: SeasonalTip
                 'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0',
                 isMilestone
                   ? 'bg-harvest-green-500 text-white'
-                  : 'bg-harvest-green-50 text-harvest-green-600 border border-harvest-green-100',
+                  : 'bg-harvest-green-50 dark:bg-[rgba(74,222,128,0.08)] text-harvest-green-600 dark:text-harvest-green-400 border border-harvest-green-100 dark:border-[rgba(74,222,128,0.2)]',
               )}
             >
               <TipIcon iconName={tip.iconName} />
@@ -135,7 +134,7 @@ export function SeasonalTipCard({ tip, index = 0, compact = false }: SeasonalTip
             <Badge variant={variant} size="sm" isPill>
               {TIP_TYPE_LABELS[tip.tipType]}
             </Badge>
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-gray-400 dark:text-gray-500">
               {CROP_LABELS[tip.cropType]} &middot; {SEASON_LABELS[tip.season]}
             </span>
           </div>
@@ -144,7 +143,7 @@ export function SeasonalTipCard({ tip, index = 0, compact = false }: SeasonalTip
         <CardBody className="py-2">
           <p
             className={cn(
-              'text-sm text-gray-600 leading-relaxed',
+              'text-sm text-gray-600 dark:text-gray-300 leading-relaxed',
               compact && 'line-clamp-2',
             )}
           >
@@ -157,10 +156,10 @@ export function SeasonalTipCard({ tip, index = 0, compact = false }: SeasonalTip
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 w-full">
               {Object.entries(tip.metrics).map(([key, value]) => (
                 <div key={key} className="flex flex-col">
-                  <span className="text-[10px] uppercase tracking-wider text-gray-400 font-medium">
+                  <span className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-gray-500 font-medium">
                     {formatMetricKey(key)}
                   </span>
-                  <span className="text-sm font-semibold text-gray-800">
+                  <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
                     {String(value)}
                   </span>
                 </div>

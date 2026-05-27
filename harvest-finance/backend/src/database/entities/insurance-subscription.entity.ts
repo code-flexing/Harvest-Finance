@@ -35,7 +35,9 @@ export class InsuranceSubscription {
   @Column({ name: 'plan_id' })
   planId: string;
 
-  @ManyToOne(() => InsurancePlan, (p) => p.subscriptions, { onDelete: 'CASCADE' })
+  @ManyToOne(() => InsurancePlan, (p) => p.subscriptions, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'plan_id' })
   plan: InsurancePlan;
 

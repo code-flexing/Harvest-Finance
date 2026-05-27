@@ -15,7 +15,10 @@ export function calculateDepositReward(
   asOf: Date = new Date(),
 ): number {
   const msPerDay = 24 * 60 * 60 * 1000;
-  const daysElapsed = Math.max(0, (asOf.getTime() - depositDate.getTime()) / msPerDay);
+  const daysElapsed = Math.max(
+    0,
+    (asOf.getTime() - depositDate.getTime()) / msPerDay,
+  );
   const reward = depositAmount * (apy / 100) * (daysElapsed / 365);
   return parseFloat(reward.toFixed(8));
 }

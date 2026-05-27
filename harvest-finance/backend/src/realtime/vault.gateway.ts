@@ -16,7 +16,12 @@ import { Repository } from 'typeorm';
 import { Logger } from '@nestjs/common';
 import { Vault } from '../database/entities/vault.entity';
 
-export type VaultActivityType = 'deposit' | 'withdrawal' | 'harvest' | 'milestone' | 'ai_insight';
+export type VaultActivityType =
+  | 'deposit'
+  | 'withdrawal'
+  | 'harvest'
+  | 'milestone'
+  | 'ai_insight';
 
 export interface VaultActivityEvent {
   type: VaultActivityType;
@@ -83,9 +88,13 @@ export class VaultGateway
 
       client.userId = payload.sub;
       client.isAuthenticated = true;
-      this.logger.log(`Client authenticated: ${client.id} (user: ${client.userId})`);
+      this.logger.log(
+        `Client authenticated: ${client.id} (user: ${client.userId})`,
+      );
     } catch (error) {
-      this.logger.warn(`Invalid JWT token from client ${client.id}: ${(error as Error).message}`);
+      this.logger.warn(
+        `Invalid JWT token from client ${client.id}: ${(error as Error).message}`,
+      );
       client.disconnect(true);
     }
   }
@@ -102,7 +111,7 @@ export class VaultGateway
     const query = client.handshake?.query;
     if (query?.token) {
       const token = Array.isArray(query.token) ? query.token[0] : query.token;
-      return token as string;
+      return token;
     }
     const headers = client.handshake?.headers;
     if (headers) {
@@ -130,7 +139,9 @@ export class VaultGateway
       }
       return null;
     } catch (error) {
-      this.logger.warn(`Error verifying vault access for vault ${vaultId}: ${(error as Error).message}`);
+      this.logger.warn(
+        `Error verifying vault access for vault ${vaultId}: ${(error as Error).message}`,
+      );
       return null;
     }
   }
@@ -141,7 +152,9 @@ export class VaultGateway
     @ConnectedSocket() client: AuthenticatedSocket,
   ) {
     if (!client.isAuthenticated || !client.userId) {
-      this.logger.warn(`Unauthenticated client ${client.id} attempted to subscribe to vault ${vaultId}`);
+      this.logger.warn(
+        `Unauthenticated client ${client.id} attempted to subscribe to vault ${vaultId}`,
+      );
       client.emit('error', { message: 'Authentication required' });
       return;
     }
@@ -149,13 +162,17 @@ export class VaultGateway
     const vault = await this.verifyVaultAccess(client.userId, vaultId);
 
     if (!vault) {
-      this.logger.warn(`Client ${client.id} (user:${client.userId}) denied access to vault ${vaultId}`);
+      this.logger.warn(
+        `Client ${client.id} (user:${client.userId}) denied access to vault ${vaultId}`,
+      );
       client.emit('error', { message: 'Access denied to vault' });
       return;
     }
 
     client.join(`vault:${vaultId}`);
-    this.logger.log(`Client ${client.id} (user:${client.userId}) subscribed to vault:${vaultId}`);
+    this.logger.log(
+      `Client ${client.id} (user:${client.userId}) subscribed to vault:${vaultId}`,
+    );
 
     client.emit('subscribed:vault', { vaultId, vaultName: vault.vaultName });
   }
@@ -166,19 +183,24 @@ export class VaultGateway
     @ConnectedSocket() client: AuthenticatedSocket,
   ) {
     client.leave(`vault:${vaultId}`);
-    this.logger.log(`Client ${client.id} (user:${client.userId}) unsubscribed from vault:${vaultId}`);
+    this.logger.log(
+      `Client ${client.id} (user:${client.userId}) unsubscribed from vault:${vaultId}`,
+    );
   }
 
   emitVaultActivity(event: VaultActivityEvent) {
     this.server.to(`vault:${event.vaultId}`).emit('vault:activity', event);
     this.server.emit('vault:activity:global', event);
-    this.logger.debug(`Emitted ${event.type} event for vault ${event.vaultId}`, {
-      vaultId: event.vaultId,
-      type: event.type,
-      userId: event.userId,
-      amount: event.amount,
-      timestamp: event.timestamp,
-    });
+    this.logger.debug(
+      `Emitted ${event.type} event for vault ${event.vaultId}`,
+      {
+        vaultId: event.vaultId,
+        type: event.type,
+        userId: event.userId,
+        amount: event.amount,
+        timestamp: event.timestamp,
+      },
+    );
   }
 
   emitDeposit(data: {
@@ -259,11 +281,7 @@ export class VaultGateway
     this.emitVaultActivity(event);
   }
 
-  emitAiInsight(data: {
-    vaultId: string;
-    vaultName: string;
-    insight: string;
-  }) {
+  emitAiInsight(data: { vaultId: string; vaultName: string; insight: string }) {
     const event: VaultActivityEvent = {
       type: 'ai_insight',
       vaultId: data.vaultId,

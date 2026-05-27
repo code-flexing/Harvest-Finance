@@ -25,7 +25,10 @@ import { ProfileResponseDto } from './dto/profile-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('User Profile Management')
-@Controller('api/v1/users')
+@Controller({
+  path: 'users',
+  version: '1',
+})
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class UsersController {

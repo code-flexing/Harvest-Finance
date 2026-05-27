@@ -50,7 +50,8 @@ export class DeliveryController {
   @Get(':id')
   @ApiOperation({
     summary: 'Get delivery by ID',
-    description: 'Retrieve full details of a delivery including verifications and assignments',
+    description:
+      'Retrieve full details of a delivery including verifications and assignments',
   })
   @ApiParam({ name: 'id', description: 'Delivery ID' })
   @ApiResponse({
@@ -102,7 +103,10 @@ export class DeliveryController {
     status: 201,
     description: 'Inspector assigned successfully',
   })
-  @ApiResponse({ status: 400, description: 'Delivery is locked for assignment' })
+  @ApiResponse({
+    status: 400,
+    description: 'Delivery is locked for assignment',
+  })
   @ApiResponse({ status: 404, description: 'Delivery not found' })
   async assignInspector(
     @Param('id') id: string,

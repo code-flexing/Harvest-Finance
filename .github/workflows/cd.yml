@@ -1,0 +1,148 @@
+name: CD
+
+on:
+  push:
+    branches:
+      - main       # → production
+      - develop    # → staging
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_BACKEND: ghcr.io/${{ github.repository_owner }}/harvest-finance-backend
+  IMAGE_FRONTEND: ghcr.io/${{ github.repository_owner }}/harvest-finance-frontend
+
+jobs:
+  detect-environment:
+    name: Detect Target Environment
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.env.outputs.environment }}
+      image_tag: ${{ steps.env.outputs.image_tag }}
+    steps:
+      - id: env
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "environment=production" >> "$GITHUB_OUTPUT"
+            echo "image_tag=latest" >> "$GITHUB_OUTPUT"
+          else
+            echo "environment=staging" >> "$GITHUB_OUTPUT"
+            echo "image_tag=staging" >> "$GITHUB_OUTPUT"
+          fi
+
+  build-and-push:
+    name: Build & Push Docker Images
+    runs-on: ubuntu-latest
+    needs: detect-environment
+    environment: ${{ needs.detect-environment.outputs.environment }}
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: harvest-finance/backend
+          file: harvest-finance/backend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_BACKEND }}:${{ github.sha }}
+            ${{ env.IMAGE_BACKEND }}:${{ needs.detect-environment.outputs.image_tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NODE_ENV=${{ needs.detect-environment.outputs.environment }}
+
+      - name: Build & push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: harvest-finance/frontend
+          file: harvest-finance/frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_FRONTEND }}:${{ github.sha }}
+            ${{ env.IMAGE_FRONTEND }}:${{ needs.detect-environment.outputs.image_tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
+
+  deploy-staging:
+    name: Deploy → Staging
+    runs-on: ubuntu-latest
+    needs: [detect-environment, build-and-push]
+    if: needs.detect-environment.outputs.environment == 'staging'
+    environment:
+      name: staging
+      url: https://staging.harvestfinance.io
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to staging via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            cd /opt/harvest-finance
+            export IMAGE_TAG=${{ github.sha }}
+            export REGISTRY=${{ env.REGISTRY }}
+            docker compose -f docker-compose.staging.yml pull
+            docker compose -f docker-compose.staging.yml up -d --remove-orphans
+            docker system prune -f
+
+  deploy-production:
+    name: Deploy → Production
+    runs-on: ubuntu-latest
+    needs: [detect-environment, build-and-push]
+    if: needs.detect-environment.outputs.environment == 'production'
+    environment:
+      name: production
+      url: https://app.harvestfinance.io
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to production via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            cd /opt/harvest-finance
+            export IMAGE_TAG=${{ github.sha }}
+            export REGISTRY=${{ env.REGISTRY }}
+            # Rolling update — zero downtime
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans --scale backend=2
+            sleep 10
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            docker system prune -f
+
+      - name: Notify Slack on success
+        if: success()
+        uses: slackapi/slack-github-action@v2
+        with:
+          payload: |
+            {
+              "text": "✅ *Harvest Finance* deployed to production\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK

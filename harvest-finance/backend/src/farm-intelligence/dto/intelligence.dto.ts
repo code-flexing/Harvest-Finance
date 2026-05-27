@@ -41,3 +41,22 @@ export interface HistoricalAnalytics {
   monthlyDeposits: TimeSeriesPoint[];
   vaultGrowth: TimeSeriesPoint[];
 }
+
+export interface CropRecommendation {
+  topic: 'planting' | 'fertilization' | 'irrigation' | 'pest_management';
+  title: string;
+  advice: string;
+  impact: string;
+  priority: 'low' | 'medium' | 'high';
+}
+
+export interface CropAdvisory {
+  userId: string;
+  recommendations: CropRecommendation[];
+  generatedAt: string;
+  context: {
+    weatherSummary: string;
+    marketTrend: string;
+    soilHealth: string;
+  };
+}

@@ -84,10 +84,16 @@ describe('VerificationService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         VerificationService,
-        { provide: getRepositoryToken(Verification), useValue: mockVerificationRepo },
+        {
+          provide: getRepositoryToken(Verification),
+          useValue: mockVerificationRepo,
+        },
         { provide: getRepositoryToken(Delivery), useValue: mockDeliveryRepo },
         { provide: getRepositoryToken(Approval), useValue: mockApprovalRepo },
-        { provide: getRepositoryToken(InspectorAssignment), useValue: mockAssignmentRepo },
+        {
+          provide: getRepositoryToken(InspectorAssignment),
+          useValue: mockAssignmentRepo,
+        },
         { provide: IpfsService, useValue: mockIpfsService },
         { provide: PaymentService, useValue: mockPaymentService },
         { provide: NotificationService, useValue: mockNotificationService },
@@ -123,9 +129,17 @@ describe('VerificationService', () => {
         valid: true,
         distance: 50,
       });
-      mockVerificationRepo.create.mockReturnValue({ ...createDto, id: 'ver-123' });
-      mockVerificationRepo.save.mockResolvedValue({ ...createDto, id: 'ver-123' });
-      mockNotificationService.notifyVerificationSubmitted = jest.fn().mockResolvedValue({});
+      mockVerificationRepo.create.mockReturnValue({
+        ...createDto,
+        id: 'ver-123',
+      });
+      mockVerificationRepo.save.mockResolvedValue({
+        ...createDto,
+        id: 'ver-123',
+      });
+      mockNotificationService.notifyVerificationSubmitted = jest
+        .fn()
+        .mockResolvedValue({});
 
       const result = await service.createVerification(createDto);
 
@@ -136,7 +150,9 @@ describe('VerificationService', () => {
     it('should throw NotFoundException if delivery not found', async () => {
       mockDeliveryRepo.findOne.mockResolvedValue(null);
 
-      await expect(service.createVerification(createDto)).rejects.toThrow(NotFoundException);
+      await expect(service.createVerification(createDto)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw BadRequestException if GPS validation fails', async () => {
@@ -147,13 +163,18 @@ describe('VerificationService', () => {
         message: 'Coordinates are 200m away (max: 100m)',
       });
 
-      await expect(service.createVerification(createDto)).rejects.toThrow(BadRequestException);
+      await expect(service.createVerification(createDto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
   describe('getVerification', () => {
     it('should return verification by id', async () => {
-      const mockVerification = { id: 'ver-123', status: VerificationStatus.PENDING };
+      const mockVerification = {
+        id: 'ver-123',
+        status: VerificationStatus.PENDING,
+      };
       mockVerificationRepo.findOne.mockResolvedValue(mockVerification);
 
       const result = await service.getVerification('ver-123');
@@ -178,7 +199,11 @@ describe('VerificationService', () => {
         getManyAndCount: jest.fn().mockResolvedValue([mockVerifications, 2]),
       });
 
-      const result = await service.getVerifications(VerificationStatus.PENDING, 1, 10);
+      const result = await service.getVerifications(
+        VerificationStatus.PENDING,
+        1,
+        10,
+      );
 
       expect(result.total).toBe(2);
       expect(result.data).toEqual(mockVerifications);

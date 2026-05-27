@@ -65,7 +65,7 @@ function ActivityItem({ event }: { event: VaultActivityEvent }) {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, x: -20 }}
       transition={{ duration: 0.25, ease: "easeOut" }}
-      className="flex items-start gap-3 border-b border-gray-100 py-3 last:border-0"
+      className="flex items-start gap-3 border-b border-gray-100 dark:border-[rgba(141,187,85,0.1)] py-3 last:border-0"
     >
       <div
         className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${config.bgColor}`}
@@ -74,23 +74,23 @@ function ActivityItem({ event }: { event: VaultActivityEvent }) {
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <p className="truncate text-sm font-semibold text-gray-900">
+          <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">
             {event.vaultName}
           </p>
-          <span className="flex-shrink-0 whitespace-nowrap text-xs text-gray-400">
+          <span className="flex-shrink-0 whitespace-nowrap text-xs text-gray-400 dark:text-gray-500">
             {formatDistanceToNow(new Date(event.timestamp), {
               addSuffix: true,
             })}
           </span>
         </div>
-        <p className="mt-0.5 text-xs text-gray-500">
+        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
           {event.type === "deposit" && event.amount !== undefined && (
             <span>
-              <span className="font-medium text-emerald-600">
+              <span className="font-medium text-emerald-600 dark:text-emerald-400">
                 +${event.amount.toLocaleString()}
               </span>
               {event.newBalance !== undefined && (
-                <span className="text-gray-400">
+                <span className="text-gray-400 dark:text-gray-500">
                   {" "}
                   - Balance: ${event.newBalance.toLocaleString()}
                 </span>
@@ -99,11 +99,11 @@ function ActivityItem({ event }: { event: VaultActivityEvent }) {
           )}
           {event.type === "withdrawal" && event.amount !== undefined && (
             <span>
-              <span className="font-medium text-amber-600">
+              <span className="font-medium text-amber-600 dark:text-amber-400">
                 -${event.amount.toLocaleString()}
               </span>
               {event.newBalance !== undefined && (
-                <span className="text-gray-400">
+                <span className="text-gray-400 dark:text-gray-500">
                   {" "}
                   - Balance: ${event.newBalance.toLocaleString()}
                 </span>
@@ -133,11 +133,11 @@ export function VaultActivityFeed() {
     <section>
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h2 className="flex items-center gap-2 text-xl font-bold tracking-tight text-gray-900">
+          <h2 className="flex items-center gap-2 text-xl font-bold tracking-tight text-gray-900 dark:text-white">
             <Activity className="h-5 w-5 text-harvest-green-600" />
             Live Vault Activity
           </h2>
-          <p className="mt-0.5 text-sm text-gray-500">
+          <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
             Real-time updates from all vault actions.
           </p>
         </div>
@@ -145,7 +145,7 @@ export function VaultActivityFeed() {
           {activities.length > 0 && (
             <button
               onClick={clearActivities}
-              className="text-xs text-gray-400 transition-colors hover:text-gray-600"
+              className="text-xs text-gray-400 dark:text-gray-500 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
             >
               Clear
             </button>

@@ -32,17 +32,17 @@ import {
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 const RISK_COLOUR: Record<RiskLevel, string> = {
-  LOW:       'bg-emerald-100 text-emerald-800',
-  MEDIUM:    'bg-yellow-100 text-yellow-800',
-  HIGH:      'bg-orange-100 text-orange-800',
-  VERY_HIGH: 'bg-red-100 text-red-800',
+  LOW:       'bg-emerald-100 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-300',
+  MEDIUM:    'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300',
+  HIGH:      'bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-300',
+  VERY_HIGH: 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-300',
 };
 
 const RISK_BORDER: Record<RiskLevel, string> = {
-  LOW:       'border-emerald-200',
-  MEDIUM:    'border-yellow-200',
-  HIGH:      'border-orange-200',
-  VERY_HIGH: 'border-red-200',
+  LOW:       'border-emerald-200 dark:border-emerald-800/40',
+  MEDIUM:    'border-yellow-200 dark:border-yellow-800/40',
+  HIGH:      'border-orange-200 dark:border-orange-800/40',
+  VERY_HIGH: 'border-red-200 dark:border-red-800/40',
 };
 
 const PLAN_TYPE_LABEL: Record<InsurancePlanType, string> = {
@@ -145,17 +145,17 @@ function RiskGauge({ score }: { score: number }) {
                 'bg-emerald-500';
   return (
     <div className="w-full">
-      <div className="flex justify-between text-xs text-gray-500 mb-1">
+      <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
         <span>Low risk</span>
         <span>High risk</span>
       </div>
-      <div className="relative h-3 rounded-full bg-gray-100 overflow-hidden">
+      <div className="relative h-3 rounded-full bg-gray-100 dark:bg-[#1a3020] overflow-hidden">
         <div
           className={cn('h-full rounded-full transition-all duration-700', colour)}
           style={{ width: `${pct}%` }}
         />
       </div>
-      <p className="text-right text-xs text-gray-400 mt-1">Score: {pct}/100</p>
+      <p className="text-right text-xs text-gray-400 dark:text-gray-500 mt-1">Score: {pct}/100</p>
     </div>
   );
 }
@@ -169,10 +169,10 @@ function FactorBar({ name, score, description }: { name: string; score: number; 
   return (
     <div title={description}>
       <div className="flex justify-between text-xs mb-0.5">
-        <span className="text-gray-600">{name}</span>
-        <span className="font-medium text-gray-700">{score}</span>
+        <span className="text-gray-600 dark:text-gray-400">{name}</span>
+        <span className="font-medium text-gray-700 dark:text-gray-300">{score}</span>
       </div>
-      <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+      <div className="h-1.5 rounded-full bg-gray-100 dark:bg-[#1a3020] overflow-hidden">
         <div className={cn('h-full rounded-full', colour)} style={{ width: `${Math.min(100, score * 3)}%` }} />
       </div>
     </div>
@@ -204,46 +204,46 @@ function PlanCard({
               {PLAN_TYPE_ICON[rec.plan.planType]}
             </div>
             <div>
-              <p className="font-semibold text-gray-900 text-sm">{rec.plan.name}</p>
-              <p className="text-xs text-gray-500">{rec.plan.providerName}</p>
+              <p className="font-semibold text-gray-900 dark:text-white text-sm">{rec.plan.name}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{rec.plan.providerName}</p>
             </div>
           </div>
           <div className="flex flex-col items-end gap-1">
             <Badge variant="success" isPill className="bg-harvest-green-100 text-harvest-green-800 text-xs">
               {rec.matchScore}% match
             </Badge>
-            <span className="text-xs text-gray-400">{PLAN_TYPE_LABEL[rec.plan.planType]}</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">{PLAN_TYPE_LABEL[rec.plan.planType]}</span>
           </div>
         </Stack>
       </CardHeader>
 
       <CardBody className="pt-0">
         <div className="grid grid-cols-3 gap-2 my-3">
-          <div className="p-2 bg-gray-50 rounded-lg text-center">
-            <p className="text-xs text-gray-500">Monthly Premium</p>
-            <p className="font-bold text-gray-900 text-sm">${rec.estimatedMonthlyPremium.toFixed(2)}</p>
+          <div className="p-2 bg-gray-50 dark:bg-[#1a3020] rounded-lg text-center">
+            <p className="text-xs text-gray-500 dark:text-gray-400">Monthly Premium</p>
+            <p className="font-bold text-gray-900 dark:text-white text-sm">${rec.estimatedMonthlyPremium.toFixed(2)}</p>
           </div>
-          <div className="p-2 bg-gray-50 rounded-lg text-center">
-            <p className="text-xs text-gray-500">Annual Premium</p>
-            <p className="font-bold text-gray-900 text-sm">${rec.estimatedAnnualPremium.toFixed(2)}</p>
+          <div className="p-2 bg-gray-50 dark:bg-[#1a3020] rounded-lg text-center">
+            <p className="text-xs text-gray-500 dark:text-gray-400">Annual Premium</p>
+            <p className="font-bold text-gray-900 dark:text-white text-sm">${rec.estimatedAnnualPremium.toFixed(2)}</p>
           </div>
-          <div className="p-2 bg-gray-50 rounded-lg text-center">
-            <p className="text-xs text-gray-500">Coverage</p>
-            <p className="font-bold text-gray-900 text-sm">${rec.estimatedCoverage.toLocaleString()}</p>
+          <div className="p-2 bg-gray-50 dark:bg-[#1a3020] rounded-lg text-center">
+            <p className="text-xs text-gray-500 dark:text-gray-400">Coverage</p>
+            <p className="font-bold text-gray-900 dark:text-white text-sm">${rec.estimatedCoverage.toLocaleString()}</p>
           </div>
         </div>
 
         {expanded && (
           <div className="mt-2 space-y-2 text-sm">
             {rec.plan.description && (
-              <p className="text-gray-600 text-xs">{rec.plan.description}</p>
+              <p className="text-gray-600 dark:text-gray-400 text-xs">{rec.plan.description}</p>
             )}
-            <p className="text-xs text-harvest-green-700 bg-harvest-green-50 rounded p-2">
+            <p className="text-xs text-harvest-green-700 dark:text-harvest-green-300 bg-harvest-green-50 dark:bg-[rgba(74,222,128,0.08)] rounded p-2">
               {rec.rationale}
             </p>
             {rec.plan.providerContact && (
-              <p className="text-xs text-gray-400">
-                Contact: <span className="text-gray-600">{rec.plan.providerContact}</span>
+              <p className="text-xs text-gray-400 dark:text-gray-500">
+                Contact: <span className="text-gray-600 dark:text-gray-400">{rec.plan.providerContact}</span>
               </p>
             )}
           </div>
@@ -251,7 +251,7 @@ function PlanCard({
 
         <button
           onClick={() => setExpanded((v) => !v)}
-          className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 mt-2 transition-colors"
+          className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 flex items-center gap-1 mt-2 transition-colors"
         >
           {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
           {expanded ? 'Less detail' : 'More detail'}
@@ -288,24 +288,24 @@ function PlanCard({
 
 function SubscriptionRow({ sub }: { sub: InsuranceSubscription }) {
   const statusColour: Record<string, string> = {
-    ACTIVE:    'bg-emerald-100 text-emerald-800',
-    EXPIRED:   'bg-gray-100 text-gray-600',
-    CANCELLED: 'bg-red-100 text-red-700',
-    PENDING:   'bg-yellow-100 text-yellow-800',
+    ACTIVE:    'bg-emerald-100 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-300',
+    EXPIRED:   'bg-gray-100 dark:bg-[#1a3020] text-gray-600 dark:text-gray-400',
+    CANCELLED: 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300',
+    PENDING:   'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300',
   };
   return (
-    <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+    <div className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-[rgba(141,187,85,0.1)] last:border-0">
       <div>
-        <p className="text-sm font-medium text-gray-900">{sub.plan.name}</p>
-        <p className="text-xs text-gray-500">
-          {sub.cropType} · Coverage expires {new Date(sub.coverageEnd).toLocaleDateString()}
+        <p className="text-sm font-medium text-gray-900 dark:text-white">{sub.plan.name}</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          {sub.cropType} · Coverage expires {new Date(sub.coverageEnd).toLocaleDateString('en-US')}
         </p>
       </div>
       <div className="text-right space-y-1">
         <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full', statusColour[sub.status])}>
           {sub.status}
         </span>
-        <p className="text-xs text-gray-400">${(+sub.monthlyPremium).toFixed(2)}/mo</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500">${(+sub.monthlyPremium).toFixed(2)}/mo</p>
       </div>
     </div>
   );
@@ -409,8 +409,8 @@ export function CropInsurancePanel() {
             <Shield className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-gray-900 tracking-tight">Crop Insurance</h2>
-            <p className="text-sm text-gray-500">AI-powered risk assessment & personalised plan recommendations</p>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Crop Insurance</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">AI-powered risk assessment & personalised plan recommendations</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -420,7 +420,7 @@ export function CropInsurancePanel() {
               'text-sm px-4 py-1.5 rounded-full font-medium transition-colors',
               tab === 'recommend'
                 ? 'bg-harvest-green-600 text-white'
-                : 'text-gray-600 hover:bg-gray-100',
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#1a3020]',
             )}
           >
             Recommendations
@@ -440,7 +440,7 @@ export function CropInsurancePanel() {
       </div>
 
       {error && (
-        <div className="mb-4 flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+        <div className="mb-4 flex items-start gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded-lg text-sm text-red-700 dark:text-red-300">
           <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
           <span>{error}</span>
           <button onClick={() => setError(null)} className="ml-auto text-red-400 hover:text-red-600">✕</button>
@@ -454,7 +454,7 @@ export function CropInsurancePanel() {
           <Card variant="default" className="border border-gray-100">
             <CardHeader>
               <button
-                className="w-full flex items-center justify-between text-sm font-semibold text-gray-700"
+                className="w-full flex items-center justify-between text-sm font-semibold text-gray-700 dark:text-gray-200"
                 onClick={() => setShowForm((v) => !v)}
               >
                 <span className="flex items-center gap-2">
@@ -469,9 +469,9 @@ export function CropInsurancePanel() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {/* Crop type */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Crop Type</label>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Crop Type</label>
                     <select
-                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-harvest-green-500"
+                      className="w-full text-sm border border-gray-200 dark:border-[rgba(141,187,85,0.2)] bg-white dark:bg-[#1a3020] text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-harvest-green-500"
                       value={params.cropType}
                       onChange={(e) => setParams((p) => ({ ...p, cropType: e.target.value }))}
                     >
@@ -480,9 +480,9 @@ export function CropInsurancePanel() {
                   </div>
                   {/* Season */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Season</label>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Season</label>
                     <select
-                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-harvest-green-500"
+                      className="w-full text-sm border border-gray-200 dark:border-[rgba(141,187,85,0.2)] bg-white dark:bg-[#1a3020] text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-harvest-green-500"
                       value={params.season}
                       onChange={(e) => setParams((p) => ({ ...p, season: e.target.value }))}
                     >
@@ -491,70 +491,70 @@ export function CropInsurancePanel() {
                   </div>
                   {/* Farm area */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Farm Area (acres)</label>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Farm Area (acres)</label>
                     <input
                       type="number" min={0.1} step={0.5}
-                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-harvest-green-500"
+                      className="w-full text-sm border border-gray-200 dark:border-[rgba(141,187,85,0.2)] bg-white dark:bg-[#1a3020] text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-harvest-green-500"
                       value={params.farmAreaAcres}
                       onChange={(e) => setParams((p) => ({ ...p, farmAreaAcres: +e.target.value }))}
                     />
                   </div>
                   {/* Yield */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Avg Yield (kg/acre)</label>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Avg Yield (kg/acre)</label>
                     <input
                       type="number" min={0}
-                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-harvest-green-500"
+                      className="w-full text-sm border border-gray-200 dark:border-[rgba(141,187,85,0.2)] bg-white dark:bg-[#1a3020] text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-harvest-green-500"
                       value={params.historicalYieldKgAcre}
                       onChange={(e) => setParams((p) => ({ ...p, historicalYieldKgAcre: +e.target.value }))}
                     />
                   </div>
                   {/* Market price */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Market Price ($/kg)</label>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Market Price ($/kg)</label>
                     <input
                       type="number" min={0} step={0.01}
-                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-harvest-green-500"
+                      className="w-full text-sm border border-gray-200 dark:border-[rgba(141,187,85,0.2)] bg-white dark:bg-[#1a3020] text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-harvest-green-500"
                       value={params.marketPricePerKg}
                       onChange={(e) => setParams((p) => ({ ...p, marketPricePerKg: +e.target.value }))}
                     />
                   </div>
                   {/* Soil quality */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Soil Quality (0–100)</label>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Soil Quality (0–100)</label>
                     <input
                       type="number" min={0} max={100}
-                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-harvest-green-500"
+                      className="w-full text-sm border border-gray-200 dark:border-[rgba(141,187,85,0.2)] bg-white dark:bg-[#1a3020] text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-harvest-green-500"
                       value={params.soilQualityIndex}
                       onChange={(e) => setParams((p) => ({ ...p, soilQualityIndex: +e.target.value }))}
                     />
                   </div>
                   {/* Drought */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Drought Risk (0–100)</label>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Drought Risk (0–100)</label>
                     <input
                       type="number" min={0} max={100}
-                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-harvest-green-500"
+                      className="w-full text-sm border border-gray-200 dark:border-[rgba(141,187,85,0.2)] bg-white dark:bg-[#1a3020] text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-harvest-green-500"
                       value={params.droughtRiskIndex}
                       onChange={(e) => setParams((p) => ({ ...p, droughtRiskIndex: +e.target.value }))}
                     />
                   </div>
                   {/* Flood */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Flood Risk (0–100)</label>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Flood Risk (0–100)</label>
                     <input
                       type="number" min={0} max={100}
-                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-harvest-green-500"
+                      className="w-full text-sm border border-gray-200 dark:border-[rgba(141,187,85,0.2)] bg-white dark:bg-[#1a3020] text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-harvest-green-500"
                       value={params.floodRiskIndex}
                       onChange={(e) => setParams((p) => ({ ...p, floodRiskIndex: +e.target.value }))}
                     />
                   </div>
                   {/* Market vol */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Market Volatility (0–100)</label>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Market Volatility (0–100)</label>
                     <input
                       type="number" min={0} max={100}
-                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-harvest-green-500"
+                      className="w-full text-sm border border-gray-200 dark:border-[rgba(141,187,85,0.2)] bg-white dark:bg-[#1a3020] text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-harvest-green-500"
                       value={params.marketVolatilityIndex}
                       onChange={(e) => setParams((p) => ({ ...p, marketVolatilityIndex: +e.target.value }))}
                     />
@@ -597,8 +597,8 @@ export function CropInsurancePanel() {
                       <ShieldAlert className="w-3.5 h-3.5" />
                       {assessment.riskLevel.replace('_', ' ')} RISK
                     </div>
-                    <div className="text-4xl font-bold text-gray-900">{assessment.overallScore}</div>
-                    <div className="text-xs text-gray-500">Overall Risk Score</div>
+                    <div className="text-4xl font-bold text-gray-900 dark:text-white">{assessment.overallScore}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Overall Risk Score</div>
                     <div className="mt-3 w-48">
                       <RiskGauge score={assessment.overallScore} />
                     </div>
@@ -606,15 +606,15 @@ export function CropInsurancePanel() {
 
                   {/* Financials */}
                   <div className="flex-1 grid grid-cols-2 gap-3">
-                    <div className="p-3 bg-gray-50 rounded-xl">
-                      <p className="text-xs text-gray-500 mb-1">Est. Annual Loss Risk</p>
-                      <p className="text-lg font-bold text-red-600">
+                    <div className="p-3 bg-gray-50 dark:bg-[#1a3020] rounded-xl border border-transparent dark:border-[rgba(141,187,85,0.1)]">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Est. Annual Loss Risk</p>
+                      <p className="text-lg font-bold text-red-600 dark:text-red-400">
                         ${assessment.estimatedAnnualLossUsd.toLocaleString()}
                       </p>
                     </div>
-                    <div className="p-3 bg-gray-50 rounded-xl">
-                      <p className="text-xs text-gray-500 mb-1">Recommended Coverage</p>
-                      <p className="text-lg font-bold text-harvest-green-700">
+                    <div className="p-3 bg-gray-50 dark:bg-[#1a3020] rounded-xl border border-transparent dark:border-[rgba(141,187,85,0.1)]">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Recommended Coverage</p>
+                      <p className="text-lg font-bold text-harvest-green-700 dark:text-harvest-green-400">
                         ${assessment.recommendedCoverage.toLocaleString()}
                       </p>
                     </div>
@@ -632,7 +632,7 @@ export function CropInsurancePanel() {
           {/* Plan Recommendations */}
           {recommendations.length > 0 && (
             <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
                 Matched Plans ({recommendations.length})
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

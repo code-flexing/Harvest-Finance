@@ -1,0 +1,36 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib", "node_modules"]
+test = "test"
+script = "script"
+cache = true
+cache_path = "cache"
+
+[profile.default.fuzz]
+runs = 10000
+max_test_rejects = 65536
+seed = "0x0000000000000000000000000000000000000000000000000000000000000000"
+
+[profile.default.invariant]
+runs = 256
+depth = 15
+fail_on_revert = false
+
+[rpc_endpoints]
+mainnet = "${ETH_RPC_URL}"
+
+# Fork profile — runs only the mainnet fork test file.
+# Usage: ETH_RPC_URL=<alchemy-or-infura-url> forge test --profile fork -vvv
+[profile.fork]
+src = "src"
+out = "out"
+libs = ["lib"]
+test = "test"
+match_path = "test/VaultMainnetFork.t.sol"
+# Pin a stable block for reproducible results. Update periodically.
+# Block ~20 000 000 ≈ June 2024.
+fork_block_number = 20_000_000
+
+[profile.fork.fuzz]
+runs = 256

@@ -40,6 +40,7 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
     // Base styles
     const baseStyles = cn(
       'bg-white rounded-xl',
+      'dark:bg-[#162a1a]',
       'transition-all duration-200 ease-out',
       'focus-within:ring-2 focus-within:ring-harvest-green-500 focus-within:ring-offset-2'
     );
@@ -48,7 +49,8 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
     const variantStyles: Record<string, string> = {
       default: cn(
         'border border-gray-200 shadow-sm',
-        'hover:shadow-md hover:border-gray-300'
+        'hover:shadow-md hover:border-gray-300',
+        'dark:border-[rgba(141,187,85,0.15)] dark:hover:border-[rgba(141,187,85,0.28)]'
       ),
       elevated: cn(
         'shadow-lg hover:shadow-xl',
@@ -56,11 +58,13 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
       ),
       outlined: cn(
         'border-2 border-gray-200',
-        'hover:border-harvest-green-300 hover:shadow-md'
+        'hover:border-harvest-green-300 hover:shadow-md',
+        'dark:border-[rgba(141,187,85,0.2)] dark:hover:border-harvest-green-500'
       ),
       flat: cn(
         'bg-gray-50',
-        'hover:bg-gray-100'
+        'hover:bg-gray-100',
+        'dark:bg-[#1a3020] dark:hover:bg-[#1f3826]'
       ),
     };
 
@@ -129,12 +133,12 @@ const CardHeader = forwardRef<HTMLDivElement, CardHeaderProps>(
       >
         <div className="flex-1 min-w-0">
           {title && (
-            <h3 className="text-lg font-semibold text-gray-900 leading-tight">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 leading-tight">
               {title}
             </h3>
           )}
           {subtitle && (
-            <p className="mt-1 text-sm text-gray-500 leading-normal">
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400 leading-normal">
               {subtitle}
             </p>
           )}
@@ -179,7 +183,7 @@ const CardFooter = forwardRef<HTMLDivElement, CardFooterProps>(
         ref={ref}
         className={cn(
           'flex items-center gap-3 pt-4 mt-4',
-          divider && 'border-t border-gray-100',
+          divider && 'border-t border-gray-100 dark:border-gray-700',
           className
         )}
         {...props}

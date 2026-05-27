@@ -24,7 +24,7 @@ export type { InputProps, TextareaProps } from './Input';
 export { Modal, ModalHeader, ModalBody, ModalFooter } from './Modal';
 export type { ModalProps, ModalHeaderProps, ModalBodyProps, ModalFooterProps } from './Modal';
 
-export { Badge, StatusBadge } from './Badge';
+export { Badge, StatusBadge, StrategyBadge } from './Badge';
 export type { BadgeProps } from './Badge';
 
 export { Container, Section, Stack, Inline } from './Container';
@@ -45,6 +45,17 @@ export {
 } from './Table';
 
 export { Alert } from './Alert';
+
+export type {
+  TableProps,
+  TableHeaderProps,
+  TableBodyProps,
+  TableFooterProps,
+  TableHeadProps,
+  TableRowProps,
+  TableCellProps,
+  TableCaptionProps,
+} from './Table';
 export type { AlertProps, AlertVariant } from './Alert';
 
 // ============================================
@@ -77,3 +88,43 @@ export type {
 } from './types';
 
 export { cn, withPrefix } from './types';
+
+// ============================================
+// Theme
+// ============================================
+
+export { ThemeToggle } from './ThemeToggle';
+
+// ============================================
+// Skeleton Loaders
+// ============================================
+
+export { Skeleton, VaultCardSkeleton, VaultTableRowSkeleton, TransactionRowSkeleton, MetricCardSkeleton, DashboardSkeleton, ModalSkeleton } from './Skeleton';
+
+// ============================================
+// Tooltip
+// ============================================
+
+export { Tooltip } from './Tooltip';
+export type { TooltipProps } from './Tooltip';
+
+// ============================================
+// Empty State
+// ============================================
+
+export { EmptyState } from './EmptyState';
+export type { EmptyStateProps, EmptyStateVariant } from './EmptyState';
+
+// ============================================
+// Error State
+// ============================================
+
+export { ErrorState } from './ErrorState';
+export type { ErrorStateProps, ErrorStateVariant } from './ErrorState';
+
+// ============================================
+// Transaction Status
+// ============================================
+
+export { TransactionStatusBadge, TransactionStatusDot } from './TransactionStatus';
+export type { TxStatus } from './TransactionStatus';

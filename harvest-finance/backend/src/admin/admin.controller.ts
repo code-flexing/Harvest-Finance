@@ -31,7 +31,10 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../database/entities/user.entity';
 
 @ApiTags('Admin')
-@Controller('api/v1/admin')
+@Controller({
+  path: 'admin',
+  version: '1',
+})
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN)
 @ApiBearerAuth()
@@ -91,7 +94,11 @@ export class AdminController {
 
   @Get('users')
   @ApiOperation({ summary: 'Get all users with optional search filter' })
-  @ApiQuery({ name: 'search', required: false, description: 'Search users by name, email, or role' })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    description: 'Search users by name, email, or role',
+  })
   @ApiResponse({ status: 200 })
   async getAllUsers(@Query('search') search?: string): Promise<any[]> {
     return this.adminService.getAllUsers(search);

@@ -9,10 +9,11 @@ export interface TokenBalance {
   usdValue?: number;
 }
 
-interface WalletState {
+export interface WalletState {
   address: string | null;
   isConnected: boolean;
   isConnecting: boolean;
+  isRefreshing: boolean;
   error: string | null;
   balances: TokenBalance[];
   totalValueUsd: number;
@@ -20,12 +21,15 @@ interface WalletState {
   connect: () => Promise<void>;
   disconnect: () => void;
   refreshBalances: () => Promise<void>;
+  getXlmBalance: () => number;
+  getTokenBalance: (symbol: string) => number;
 }
 
 export const useWalletStore = create<WalletState>((set, get) => ({
   address: null,
   isConnected: false,
   isConnecting: false,
+  isRefreshing: false,
   error: null,
   balances: [],
   totalValueUsd: 0,
@@ -76,6 +80,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
       address: null,
       isConnected: false,
       isConnecting: false,
+      isRefreshing: false,
       error: null,
       balances: [],
       totalValueUsd: 0,
@@ -85,6 +90,8 @@ export const useWalletStore = create<WalletState>((set, get) => ({
   refreshBalances: async () => {
     const { address } = get();
     if (!address) return;
+
+    set({ isRefreshing: true });
 
     try {
       const mockBalances: TokenBalance[] = [
@@ -98,10 +105,22 @@ export const useWalletStore = create<WalletState>((set, get) => ({
       set({
         balances: mockBalances,
         totalValueUsd: total,
+        isRefreshing: false,
       });
     } catch (err) {
-      console.error("Failed to fetch balances:", err);
+      set({ isRefreshing: false });
+      throw err;
     }
+  },
+
+  getXlmBalance: () => {
+    const xlm = get().balances.find((b) => b.symbol === "XLM");
+    return xlm ? parseFloat(xlm.balance.replace(/,/g, "")) || 0 : 0;
+  },
+
+  getTokenBalance: (symbol: string) => {
+    const token = get().balances.find((b) => b.symbol === symbol);
+    return token ? parseFloat(token.balance.replace(/,/g, "")) || 0 : 0;
   },
 }));
 

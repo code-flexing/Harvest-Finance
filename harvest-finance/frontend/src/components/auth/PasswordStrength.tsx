@@ -34,7 +34,7 @@ export function PasswordStrength({ password }: PasswordStrengthProps) {
           <div
             key={i}
             className={`h-2 flex-1 rounded-full transition-all duration-300 ${
-              i < score ? colors[score] : 'bg-slate-200'
+              i < score ? colors[score] : 'bg-slate-200 dark:bg-gray-600'
             }`}
           />
         ))}

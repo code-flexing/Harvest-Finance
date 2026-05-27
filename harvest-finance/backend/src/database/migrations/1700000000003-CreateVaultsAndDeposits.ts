@@ -26,7 +26,7 @@ export class CreateVaultsAndDeposits1700000000003 implements MigrationInterface 
             type: 'enum',
             enum: [
               'CROP_PRODUCTION',
-              'EQUIPMENT_FINANCING', 
+              'EQUIPMENT_FINANCING',
               'LAND_ACQUISITION',
               'INSURANCE_FUND',
               'EMERGENCY_FUND',

@@ -12,5 +12,43 @@
       "content": "I'm here to help with all aspects of your farming journey! Whether it's crop selection, vault strategies, seasonal planning, or milestone tracking, I can provide personalized advice based on your current situation.",
       "timestamp": "2026-03-27T23:38:09.784Z"
     }
+  },
+  {
+    "user": {
+      "content": "hu",
+      "timestamp": "2026-04-23T13:06:01.947Z",
+      "context": {
+        "selectedCrop": "Maize",
+        "currentSeason": "Rainy season",
+        "vaultBalance": 18240,
+        "totalDeposits": 14750,
+        "totalRewards": 3490,
+        "vaultTarget": 25000,
+        "progressPercent": 73
+      }
+    },
+    "assistant": {
+      "content": "I'm here to help with all aspects of your farming journey! Whether it's crop selection, vault strategies, seasonal planning, or milestone tracking, I can provide personalized advice based on your current situation.",
+      "timestamp": "2026-04-23T13:06:01.934Z"
+    }
+  },
+  {
+    "user": {
+      "content": "jkhk",
+      "timestamp": "2026-04-23T13:06:06.530Z",
+      "context": {
+        "selectedCrop": "Maize",
+        "currentSeason": "Rainy season",
+        "vaultBalance": 18240,
+        "totalDeposits": 14750,
+        "totalRewards": 3490,
+        "vaultTarget": 25000,
+        "progressPercent": 73
+      }
+    },
+    "assistant": {
+      "content": "I'm here to help with all aspects of your farming journey! Whether it's crop selection, vault strategies, seasonal planning, or milestone tracking, I can provide personalized advice based on your current situation.",
+      "timestamp": "2026-04-23T13:06:06.526Z"
+    }
   }
 ]

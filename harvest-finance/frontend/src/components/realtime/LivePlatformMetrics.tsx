@@ -38,7 +38,7 @@ function fmt(n: number) {
 }
 
 function timeLabel(iso: string) {
-  return new Date(iso).toLocaleTimeString([], {
+  return new Date(iso).toLocaleTimeString('en-US', {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",

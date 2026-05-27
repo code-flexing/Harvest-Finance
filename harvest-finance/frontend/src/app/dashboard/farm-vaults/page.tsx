@@ -131,10 +131,10 @@ export default function FarmVaultsPage() {
           <Badge variant="success" className="mb-2">
             Farm Vault Dashboard
           </Badge>
-          <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 md:text-4xl">
+          <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white md:text-4xl">
             Agricultural Wealth Hub
           </h1>
-          <p className="mt-2 max-w-2xl text-lg text-gray-500">
+          <p className="mt-2 max-w-2xl text-lg text-gray-500 dark:text-gray-400">
             Manage your seasonal savings, track growth milestones, and visualize
             your harvest projections in one central place.
           </p>
@@ -195,39 +195,39 @@ export default function FarmVaultsPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-left">
                     <thead>
-                      <tr className="border-b border-gray-100 bg-gray-50/50">
-                        <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">
+                      <tr className="border-b border-gray-200 dark:border-[rgba(141,187,85,0.12)] bg-gray-50/50 dark:bg-[#162a1a]/50">
+                        <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                           Date
                         </th>
-                        <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">
+                        <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                           Type
                         </th>
-                        <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">
+                        <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                           Amount
                         </th>
-                        <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">
+                        <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                           Status
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-50">
+                    <tbody className="divide-y divide-gray-100 dark:divide-[rgba(141,187,85,0.08)]">
                       {[1, 2, 3].map((i) => (
                         <tr
                           key={i}
-                          className="transition-colors hover:bg-gray-50/50"
+                          className="transition-colors hover:bg-gray-50/50 dark:hover:bg-[#1a3020]/50"
                         >
-                          <td className="px-6 py-4 text-sm text-gray-600">
+                          <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">
                             May {10 + i}, 2024
                           </td>
                           <td className="px-6 py-4">
                             <Inline gap="xs">
                               <div className="h-2 w-2 rounded-full bg-harvest-green-500" />
-                              <span className="text-sm font-medium">
+                              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                 Deposit
                               </span>
                             </Inline>
                           </td>
-                          <td className="px-6 py-4 text-sm font-bold text-gray-900">
+                          <td className="px-6 py-4 text-sm font-bold text-gray-900 dark:text-white">
                             $250.00
                           </td>
                           <td className="px-6 py-4">
@@ -310,21 +310,21 @@ export default function FarmVaultsPage() {
             )}
 
             {/* Seasonal Info */}
-            <Card variant="outlined" className="border-amber-100 bg-amber-50">
+            <Card variant="outlined" className="border-amber-100 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-900/20">
 
               <CardHeader title="Seasonal Tips" />
               <CardBody>
                 <Stack gap="md">
                   <div className="flex gap-3">
-                    <Award className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-                    <p className="text-sm font-medium text-amber-800">
+                    <Award className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                    <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
                       Premium seeds can increase yield by up to 20% in rainy
                       conditions.
                     </p>
                   </div>
                   <div className="flex gap-3">
-                    <CircleHelp className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-                    <p className="text-sm font-medium text-amber-800">
+                    <CircleHelp className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                    <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
                       Remember to lock in your fertilizer prices before the
                       pre-season ends.
                     </p>

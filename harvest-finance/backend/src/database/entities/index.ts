@@ -4,11 +4,19 @@ export type { CreditScoreHistoryEntry } from './credit-score.entity';
 export * from './crop-cycle.entity';
 export { Deposit, DepositStatus } from './deposit.entity';
 export * from './farm-vault.entity';
-export { InsurancePlan, InsurancePlanType, RiskLevel } from './insurance-plan.entity';
-export { InsuranceSubscription, SubscriptionStatus } from './insurance-subscription.entity';
+export {
+  InsurancePlan,
+  InsurancePlanType,
+  RiskLevel,
+} from './insurance-plan.entity';
+export {
+  InsuranceSubscription,
+  SubscriptionStatus,
+} from './insurance-subscription.entity';
 export { Notification, NotificationType } from './notification.entity';
 export { Order, OrderStatus } from './order.entity';
 export { Reward, RewardStatus } from './reward.entity';
+export { SorobanEvent, SorobanEventType } from './soroban-event.entity';
 export {
   Transaction,
   TransactionStatus,
@@ -19,3 +27,4 @@ export { Vault, VaultStatus, VaultType } from './vault.entity';
 export { VaultDeposit } from './vault-deposit.entity';
 export { Verification, VerificationStatus } from './verification.entity';
 export { Withdrawal, WithdrawalStatus } from './withdrawal.entity';
+export { YieldAnalytics } from './yield-analytics.entity';

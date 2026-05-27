@@ -1,12 +1,26 @@
-import { IsString, IsNotEmpty, MinLength, MaxLength, Matches } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  MinLength,
+  MaxLength,
+  Matches,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 /**
- * Password validation regex pattern
+ * Password validation regex pattern.
+ * Requires at least one uppercase, one lowercase, one digit,
+ * and one special character (@$!%*?&).
  */
-const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
+const PASSWORD_REGEX =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
 
+/** Request body for completing a password reset using a reset token. */
 export class ResetPasswordDto {
+  /**
+   * The short-lived reset token delivered to the user's email by the
+   * forgot-password flow. Invalidated after a single use or expiry.
+   */
   @ApiProperty({
     example: 'abc123def456...',
     description: 'Reset token sent to user email',
@@ -15,6 +29,11 @@ export class ResetPasswordDto {
   @IsNotEmpty({ message: 'Token is required' })
   token: string;
 
+  /**
+   * The user's desired new password.
+   * Must satisfy the same complexity rules as registration (8–32 chars,
+   * upper/lower/digit/special). Replaces the existing bcrypt hash on success.
+   */
   @ApiProperty({
     example: 'NewSecurePass123!',
     description:

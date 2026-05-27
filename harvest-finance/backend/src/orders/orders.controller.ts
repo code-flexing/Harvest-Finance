@@ -25,7 +25,10 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UserRole } from '../database/entities/user.entity';
 
 @ApiTags('orders')
-@Controller('api/v1/orders')
+@Controller({
+  path: 'orders',
+  version: '1',
+})
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class OrdersController {

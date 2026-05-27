@@ -7,7 +7,7 @@ export class DashboardStatsDto {
   @ApiProperty({ example: 156 })
   activeUsers: number;
 
-  @ApiProperty({ example: 1250000.50 })
+  @ApiProperty({ example: 1250000.5 })
   totalDeposits: number;
 
   @ApiProperty({ example: 45000.75 })

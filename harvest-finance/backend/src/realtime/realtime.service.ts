@@ -4,18 +4,24 @@ import { Repository, DataSource } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { User } from '../database/entities/user.entity';
 import { Deposit, DepositStatus } from '../database/entities/deposit.entity';
-import { Withdrawal, WithdrawalStatus } from '../database/entities/withdrawal.entity';
+import {
+  Withdrawal,
+  WithdrawalStatus,
+} from '../database/entities/withdrawal.entity';
 import { Vault, VaultStatus } from '../database/entities/vault.entity';
-import { FarmVault, FarmVaultStatus } from '../database/entities/farm-vault.entity';
+import {
+  FarmVault,
+  FarmVaultStatus,
+} from '../database/entities/farm-vault.entity';
 import { Reward } from '../database/entities/reward.entity';
 import { RealtimeGateway } from './realtime.gateway';
 
 // ─── Thresholds for alert triggers ───────────────────────────────────────────
 const ALERT_THRESHOLDS = {
-  LARGE_DEPOSIT: 10_000,       // single deposit > $10k
-  LARGE_WITHDRAWAL: 5_000,     // single withdrawal > $5k
-  VAULT_CAPACITY_PCT: 90,      // vault at ≥90% capacity
-  LOW_SAVINGS: 100,            // farmer savings < $100
+  LARGE_DEPOSIT: 10_000, // single deposit > $10k
+  LARGE_WITHDRAWAL: 5_000, // single withdrawal > $5k
+  VAULT_CAPACITY_PCT: 90, // vault at ≥90% capacity
+  LOW_SAVINGS: 100, // farmer savings < $100
 };
 
 @Injectable()
@@ -23,12 +29,13 @@ export class RealtimeService {
   private readonly logger = new Logger(RealtimeService.name);
 
   constructor(
-    @InjectRepository(User)       private userRepo: Repository<User>,
-    @InjectRepository(Deposit)    private depositRepo: Repository<Deposit>,
-    @InjectRepository(Withdrawal) private withdrawalRepo: Repository<Withdrawal>,
-    @InjectRepository(Vault)      private vaultRepo: Repository<Vault>,
-    @InjectRepository(FarmVault)  private farmVaultRepo: Repository<FarmVault>,
-    @InjectRepository(Reward)     private rewardRepo: Repository<Reward>,
+    @InjectRepository(User) private userRepo: Repository<User>,
+    @InjectRepository(Deposit) private depositRepo: Repository<Deposit>,
+    @InjectRepository(Withdrawal)
+    private withdrawalRepo: Repository<Withdrawal>,
+    @InjectRepository(Vault) private vaultRepo: Repository<Vault>,
+    @InjectRepository(FarmVault) private farmVaultRepo: Repository<FarmVault>,
+    @InjectRepository(Reward) private rewardRepo: Repository<Reward>,
     private readonly dataSource: DataSource,
     private readonly gateway: RealtimeGateway,
   ) {}
@@ -142,7 +149,10 @@ export class RealtimeService {
       const now = Date.now();
       const start = new Date(fv.startDate).getTime();
       const duration = fv.cropCycle.durationDays * 86_400_000;
-      const progress = Math.min(100, Math.round(((now - start) / duration) * 100));
+      const progress = Math.min(
+        100,
+        Math.round(((now - start) / duration) * 100),
+      );
       const yieldRate = Number(fv.cropCycle.yieldRate);
       const balance = Number(fv.balance);
       return {
@@ -173,7 +183,10 @@ export class RealtimeService {
       this.gateway.emitFarmerMetrics(userId, metrics);
       await this.checkFarmerAlerts(userId, metrics.totalSavings);
     } catch (err) {
-      this.logger.error(`Failed to broadcast farmer metrics for ${userId}`, err);
+      this.logger.error(
+        `Failed to broadcast farmer metrics for ${userId}`,
+        err,
+      );
     }
   }
 
@@ -183,7 +196,9 @@ export class RealtimeService {
   @Cron(CronExpression.EVERY_MINUTE)
   async checkVaultCapacityAlerts() {
     try {
-      const vaults = await this.vaultRepo.find({ where: { status: VaultStatus.ACTIVE } });
+      const vaults = await this.vaultRepo.find({
+        where: { status: VaultStatus.ACTIVE },
+      });
       for (const vault of vaults) {
         const pct =
           Number(vault.maxCapacity) > 0
@@ -220,7 +235,11 @@ export class RealtimeService {
   }
 
   /** Check a single withdrawal for large-transaction alert */
-  async checkWithdrawalAlert(userId: string, amount: number, vaultName: string) {
+  async checkWithdrawalAlert(
+    userId: string,
+    amount: number,
+    vaultName: string,
+  ) {
     if (amount >= ALERT_THRESHOLDS.LARGE_WITHDRAWAL) {
       const payload = {
         type: 'LARGE_WITHDRAWAL',

@@ -157,7 +157,7 @@ export default function AdminDashboardPage() {
       <Container size="xl" className="py-20">
         <Stack align="center" gap="lg">
           <RefreshCw className="w-10 h-10 text-harvest-green-600 animate-spin" />
-          <p className="text-gray-500 font-medium">Loading admin dashboard...</p>
+          <p className="text-gray-500 dark:text-gray-400 font-medium">Loading admin dashboard...</p>
         </Stack>
       </Container>
     );
@@ -166,12 +166,12 @@ export default function AdminDashboardPage() {
   if (error) {
     return (
       <Container size="xl" className="py-20">
-        <Card variant="outlined" className="max-w-md mx-auto border-red-200 bg-red-50">
+        <Card variant="outlined" className="max-w-md mx-auto border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/20">
           <CardBody>
             <Stack align="center" gap="md">
-              <AlertCircle className="w-12 h-12 text-red-600" />
-              <h2 className="text-xl font-bold text-gray-900">Access Denied</h2>
-              <p className="text-center text-gray-600">{error}</p>
+              <AlertCircle className="w-12 h-12 text-red-600 dark:text-red-400" />
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Access Denied</h2>
+              <p className="text-center text-gray-600 dark:text-gray-300">{error}</p>
               <Button onClick={() => router.push('/dashboard')}>Back to Dashboard</Button>
             </Stack>
           </CardBody>
@@ -188,9 +188,9 @@ export default function AdminDashboardPage() {
           <Stack gap="xs">
             <Inline gap="sm" align="center">
               <ShieldCheck className="w-8 h-8 text-harvest-green-600" />
-              <h1 className="text-3xl font-bold text-gray-900">Admin Command Center</h1>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Admin Command Center</h1>
             </Inline>
-            <p className="text-gray-500">Monitor platform health and manage investment vaults.</p>
+            <p className="text-gray-500 dark:text-gray-400">Monitor platform health and manage investment vaults.</p>
           </Stack>
           <Button 
             variant="outline" 
@@ -206,7 +206,7 @@ export default function AdminDashboardPage() {
 
         {/* Analytics Charts */}
         <div>
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Platform Analytics</h2>
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">Platform Analytics</h2>
           <AnalyticsCharts
             userGrowth={analytics.userGrowth}
             depositWithdrawTrends={analytics.depositWithdrawTrends}
@@ -281,10 +281,10 @@ export default function AdminDashboardPage() {
               />
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-sm font-medium text-gray-700">Vault Type</label>
-                  <select 
-                    name="type" 
-                    className="w-full h-10 px-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-harvest-green-500"
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-200">Vault Type</label>
+                  <select
+                    name="type"
+                    className="w-full h-10 px-3 text-sm border border-gray-200 dark:border-[rgba(141,187,85,0.25)] rounded-lg bg-white dark:bg-[#1a3020] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-harvest-green-500"
                     defaultValue={editingVault?.type || 'CROP_PRODUCTION'}
                   >
                     <option value="CROP_PRODUCTION">Crop Production</option>
@@ -317,7 +317,7 @@ export default function AdminDashboardPage() {
                   defaultChecked={editingVault ? editingVault.isPublic : true} 
                   className="rounded border-gray-300 text-harvest-green-600 focus:ring-harvest-green-500"
                 />
-                <span className="text-sm text-gray-700">Make this vault public</span>
+                <span className="text-sm text-gray-700 dark:text-gray-200">Make this vault public</span>
               </label>
             </Stack>
           </ModalBody>

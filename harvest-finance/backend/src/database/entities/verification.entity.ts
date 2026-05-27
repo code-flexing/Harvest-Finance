@@ -24,11 +24,11 @@ export enum VerificationStatus {
 
 /**
  * Verification entity representing inspector approvals for orders
- * 
+ *
  * Relationships:
  * - Many Verifications can belong to one Order (but typically one-to-one)
  * - Many Verifications belong to one User (inspector)
- * 
+ *
  * Constraints:
  * - inspector_id references Users table
  * - order_id references Orders table
@@ -67,10 +67,21 @@ export class Verification {
   @Column({ name: 'crop_quality', nullable: true })
   cropQuality: string | null;
 
-  @Column({ name: 'quantity_verified', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({
+    name: 'quantity_verified',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
   quantityVerified: number | null;
 
-  @Column({ name: 'verification_documents', type: 'text', array: true, nullable: true })
+  @Column({
+    name: 'verification_documents',
+    type: 'text',
+    array: true,
+    nullable: true,
+  })
   verificationDocuments: string[] | null;
 
   @Column({ name: 'approved_at', type: 'timestamp', nullable: true })

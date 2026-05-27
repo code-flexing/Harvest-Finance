@@ -24,7 +24,13 @@ describe('VerificationController (e2e)', () => {
           username: 'postgres',
           password: 'password',
           database: 'test_harvest_finance',
-          entities: [Verification, Delivery, Approval, InspectorAssignment, Notification],
+          entities: [
+            Verification,
+            Delivery,
+            Approval,
+            InspectorAssignment,
+            Notification,
+          ],
           synchronize: true,
         }),
         TypeOrmModule.forFeature([

@@ -59,7 +59,9 @@ export class OrdersRepository {
     if (filter.search) {
       const s = filter.search.toLowerCase();
       res = res.filter(
-        (r) => r.cropType.toLowerCase().includes(s) || r.buyerName.toLowerCase().includes(s),
+        (r) =>
+          r.cropType.toLowerCase().includes(s) ||
+          r.buyerName.toLowerCase().includes(s),
       );
     }
     if (filter.startDate) {

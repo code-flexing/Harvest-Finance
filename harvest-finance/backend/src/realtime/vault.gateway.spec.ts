@@ -18,7 +18,9 @@ describe('VaultGateway', () => {
         {
           provide: JwtService,
           useValue: {
-            verifyAsync: jest.fn().mockResolvedValue({ sub: 'user-1', email: 'test@test.com' }),
+            verifyAsync: jest
+              .fn()
+              .mockResolvedValue({ sub: 'user-1', email: 'test@test.com' }),
           },
         },
         {
@@ -65,11 +67,14 @@ describe('VaultGateway', () => {
 
     gateway.emitDeposit(data);
 
-    expect(gateway['server'].emit).toHaveBeenCalledWith('vault:activity:global', expect.objectContaining({
-      type: 'deposit',
-      vaultId: 'v1',
-      amount: 100,
-    }));
+    expect(gateway['server'].emit).toHaveBeenCalledWith(
+      'vault:activity:global',
+      expect.objectContaining({
+        type: 'deposit',
+        vaultId: 'v1',
+        amount: 100,
+      }),
+    );
   });
 
   it('should emit harvest event', () => {
@@ -83,11 +88,14 @@ describe('VaultGateway', () => {
 
     gateway.emitHarvest(data);
 
-    expect(gateway['server'].emit).toHaveBeenCalledWith('vault:activity:global', expect.objectContaining({
-      type: 'harvest',
-      amount: 5.5,
-      asset: 'STLR',
-    }));
+    expect(gateway['server'].emit).toHaveBeenCalledWith(
+      'vault:activity:global',
+      expect.objectContaining({
+        type: 'harvest',
+        amount: 5.5,
+        asset: 'STLR',
+      }),
+    );
   });
 
   it('should authenticate client with valid JWT token', async () => {
@@ -132,8 +140,12 @@ describe('VaultGateway', () => {
 
     await gateway.handleSubscribeVault('v2', mockSocket);
 
-    expect(vaultRepository.findOne).toHaveBeenCalledWith({ where: { id: 'v2' } });
-    expect(mockSocket.emit).toHaveBeenCalledWith('error', { message: 'Access denied to vault' });
+    expect(vaultRepository.findOne).toHaveBeenCalledWith({
+      where: { id: 'v2' },
+    });
+    expect(mockSocket.emit).toHaveBeenCalledWith('error', {
+      message: 'Access denied to vault',
+    });
     expect(mockSocket.join).not.toHaveBeenCalled();
   });
 

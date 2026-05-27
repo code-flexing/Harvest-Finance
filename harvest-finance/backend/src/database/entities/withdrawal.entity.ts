@@ -68,7 +68,7 @@ export class Withdrawal {
   updatedAt: Date;
 
   // Relationships
-  
+
   /** User who made the withdrawal */
   @ManyToOne(() => User, (user) => user.id, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })

@@ -81,7 +81,9 @@ export class VerificationService {
       }
     } else {
       // Just validate format if no destination set
-      if (!this.gpsValidationService.validateCoordinates(dto.gpsLat, dto.gpsLng)) {
+      if (
+        !this.gpsValidationService.validateCoordinates(dto.gpsLat, dto.gpsLng)
+      ) {
         throw new BadRequestException('Invalid GPS coordinate format');
       }
     }
@@ -97,7 +99,8 @@ export class VerificationService {
       status: VerificationStatus.PENDING,
     });
 
-    const savedVerification = await this.verificationRepository.save(verification);
+    const savedVerification =
+      await this.verificationRepository.save(verification);
 
     this.logger.log(
       `Verification created: ${savedVerification.id} for delivery ${dto.deliveryId}`,
@@ -193,7 +196,8 @@ export class VerificationService {
       verification.status = VerificationStatus.PARTIALLY_APPROVED;
     }
 
-    const savedVerification = await this.verificationRepository.save(verification);
+    const savedVerification =
+      await this.verificationRepository.save(verification);
 
     // Send notifications
     if (approved) {
@@ -244,7 +248,9 @@ export class VerificationService {
     });
 
     if (!delivery) {
-      this.logger.error(`Delivery not found for verification ${verification.id}`);
+      this.logger.error(
+        `Delivery not found for verification ${verification.id}`,
+      );
       return;
     }
 

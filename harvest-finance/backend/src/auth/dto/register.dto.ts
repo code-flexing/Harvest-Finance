@@ -11,17 +11,20 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserRole } from '../../database/entities/user.entity';
 
 /**
- * Password validation regex pattern
- * Requires:
- * - At least 8 characters
- * - At least one uppercase letter
- * - At least one lowercase letter
- * - At least one number
- * - At least one special character
+ * Password validation regex pattern.
+ * Requires: at least one uppercase letter, one lowercase letter,
+ * one number, and one special character (@$!%*?&).
+ * Minimum 8 characters enforced separately via @MinLength.
  */
-const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
+const PASSWORD_REGEX =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
 
+/** Request body for new user registration. */
 export class RegisterDto {
+  /**
+   * The user's email address. Must be unique across all accounts.
+   * Used as the primary login identifier.
+   */
   @ApiProperty({
     example: 'farmer@example.com',
     description: 'User email address (must be unique)',
@@ -30,6 +33,11 @@ export class RegisterDto {
   @IsNotEmpty({ message: 'Email is required' })
   email: string;
 
+  /**
+   * Plaintext password chosen by the user.
+   * Must be 8–32 characters and satisfy PASSWORD_REGEX complexity rules.
+   * Stored as a bcrypt hash — never persisted in plaintext.
+   */
   @ApiProperty({
     example: 'SecurePass123!',
     description:
@@ -45,15 +53,26 @@ export class RegisterDto {
   @IsNotEmpty({ message: 'Password is required' })
   password: string;
 
+  /**
+   * The platform role assigned to the new account.
+   * Determines which features and resources the user can access.
+   * Must be one of: FARMER, BUYER, INSPECTOR, ADMIN.
+   */
   @ApiProperty({
     example: 'FARMER',
     enum: UserRole,
     description: 'User role: FARMER, BUYER, INSPECTOR, or ADMIN',
   })
-  @IsEnum(UserRole, { message: 'Role must be FARMER, BUYER, INSPECTOR, or ADMIN' })
+  @IsEnum(UserRole, {
+    message: 'Role must be FARMER, BUYER, INSPECTOR, or ADMIN',
+  })
   @IsNotEmpty({ message: 'Role is required' })
   role: UserRole;
 
+  /**
+   * The user's display name shown across the platform.
+   * Must be 2–100 characters.
+   */
   @ApiProperty({
     example: 'John Doe',
     description: 'Full name of the user',
@@ -64,6 +83,10 @@ export class RegisterDto {
   @IsNotEmpty({ message: 'Full name is required' })
   full_name: string;
 
+  /**
+   * Optional contact phone number including country code (e.g. +1234567890).
+   * Max 20 characters to accommodate all international formats.
+   */
   @ApiPropertyOptional({
     example: '+1234567890',
     description: 'Phone number with country code',
@@ -72,6 +95,10 @@ export class RegisterDto {
   @MaxLength(20, { message: 'Phone number must not exceed 20 characters' })
   phone_number?: string;
 
+  /**
+   * The user's Stellar blockchain public key (56-character G... address).
+   * Used to link the account to on-chain operations such as vault deposits.
+   */
   @ApiProperty({
     example: 'GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
     description: 'Stellar blockchain address',

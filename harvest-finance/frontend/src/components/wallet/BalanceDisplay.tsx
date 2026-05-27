@@ -2,16 +2,29 @@
 
 import React from 'react';
 import { useWalletStore, TokenBalance } from '@/store/wallet';
-import { Card, CardHeader, CardBody, Badge } from '@/components/ui';
+import { Card, CardHeader, CardBody, Badge, Tooltip } from '@/components/ui';
+import { useToastStore } from '@/store/useToastStore';
+import { Info } from 'lucide-react';
+import { getTermTooltip } from '@/lib/defi-terms';
 
 export function BalanceDisplay() {
-  const { isConnected, balances, totalValueUsd, refreshBalances } = useWalletStore();
+  const { isConnected, balances, totalValueUsd, refreshBalances, isRefreshing } = useWalletStore();
+  const { showToast } = useToastStore();
+
+  const handleRefresh = async () => {
+    try {
+      await refreshBalances();
+      showToast('Balances updated successfully', 'success');
+    } catch (error) {
+      showToast('Failed to refresh balances', 'error');
+    }
+  };
 
   if (!isConnected) {
     return (
       <Card variant="outlined" padding="md">
         <div className="text-center py-6">
-          <WalletIcon className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+          <WalletIcon className="w-12 h-12 mx-auto text-gray-300 mb-3" aria-hidden="true" />
           <p className="text-gray-500 text-sm">Connect your wallet to view balances</p>
         </div>
       </Card>
@@ -21,16 +34,25 @@ export function BalanceDisplay() {
   return (
     <Card variant="default" padding="none">
       <CardHeader
-        title="Portfolio"
+        title={
+          <Tooltip content={getTermTooltip('trustlines')} position="bottom">
+            <span className="flex items-center gap-1 cursor-help">
+              Portfolio
+              <Info className="w-4 h-4 opacity-60" />
+            </span>
+          </Tooltip>
+        }
         subtitle="Your token balances"
         className="p-4 border-b border-gray-100"
         action={
           <button
-            onClick={refreshBalances}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-harvest-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
             title="Refresh balances"
+            aria-label={isRefreshing ? 'Refreshing balances...' : 'Refresh balances'}
           >
-            <RefreshIcon />
+            <RefreshIcon isRefreshing={isRefreshing} />
           </button>
         }
       />
@@ -44,14 +66,25 @@ export function BalanceDisplay() {
         </div>
 
         {/* Token List */}
-        <div className="space-y-3">
+        <div className="space-y-3" role="list" aria-label="Token balances">
           {balances.map((token) => (
             <TokenRow key={token.symbol} token={token} />
           ))}
         </div>
 
-        {balances.length === 0 && (
-          <p className="text-center text-gray-400 py-4 text-sm">No tokens found</p>
+        {balances.length === 0 && !isRefreshing && (
+          <p className="text-center text-gray-400 py-4 text-sm" role="status">
+            No tokens found
+          </p>
+        )}
+
+        {isRefreshing && (
+          <div className="text-center py-4" role="status" aria-live="polite">
+            <div className="inline-flex items-center gap-2 text-sm text-gray-500">
+              <RefreshIcon isRefreshing={true} />
+              Refreshing balances...
+            </div>
+          </div>
         )}
       </CardBody>
     </Card>
@@ -60,7 +93,11 @@ export function BalanceDisplay() {
 
 function TokenRow({ token }: { token: TokenBalance }) {
   return (
-    <div className="flex items-center justify-between py-2 px-3 hover:bg-gray-50 rounded-lg transition-colors">
+    <div
+      className="flex items-center justify-between py-2 px-3 hover:bg-gray-50 rounded-lg transition-colors"
+      role="listitem"
+      aria-label={`${token.symbol} balance: ${token.balance}`}
+    >
       <div className="flex items-center gap-3">
         <TokenIcon symbol={token.symbol} />
         <div>
@@ -106,9 +143,15 @@ function WalletIcon({ className }: { className?: string }) {
   );
 }
 
-function RefreshIcon() {
+function RefreshIcon({ isRefreshing = false }: { isRefreshing?: boolean }) {
   return (
-    <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <svg
+      className={`w-4 h-4 text-gray-500 ${isRefreshing ? 'animate-spin' : ''}`}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      aria-hidden="true"
+    >
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
     </svg>
   );

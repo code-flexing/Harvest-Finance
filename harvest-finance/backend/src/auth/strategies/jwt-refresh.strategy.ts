@@ -13,7 +13,10 @@ export interface JwtRefreshPayload {
 }
 
 @Injectable()
-export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
+export class JwtRefreshStrategy extends PassportStrategy(
+  Strategy,
+  'jwt-refresh',
+) {
   constructor(
     private configService: ConfigService,
     @InjectRepository(User)
@@ -23,7 +26,8 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
       jwtFromRequest: ExtractJwt.fromBodyField('refresh_token'),
       ignoreExpiration: false,
       secretOrKey:
-        configService.get<string>('JWT_REFRESH_SECRET') || 'super_secret_refresh_jwt_key',
+        configService.get<string>('JWT_REFRESH_SECRET') ||
+        'super_secret_refresh_jwt_key',
     });
   }
 

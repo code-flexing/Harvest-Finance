@@ -9,9 +9,9 @@ config();
 
 /**
  * Seed CLI
- * 
+ *
  * Command-line tool for seeding the database with test data.
- * 
+ *
  * Usage:
  * npm run seed           - Seed the database
  * npm run seed:clear     - Clear seed data

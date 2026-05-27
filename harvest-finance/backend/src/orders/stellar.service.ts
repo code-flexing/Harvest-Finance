@@ -38,7 +38,7 @@ export class StellarService {
       this.logger.log(`Escrow simulated (server present): ${fakeHash}`);
       return fakeHash;
     } catch (error) {
-      this.logger.error('Error creating escrow', error as any);
+      this.logger.error('Error creating escrow', error);
       throw error;
     }
   }
@@ -68,7 +68,7 @@ export class StellarService {
       );
       return { transactionHash: fakeHash };
     } catch (error) {
-      this.logger.error('Error releasing upfront payment', error as any);
+      this.logger.error('Error releasing upfront payment', error);
       throw error;
     }
   }

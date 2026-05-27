@@ -74,8 +74,8 @@ export const DashboardStats: React.FC<StatsProps> = ({ stats }) => {
                 </div>
               </Inline>
               <div>
-                <p className="text-sm font-medium text-gray-500">{item.label}</p>
-                <h3 className="text-2xl font-bold text-gray-900 mt-1">{item.value}</h3>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{item.label}</p>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{item.value}</h3>
               </div>
             </Stack>
           </CardBody>

@@ -23,8 +23,12 @@ export class CreateAchievements1700000000004 implements MigrationInterface {
         CONSTRAINT "pk_achievements" PRIMARY KEY ("id")
       )
     `);
-    await queryRunner.query(`CREATE INDEX "idx_achievements_user" ON "achievements" ("user_id")`);
-    await queryRunner.query(`CREATE INDEX "idx_achievements_type" ON "achievements" ("type")`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_achievements_user" ON "achievements" ("user_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_achievements_type" ON "achievements" ("type")`,
+    );
   }
 
   async down(queryRunner: QueryRunner): Promise<void> {

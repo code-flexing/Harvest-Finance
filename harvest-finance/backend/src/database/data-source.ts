@@ -12,10 +12,10 @@ config();
 
 /**
  * TypeORM Data Source Configuration
- * 
+ *
  * This is the main data source for the application.
  * Used by TypeORM for database operations.
- * 
+ *
  * For CLI commands (migrations, seeds), use this file directly.
  * For NestJS applications, use AppModule configuration.
  */
@@ -34,7 +34,7 @@ const options: DataSourceOptions = {
 
 /**
  * AppDataSource - Singleton data source instance
- * 
+ *
  * Export this to use in CLI commands, migrations, and seeds.
  */
 export const AppDataSource = new DataSource(options);

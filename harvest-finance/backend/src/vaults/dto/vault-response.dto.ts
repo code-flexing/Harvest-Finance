@@ -47,6 +47,18 @@ export class VaultResponseDto {
   description: string | null;
 
   @ApiProperty({
+    example: 'HVF',
+    description: 'Vault symbol',
+  })
+  symbol: string;
+
+  @ApiProperty({
+    example: 'XLM/USDC',
+    description: 'Vault asset pair',
+  })
+  assetPair: string;
+
+  @ApiProperty({
     example: 50000.5,
     description: 'Total deposits in vault',
   })

@@ -37,15 +37,21 @@ export class IpfsService {
       const blob = new Blob([uint8Array]);
       formData.append('file', blob, filename);
 
-      const response = await axios.post(`${this.ipfsUrl}/api/v0/add`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
+      const response = await axios.post(
+        `${this.ipfsUrl}/api/v0/add`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+          timeout: 30000,
         },
-        timeout: 30000,
-      });
+      );
 
       if (response.data && response.data.Hash) {
-        this.logger.log(`File uploaded to IPFS with hash: ${response.data.Hash}`);
+        this.logger.log(
+          `File uploaded to IPFS with hash: ${response.data.Hash}`,
+        );
         return {
           hash: response.data.Hash,
           size: response.data.Size,
@@ -112,7 +118,10 @@ export class IpfsService {
    * @param hash IPFS content hash
    */
   getGatewayUrl(hash: string): string {
-    const gatewayHost = this.configService.get<string>('IPFS_GATEWAY_HOST', 'ipfs.io');
+    const gatewayHost = this.configService.get<string>(
+      'IPFS_GATEWAY_HOST',
+      'ipfs.io',
+    );
     return `https://${gatewayHost}/ipfs/${hash}`;
   }
 

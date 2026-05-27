@@ -114,13 +114,13 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
       case 'ACTIVE': return 'success';
       case 'FULL_CAPACITY': return 'warning';
       case 'INACTIVE': return 'neutral';
-      case 'FROZEN': return 'danger';
+      case 'FROZEN': return 'error';
       default: return 'neutral';
     }
   };
   
   return (
-    <Badge variant={getVariant() as any}>
+    <Badge variant={getVariant()}>
       {status.replace(/_/g, ' ')}
     </Badge>
   );

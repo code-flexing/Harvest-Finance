@@ -51,7 +51,9 @@ describe('OrdersService', () => {
     jest.spyOn(stellar, 'createEscrow').mockRejectedValue(new Error('network'));
 
     const farmer = { id: 'farmer-2', name: 'Farmer Two', publicKey: 'GFAKE2' };
-    await expect(service.acceptOrder(created.id, farmer as any)).rejects.toBeDefined();
+    await expect(
+      service.acceptOrder(created.id, farmer as any),
+    ).rejects.toBeDefined();
 
     const reloaded = await service.findById(created.id);
     expect(reloaded.status).toBe(OrderStatus.PENDING);

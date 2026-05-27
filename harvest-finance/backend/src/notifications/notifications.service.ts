@@ -1,7 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Notification, NotificationType } from '../database/entities/notification.entity';
+import {
+  Notification,
+  NotificationType,
+} from '../database/entities/notification.entity';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { NotificationResponseDto } from './dto/notification-response.dto';
 
@@ -15,13 +18,16 @@ export class NotificationsService {
   /**
    * Create a new notification
    */
-  async create(createNotificationDto: CreateNotificationDto): Promise<NotificationResponseDto> {
+  async create(
+    createNotificationDto: CreateNotificationDto,
+  ): Promise<NotificationResponseDto> {
     const notification = this.notificationRepository.create({
       ...createNotificationDto,
       userId: createNotificationDto.userId || null,
     });
 
-    const savedNotification = await this.notificationRepository.save(notification);
+    const savedNotification =
+      await this.notificationRepository.save(notification);
     return this.mapToResponseDto(savedNotification);
   }
 
@@ -37,7 +43,7 @@ export class NotificationsService {
       order: { createdAt: 'DESC' },
     });
 
-    return notifications.map(n => this.mapToResponseDto(n));
+    return notifications.map((n) => this.mapToResponseDto(n));
   }
 
   /**
@@ -49,7 +55,7 @@ export class NotificationsService {
       order: { createdAt: 'DESC' },
     });
 
-    return notifications.map(n => this.mapToResponseDto(n));
+    return notifications.map((n) => this.mapToResponseDto(n));
   }
 
   /**
@@ -65,7 +71,8 @@ export class NotificationsService {
     }
 
     notification.isRead = true;
-    const updatedNotification = await this.notificationRepository.save(notification);
+    const updatedNotification =
+      await this.notificationRepository.save(notification);
     return this.mapToResponseDto(updatedNotification);
   }
 
@@ -84,7 +91,9 @@ export class NotificationsService {
   /**
    * Map Entity to Response DTO
    */
-  private mapToResponseDto(notification: Notification): NotificationResponseDto {
+  private mapToResponseDto(
+    notification: Notification,
+  ): NotificationResponseDto {
     return {
       id: notification.id,
       userId: notification.userId,

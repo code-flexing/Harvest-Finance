@@ -33,10 +33,10 @@ export enum TransactionType {
 
 /**
  * Transaction entity representing Stellar blockchain transactions
- * 
+ *
  * Relationships:
  * - One Transaction belongs to one Order
- * 
+ *
  * Constraints:
  * - stellar_tx_hash must be unique
  */

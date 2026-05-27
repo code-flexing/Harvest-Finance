@@ -21,12 +21,20 @@ import { Reward } from '../database/entities/reward.entity';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET') || 'super_secret_jwt_key',
+        secret:
+          configService.get<string>('JWT_SECRET') || 'super_secret_jwt_key',
         signOptions: { expiresIn: '1h' },
       }),
       inject: [ConfigService],
     }),
-    TypeOrmModule.forFeature([User, Deposit, Withdrawal, Vault, FarmVault, Reward]),
+    TypeOrmModule.forFeature([
+      User,
+      Deposit,
+      Withdrawal,
+      Vault,
+      FarmVault,
+      Reward,
+    ]),
   ],
   controllers: [RealtimeController],
   providers: [RealtimeGateway, RealtimeService, VaultGateway],

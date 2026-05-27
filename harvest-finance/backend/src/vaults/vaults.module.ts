@@ -8,6 +8,7 @@ import { Withdrawal } from '../database/entities/withdrawal.entity';
 import { AuthModule } from '../auth/auth.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { RealtimeModule } from '../realtime/realtime.module';
+import { CommonModule } from '../common/common.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { RealtimeModule } from '../realtime/realtime.module';
     AuthModule,
     NotificationsModule,
     RealtimeModule,
+    CommonModule,
   ],
   controllers: [VaultsController],
   providers: [VaultsService],

@@ -9,7 +9,7 @@ import { CreditScore } from '../entities/credit-score.entity';
 
 /**
  * Seed Module
- * 
+ *
  * Provides seed functionality for populating the database
  * with test data during development and testing.
  */

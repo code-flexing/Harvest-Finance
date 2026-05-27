@@ -9,7 +9,10 @@ import { UserRole } from '../database/entities/user.entity';
 @ApiTags('Realtime Analytics')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@Controller('api/v1/realtime')
+@Controller({
+  path: 'realtime',
+  version: '1',
+})
 export class RealtimeController {
   constructor(private readonly realtimeService: RealtimeService) {}
 

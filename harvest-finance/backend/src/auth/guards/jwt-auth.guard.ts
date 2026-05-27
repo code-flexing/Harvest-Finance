@@ -5,6 +5,7 @@ import {
   Inject,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { GqlExecutionContext } from '@nestjs/graphql';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 
@@ -14,8 +15,16 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     super();
   }
 
+  getRequest(context: ExecutionContext) {
+    if (context.getType<string>() === 'graphql') {
+      const ctx = GqlExecutionContext.create(context);
+      return ctx.getContext().req;
+    }
+    return context.switchToHttp().getRequest();
+  }
+
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
+    const request = this.getRequest(context);
     const authHeader = request.headers.authorization;
 
     if (!authHeader) {

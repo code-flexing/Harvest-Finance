@@ -32,7 +32,10 @@ class FarmVaultAmountDto {
 }
 
 @ApiTags('Farm Vaults')
-@Controller('api/v1/farm-vaults')
+@Controller({
+  path: 'farm-vaults',
+  version: '1',
+})
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class FarmVaultsController {

@@ -19,6 +19,7 @@ import {
   Section,
   Stack,
   Inline,
+  ErrorState,
 } from '@/components/ui';
 
 /**
@@ -31,6 +32,9 @@ export default function ComponentsDemoPage() {
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLargeModalOpen, setIsLargeModalOpen] = useState(false);
+
+  // ErrorState trigger demo
+  const [triggeredVariant, setTriggeredVariant] = useState<string | null>(null);
 
   // Form state for inputs
   const [formData, setFormData] = useState({
@@ -405,6 +409,98 @@ export default function ComponentsDemoPage() {
                     <Badge variant="primary" isDot>Updated just now</Badge>
                   </Inline>
                 </div>
+              </Stack>
+            </CardBody>
+          </Card>
+        </Container>
+      </Section>
+
+      {/* Error State Section */}
+      <Section paddingY="lg">
+        <Container>
+          <Card>
+            <CardHeader
+              title="ErrorState Component"
+              subtitle="Consistent error UI across the app – 6 variants covering every failure scenario"
+            />
+            <CardBody>
+              <Stack gap="xl">
+
+                {/* Static showcase – all variants */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-4">All Variants</h4>
+                  <Stack gap="md">
+                    {/* Inline */}
+                    <div>
+                      <p className="text-xs text-gray-500 mb-2 font-mono">variant="inline"</p>
+                      <ErrorState variant="inline" />
+                    </div>
+
+                    {/* Page-level variants in a grid */}
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {(['page', 'network', 'not-found', 'unauthorized', 'server'] as const).map(
+                        (v) => (
+                          <div key={v} className="rounded-xl border border-gray-100 dark:border-white/10 overflow-hidden">
+                            <p className="text-xs text-gray-500 font-mono px-3 pt-2 pb-1 bg-gray-50 dark:bg-white/5 border-b border-gray-100 dark:border-white/10">
+                              variant="{v}"
+                            </p>
+                            <ErrorState variant={v} />
+                          </div>
+                        )
+                      )}
+                    </div>
+                  </Stack>
+                </div>
+
+                {/* Interactive trigger demo */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-1">Trigger Demo</h4>
+                  <p className="text-xs text-gray-500 mb-4">
+                    Click a button to simulate triggering that error state.
+                  </p>
+                  <Stack direction="row" gap="sm" wrap>
+                    {(['inline', 'page', 'network', 'not-found', 'unauthorized', 'server'] as const).map(
+                      (v) => (
+                        <Button
+                          key={v}
+                          variant={triggeredVariant === v ? 'danger' : 'outline'}
+                          size="sm"
+                          onClick={() => setTriggeredVariant(triggeredVariant === v ? null : v)}
+                        >
+                          {v}
+                        </Button>
+                      )
+                    )}
+                    {triggeredVariant && (
+                      <Button variant="ghost" size="sm" onClick={() => setTriggeredVariant(null)}>
+                        Dismiss
+                      </Button>
+                    )}
+                  </Stack>
+
+                  {triggeredVariant && (
+                    <div className="mt-4">
+                      <ErrorState
+                        variant={triggeredVariant as any}
+                        onAction={() => setTriggeredVariant(null)}
+                        onSecondaryAction={() => setTriggeredVariant(null)}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Custom override example */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Custom Override</h4>
+                  <ErrorState
+                    variant="inline"
+                    title="Wallet not connected"
+                    description="Connect your Freighter wallet to continue."
+                    actionLabel="Connect wallet"
+                    onAction={() => {}}
+                  />
+                </div>
+
               </Stack>
             </CardBody>
           </Card>

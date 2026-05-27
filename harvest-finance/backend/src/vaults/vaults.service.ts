@@ -7,7 +7,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Vault, VaultStatus } from '../database/entities/vault.entity';
 import { Deposit, DepositStatus } from '../database/entities/deposit.entity';
-import { Withdrawal, WithdrawalStatus } from '../database/entities/withdrawal.entity';
+import {
+  Withdrawal,
+  WithdrawalStatus,
+} from '../database/entities/withdrawal.entity';
 import { DepositDto } from './dto/deposit.dto';
 import {
   DepositVaultResponseDto,
@@ -18,6 +21,8 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../database/entities/notification.entity';
 import { CustomLoggerService } from '../logger/custom-logger.service';
 import { VaultGateway } from '../realtime/vault.gateway';
+import { ContractCacheService } from '../common/cache/contract-cache.service';
+import { InputSanitizerService } from '../common/sanitization/input-sanitizer.service';
 
 @Injectable()
 export class VaultsService {
@@ -32,58 +37,86 @@ export class VaultsService {
     private notificationsService: NotificationsService,
     private logger: CustomLoggerService,
     private vaultGateway: VaultGateway,
+    private contractCache: ContractCacheService,
+    private sanitizer: InputSanitizerService,
   ) {}
 
-  /**
-   * Get vault by ID with full details
-   */
   async getVaultById(vaultId: string): Promise<Vault> {
-    const vault = await this.vaultRepository.findOne({
-      where: { id: vaultId },
-      relations: ['deposits', 'owner'],
+    // Sanitize and validate vault ID
+    const sanitizedVaultId = this.sanitizer.validateUUID(vaultId);
+
+    // Use cache to reduce database queries
+    return this.contractCache.getVaultState(sanitizedVaultId, async () => {
+      const vault = await this.vaultRepository.findOne({
+        where: { id: sanitizedVaultId },
+        relations: ['deposits', 'owner'],
+      });
+
+      if (!vault) {
+        throw new NotFoundException('Vault not found');
+      }
+
+      return vault;
     });
-
-    if (!vault) {
-      throw new NotFoundException('Vault not found');
-    }
-
-    return vault;
   }
 
-  /**
-   * Process deposit into vault
-   */
   async depositToVault(
     vaultId: string,
     depositDto: DepositDto,
   ): Promise<DepositVaultResponseDto> {
-    const { userId, amount } = depositDto;
+    const { userId, amount, idempotencyKey } = depositDto;
 
-    // Validate amount
+    if (idempotencyKey) {
+      const existingDeposit = await this.depositRepository.findOne({
+        where: { idempotencyKey, userId },
+        relations: ['vault'],
+      });
+      if (existingDeposit) {
+        this.logger.log(
+          `Duplicate deposit detected with idempotencyKey: ${idempotencyKey}`,
+          'VaultsService',
+        );
+        const userTotalDeposits = await this.getUserTotalDeposits(userId);
+        return {
+          vault: existingDeposit.vault
+            ? this.mapVaultToResponse(existingDeposit.vault)
+            : null,
+          deposit: this.mapDepositToResponse(existingDeposit),
+          userTotalDeposits,
+        };
+      }
+    }
+
     if (amount <= 0) {
       throw new BadRequestException('Deposit amount must be greater than 0');
     }
 
-    // Get vault and validate
+    // Check for unreasonably large amounts that could cause overflow
+    const MAX_SAFE_DEPOSIT = 1e30; // Very large but safe number
+    if (amount > MAX_SAFE_DEPOSIT) {
+      throw new BadRequestException(
+        'Deposit amount exceeds maximum allowed value',
+      );
+    }
+
     const vault = await this.getVaultById(vaultId);
 
-    // Check vault status
     if (vault.status !== VaultStatus.ACTIVE) {
       throw new BadRequestException('Vault is not active for deposits');
     }
 
-    // Check vault capacity
     if (vault.isFullCapacity) {
       throw new BadRequestException('Vault has reached maximum capacity');
     }
 
+    // Verify if the requested deposit amount is within the available capacity of the vault.
+    // The available capacity is derived from the formula: availableCapacity = maxCapacity - totalDeposits.
     if (amount > vault.availableCapacity) {
       throw new BadRequestException(
         `Deposit amount exceeds available vault capacity. Available: ${vault.availableCapacity}`,
       );
     }
 
-    // Create deposit record
     const deposit = this.depositRepository.create({
       userId,
       vaultId,
@@ -92,17 +125,14 @@ export class VaultsService {
       transactionHash: null,
       stellarTransactionId: null,
       confirmedAt: null,
+      idempotencyKey: idempotencyKey || null,
     });
 
-    // Use transaction for atomic updates
     const result = await this.dataSource.transaction(async (manager) => {
-      // Save deposit
       const savedDeposit = await manager.save(deposit);
 
-      // Update vault total deposits
       await manager.increment(Vault, { id: vaultId }, 'totalDeposits', amount);
 
-      // Check if vault is now at full capacity
       const updatedVault = await manager.findOne(Vault, {
         where: { id: vaultId },
       });
@@ -111,24 +141,31 @@ export class VaultsService {
         await manager.update(
           Vault,
           { id: vaultId },
-          {
-            status: VaultStatus.FULL_CAPACITY,
-          },
+          { status: VaultStatus.FULL_CAPACITY },
         );
       }
 
       return { deposit: savedDeposit, vault: updatedVault };
     });
 
-    // Mock blockchain confirmation
+    if (amount >= 10000) {
+      await this.notificationsService.create({
+        title: 'Large Deposit Alert',
+        message: `A large deposit of ${amount} has been initiated for vault ${vault.vaultName}.`,
+        type: NotificationType.LARGE_TRANSACTION,
+        adminOnly: true,
+      });
+    }
+
     const confirmedDeposit = await this.confirmDeposit(result.deposit.id);
 
-    // Get user's total deposits
     const userTotalDeposits = await this.getUserTotalDeposits(userId);
 
-    this.logger.log(`Deposit of ${amount} confirmed into vault ${vaultId} by user ${userId}`, 'VaultsService');
+    this.logger.log(
+      `Deposit of ${amount} confirmed into vault ${vaultId} by user ${userId}`,
+      'VaultsService',
+    );
 
-    // Emit real-time event
     this.vaultGateway.emitDeposit({
       vaultId,
       vaultName: vault.vaultName,
@@ -145,9 +182,6 @@ export class VaultsService {
     };
   }
 
-  /**
-   * Confirm deposit (mock blockchain confirmation)
-   */
   private async confirmDeposit(depositId: string): Promise<Deposit> {
     const deposit = await this.depositRepository.findOne({
       where: { id: depositId },
@@ -182,9 +216,6 @@ export class VaultsService {
     return updatedDeposit;
   }
 
-  /**
-   * Get user's total deposits across all vaults
-   */
   async getUserTotalDeposits(userId: string): Promise<number> {
     const result = await this.depositRepository
       .createQueryBuilder('deposit')
@@ -196,9 +227,6 @@ export class VaultsService {
     return result?.total ? parseFloat(result.total) : 0;
   }
 
-  /**
-   * Get all vaults for a user
-   */
   async getUserVaults(userId: string): Promise<VaultResponseDto[]> {
     const vaults = await this.vaultRepository.find({
       where: { ownerId: userId },
@@ -209,9 +237,6 @@ export class VaultsService {
     return vaults.map((vault) => this.mapVaultToResponse(vault));
   }
 
-  /**
-   * Get all public vaults
-   */
   async getPublicVaults(): Promise<VaultResponseDto[]> {
     const vaults = await this.vaultRepository.find({
       where: { isPublic: true },
@@ -222,9 +247,19 @@ export class VaultsService {
     return vaults.map((vault) => this.mapVaultToResponse(vault));
   }
 
-  /**
-   * Map vault entity to response DTO
-   */
+  async getVaultsMetadata(): Promise<any[]> {
+    const vaults = await this.vaultRepository.find({
+      select: ['vaultName', 'symbol', 'assetPair'],
+      where: { isPublic: true },
+    });
+
+    return vaults.map((v) => ({
+      name: v.vaultName,
+      symbol: v.symbol,
+      assetPair: v.assetPair,
+    }));
+  }
+
   mapVaultToResponse(vault: Vault): VaultResponseDto {
     return {
       id: vault.id,
@@ -233,6 +268,8 @@ export class VaultsService {
       status: vault.status,
       vaultName: vault.vaultName,
       description: vault.description,
+      symbol: vault.symbol,
+      assetPair: vault.assetPair,
       totalDeposits: Number(vault.totalDeposits),
       maxCapacity: Number(vault.maxCapacity),
       availableCapacity: vault.availableCapacity,
@@ -246,9 +283,6 @@ export class VaultsService {
     };
   }
 
-  /**
-   * Process withdrawal from vault
-   */
   async withdrawFromVault(
     vaultId: string,
     userId: string,
@@ -274,13 +308,19 @@ export class VaultsService {
 
     const result = await this.dataSource.transaction(async (manager) => {
       const savedWithdrawal = await manager.save(withdrawal);
+
       await manager.decrement(Vault, { id: vaultId }, 'totalDeposits', amount);
+
       const updatedVault = await manager.findOne(Vault, {
         where: { id: vaultId },
       });
 
       if (updatedVault && updatedVault.status === VaultStatus.FULL_CAPACITY) {
-        await manager.update(Vault, { id: vaultId }, { status: VaultStatus.ACTIVE });
+        await manager.update(
+          Vault,
+          { id: vaultId },
+          { status: VaultStatus.ACTIVE },
+        );
         updatedVault.status = VaultStatus.ACTIVE;
       }
 
@@ -308,9 +348,11 @@ export class VaultsService {
       type: NotificationType.DEPOSIT,
     });
 
-    this.logger.log(`Withdrawal of ${amount} confirmed from vault ${vaultId} by user ${userId}`, 'VaultsService');
+    this.logger.log(
+      `Withdrawal of ${amount} confirmed from vault ${vaultId} by user ${userId}`,
+      'VaultsService',
+    );
 
-    // Emit real-time event
     this.vaultGateway.emitWithdrawal({
       vaultId,
       vaultName: vault.vaultName,
@@ -322,13 +364,12 @@ export class VaultsService {
 
     return {
       withdrawal: confirmedWithdrawal,
-      vault: result.vault ? this.mapVaultToResponse(result.vault) : this.mapVaultToResponse(vault),
+      vault: result.vault
+        ? this.mapVaultToResponse(result.vault)
+        : this.mapVaultToResponse(vault),
     };
   }
 
-  /**
-   * Map deposit entity to response DTO
-   */
   private mapDepositToResponse(deposit: Deposit): DepositResponseDto {
     return {
       id: deposit.id,
@@ -340,5 +381,48 @@ export class VaultsService {
       createdAt: deposit.createdAt,
       confirmedAt: deposit.confirmedAt,
     };
+  }
+
+  async getApyHistory(
+    vaultId?: string,
+    timeRange: string = '30d',
+  ): Promise<any[]> {
+    // Calculate date range
+    const now = new Date();
+    let daysBack = 30;
+
+    switch (timeRange) {
+      case '7d':
+        daysBack = 7;
+        break;
+      case '90d':
+        daysBack = 90;
+        break;
+      case 'all':
+        daysBack = 365; // Approximate 1 year
+        break;
+      default:
+        daysBack = 30;
+    }
+
+    const startDate = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
+
+    // For now, generate mock APY data
+    // In production, this would come from yield analytics data stored in database
+    const dataPoints: { date: string; apy: number; vaultId: string }[] = [];
+    for (let i = 0; i < daysBack; i++) {
+      const date = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
+      // Generate somewhat realistic APY data with some variation
+      const baseApy = 8 + Math.sin(i / 10) * 2 + Math.random() * 1;
+      const apy = Math.max(0, Math.min(15, baseApy));
+
+      dataPoints.push({
+        date: date.toISOString().split('T')[0],
+        apy: Math.round(apy * 100) / 100,
+        vaultId: vaultId || 'all',
+      });
+    }
+
+    return dataPoints;
   }
 }

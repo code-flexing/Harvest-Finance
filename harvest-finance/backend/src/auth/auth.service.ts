@@ -20,7 +20,17 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-import { AuthResponseDto, UserResponseDto, TokenResponseDto } from './dto/auth-response.dto';
+import {
+  AuthResponseDto,
+  UserResponseDto,
+  TokenResponseDto,
+} from './dto/auth-response.dto';
+import {
+  StellarChallengeDto,
+  StellarVerifyDto,
+  StellarAuthResponseDto,
+  StellarChallengeResponseDto,
+} from './dto/stellar-auth.dto';
 
 @Injectable()
 export class AuthService {
@@ -42,7 +52,8 @@ export class AuthService {
    * Register a new user
    */
   async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
-    const { email, password, role, full_name, phone_number, stellar_address } = registerDto;
+    const { email, password, role, full_name, phone_number, stellar_address } =
+      registerDto;
 
     // Check if user already exists
     const existingUser = await this.userRepository.findOne({
@@ -50,7 +61,10 @@ export class AuthService {
     });
 
     if (existingUser) {
-      this.logger.warn(`Failed registration attempt: Email already exists (${email})`, 'AuthService');
+      this.logger.warn(
+        `Failed registration attempt: Email already exists (${email})`,
+        'AuthService',
+      );
       throw new ConflictException('User with this email already exists');
     }
 
@@ -66,7 +80,7 @@ export class AuthService {
     const user = this.userRepository.create({
       email,
       password: hashedPassword,
-      role: role as UserRole,
+      role: role,
       firstName,
       lastName,
       phone: phone_number || null,
@@ -112,12 +126,18 @@ export class AuthService {
     });
 
     if (!user) {
-      this.logger.warn(`Failed login attempt for email: ${email}`, 'AuthService');
+      this.logger.warn(
+        `Failed login attempt for email: ${email}`,
+        'AuthService',
+      );
       throw new UnauthorizedException('Invalid credentials');
     }
 
     if (!user.isActive) {
-      this.logger.warn(`Login attempt for deactivated account: ${email}`, 'AuthService');
+      this.logger.warn(
+        `Login attempt for deactivated account: ${email}`,
+        'AuthService',
+      );
       throw new UnauthorizedException('Account is deactivated');
     }
 
@@ -125,7 +145,10 @@ export class AuthService {
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
-      this.logger.warn(`Failed login attempt for email (invalid password): ${email}`, 'AuthService');
+      this.logger.warn(
+        `Failed login attempt for email (invalid password): ${email}`,
+        'AuthService',
+      );
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -177,7 +200,8 @@ export class AuthService {
         {
           expiresIn: this.accessTokenExpiry,
           secret:
-            this.configService.get<string>('JWT_SECRET') || 'super_secret_jwt_key',
+            this.configService.get<string>('JWT_SECRET') ||
+            'super_secret_jwt_key',
         },
       );
 
@@ -194,7 +218,9 @@ export class AuthService {
     try {
       // Decode token to get expiration
       const payload = await this.jwtService.verifyAsync(token, {
-        secret: this.configService.get<string>('JWT_SECRET') || 'super_secret_jwt_key',
+        secret:
+          this.configService.get<string>('JWT_SECRET') ||
+          'super_secret_jwt_key',
       });
 
       // Calculate TTL (time to live) in seconds
@@ -246,7 +272,10 @@ export class AuthService {
 
     // In production, send email with reset token
     // For now, we'll log it
-    this.logger.log(`Password reset token for ${email}: ${resetToken}`, 'AuthService');
+    this.logger.log(
+      `Password reset token for ${email}: ${resetToken}`,
+      'AuthService',
+    );
 
     return {
       success: true,
@@ -274,7 +303,10 @@ export class AuthService {
     }
 
     // Verify reset token
-    const isTokenValid = await bcrypt.compare(token, user.resetPasswordToken || '');
+    const isTokenValid = await bcrypt.compare(
+      token,
+      user.resetPasswordToken || '',
+    );
 
     if (!isTokenValid) {
       throw new BadRequestException('Invalid or expired reset token');
@@ -325,7 +357,9 @@ export class AuthService {
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         expiresIn: this.accessTokenExpiry,
-        secret: this.configService.get<string>('JWT_SECRET') || 'super_secret_jwt_key',
+        secret:
+          this.configService.get<string>('JWT_SECRET') ||
+          'super_secret_jwt_key',
       }),
       this.jwtService.signAsync(payload, {
         expiresIn: this.refreshTokenExpiry,
@@ -337,7 +371,9 @@ export class AuthService {
 
     // Store refresh token in database
     const hashedRefreshToken = await bcrypt.hash(refreshToken, this.saltRounds);
-    await this.userRepository.update(user.id, { refreshToken: hashedRefreshToken });
+    await this.userRepository.update(user.id, {
+      refreshToken: hashedRefreshToken,
+    });
 
     return { accessToken, refreshToken };
   }
@@ -350,7 +386,8 @@ export class AuthService {
       id: user.id,
       email: user.email,
       role: user.role,
-      full_name: [user.firstName, user.lastName].filter(Boolean).join(' ') || '',
+      full_name:
+        [user.firstName, user.lastName].filter(Boolean).join(' ') || '',
       phone_number: user.phone,
       stellar_address: user.stellarAddress,
     };

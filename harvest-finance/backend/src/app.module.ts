@@ -5,49 +5,67 @@ import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AchievementsModule } from './achievements/achievements.module';
-import { AdminModule } from './admin/admin.module';
+import { GraphQLModule } from '@nestjs/graphql';
+import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { buildThrottlerOptions } from './common/config/throttler.config';
+import { CommonModule } from './common/common.module';
+import { RequestValidationMiddleware } from './common/middleware/request-validation.middleware';
 import { AuthModule } from './auth/auth.module';
-import { AiQueryHistoryModule } from './ai-query-history/ai-query-history.module';
 import { UsersModule } from './users/users.module';
 import { VaultsModule } from './vaults/vaults.module';
 import { FarmIntelligenceModule } from './farm-intelligence/farm-intelligence.module';
 import { ExportModule } from './export/export.module';
 import { FarmVaultsModule } from './farm-vaults/farm-vaults.module';
+import { HarvestModule } from './harvest/harvest.module';
 import { HealthModule } from './health/health.module';
 import { OrdersModule } from './orders/orders.module';
 import { VerificationModule } from './verification/verification.module';
 import { DatabaseModule } from './database/database.module';
-import { RewardsModule } from './rewards/rewards.module';
-import { NotificationsModule } from './notifications/notifications.module';
-import { RealtimeModule } from './realtime/realtime.module';
-import { LoggerModule } from './logger/logger.module';
 import { LoggerMiddleware } from './logger/logger.middleware';
+import { LoggerModule } from './logger/logger.module';
+import { MultiChainModule } from './multi-chain/multi-chain.module';
+import { PortfolioModule } from './portfolio/portfolio.module';
+import { RealtimeModule } from './realtime/realtime.module';
+import { SorobanModule } from './soroban/soroban.module';
+import { StellarModule } from './stellar/stellar.module';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { StateSyncModule } from './state-sync/state-sync.module';
+import { AchievementsModule } from './achievements/achievements.module';
+import { AdminModule } from './admin/admin.module';
 import { InsuranceModule } from './insurance/insurance.module';
-
+import { NotificationsModule } from './notifications/notifications.module';
+import { RewardsModule } from './rewards/rewards.module';
 import {
   Achievement,
   CreditScore,
-  CropCycle,
   Deposit,
   FarmVault,
   Notification,
   Order,
   Reward,
+  SorobanEvent,
   Transaction,
   User,
-  Verification,
   Vault,
   VaultDeposit,
+  Verification,
   Withdrawal,
-  InsurancePlan,
-  InsuranceSubscription,
+  YieldAnalytics,
 } from './database/entities';
-
+import { CommunityPost } from './database/entities/community-post.entity';
+import { CommunityComment } from './database/entities/community-comment.entity';
+import { PostReaction } from './database/entities/post-reaction.entity';
+import { CommunityGroup } from './database/entities/community-group.entity';
+import { GroupMembership } from './database/entities/group-membership.entity';
+import { CoopListing } from './database/entities/coop-listing.entity';
+import { CoopOrder } from './database/entities/coop-order.entity';
+import { CoopReview } from './database/entities/coop-review.entity';
+import { CropCycle } from './database/entities/crop-cycle.entity';
+import { InsurancePlan } from './database/entities/insurance-plan.entity';
+import { InsuranceSubscription } from './database/entities/insurance-subscription.entity';
 import { CreateInitialSchema1700000000000 } from './database/migrations/1700000000000-CreateInitialSchema';
-import { CreateVaultsAndDeposits1700000000003 } from './database/migrations/1700000000003-CreateVaultsAndDeposits';
 import { CreateAchievements1700000000004 } from './database/migrations/1700000000004-CreateAchievements';
 import { CreateRewards1700000000005 } from './database/migrations/1700000000005-CreateRewards';
 import { CreateNotifications1700000000006 } from './database/migrations/1700000000006-CreateNotifications';
@@ -55,19 +73,17 @@ import { CreateWithdrawals1700000000007 } from './database/migrations/1700000000
 import { CreateFarmVaults1700000000008 } from './database/migrations/1700000000008-CreateFarmVaults';
 import { CreateInsurance1700000000009 } from './database/migrations/1700000000009-CreateInsurance';
 import { AddInsuranceNotificationType1700000000010 } from './database/migrations/1700000000010-AddInsuranceNotificationType';
+import { CreateSorobanEvents1700000000011 } from './database/migrations/1700000000011-CreateSorobanEvents';
+import { CreateYieldAnalytics1700000000012 } from './database/migrations/1700000000012-CreateYieldAnalytics';
 
 @Module({
   imports: [
-    AiQueryHistoryModule,
-    ConfigModule.forRoot({
-      isGlobal: true,
+    ConfigModule.forRoot({ isGlobal: true }),
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: buildThrottlerOptions,
     }),
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60000,
-        limit: 100,
-      },
-    ]),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -84,6 +100,7 @@ import { AddInsuranceNotificationType1700000000010 } from './database/migrations
           Verification,
           CreditScore,
           Vault,
+          VaultDeposit,
           Deposit,
           Achievement,
           Reward,
@@ -93,11 +110,11 @@ import { AddInsuranceNotificationType1700000000010 } from './database/migrations
           FarmVault,
           InsurancePlan,
           InsuranceSubscription,
-          VaultDeposit,
+          SorobanEvent,
+          YieldAnalytics,
         ],
         migrations: [
           CreateInitialSchema1700000000000,
-          CreateVaultsAndDeposits1700000000003,
           CreateAchievements1700000000004,
           CreateRewards1700000000005,
           CreateNotifications1700000000006,
@@ -105,6 +122,8 @@ import { AddInsuranceNotificationType1700000000010 } from './database/migrations
           CreateFarmVaults1700000000008,
           CreateInsurance1700000000009,
           AddInsuranceNotificationType1700000000010,
+          CreateSorobanEvents1700000000011,
+          CreateYieldAnalytics1700000000012,
         ],
         synchronize: false,
         migrationsRun: false,
@@ -112,12 +131,14 @@ import { AddInsuranceNotificationType1700000000010 } from './database/migrations
       }),
       inject: [ConfigService],
     }),
-    CacheModule.register({
-      isGlobal: true,
-      ttl: 600,
-      max: 100,
+    GraphQLModule.forRoot<ApolloDriverConfig>({
+      driver: ApolloDriver,
+      autoSchemaFile: true,
+      playground: true,
     }),
+    CacheModule.register({ isGlobal: true, ttl: 600, max: 100 }),
     ScheduleModule.forRoot(),
+    CommonModule,
     AuthModule,
     UsersModule,
     VaultsModule,
@@ -132,9 +153,15 @@ import { AddInsuranceNotificationType1700000000010 } from './database/migrations
     AdminModule,
     ExportModule,
     FarmVaultsModule,
+    HarvestModule,
     InsuranceModule,
     RealtimeModule,
     LoggerModule,
+    StellarModule,
+    SorobanModule,
+    PortfolioModule,
+    AnalyticsModule,
+    StateSyncModule,
   ],
   controllers: [AppController],
   providers: [
@@ -147,6 +174,8 @@ import { AddInsuranceNotificationType1700000000010 } from './database/migrations
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(LoggerMiddleware).forRoutes('*');
+    consumer
+      .apply(RequestValidationMiddleware, LoggerMiddleware)
+      .forRoutes('*');
   }
 }

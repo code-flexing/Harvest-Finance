@@ -1,9 +1,11 @@
 import React from "react";
 import Link from "next/link";
+import { useTranslation } from "react-i18next";
 import { Container } from "@/components/ui";
 import { Leaf } from "lucide-react";
 
 export const Footer = () => {
+    const { t } = useTranslation();
     return (
         <footer className="bg-zinc-50 dark:bg-zinc-950 border-t border-zinc-200 dark:border-zinc-900 pt-16 pb-8">
             <Container size="lg">
@@ -19,8 +21,7 @@ export const Footer = () => {
                             </span>
                         </Link>
                         <p className="text-zinc-500 dark:text-zinc-400 text-sm leading-relaxed mb-6">
-                            Empowering the next generation of farmers with
-                            sustainable, transparent, and secure DeFi yields.
+                            {t('landing.footer.tagline')}
                         </p>
                         <div className="flex items-center gap-4 text-zinc-400">
                             <a
@@ -92,7 +93,7 @@ export const Footer = () => {
 
                     <div>
                         <h4 className="font-semibold text-zinc-900 dark:text-zinc-100 mb-4">
-                            Platform
+                            {t('landing.footer.platform')}
                         </h4>
                         <ul className="space-y-3 text-sm text-zinc-500 dark:text-zinc-400">
                             <li>
@@ -108,7 +109,7 @@ export const Footer = () => {
                                     href="/vaults"
                                     className="hover:text-green-600 transition-colors"
                                 >
-                                    Smart Vaults
+                                    {t('landing.footer.smart_vaults')}
                                 </Link>
                             </li>
                             <li>
@@ -116,7 +117,7 @@ export const Footer = () => {
                                     href="/staking"
                                     className="hover:text-green-600 transition-colors"
                                 >
-                                    Staking
+                                    {t('landing.footer.staking')}
                                 </Link>
                             </li>
                             <li>
@@ -124,7 +125,7 @@ export const Footer = () => {
                                     href="/rewards"
                                     className="hover:text-green-600 transition-colors"
                                 >
-                                    Rewards
+                                    {t('landing.footer.rewards')}
                                 </Link>
                             </li>
                         </ul>
@@ -132,7 +133,7 @@ export const Footer = () => {
 
                     <div>
                         <h4 className="font-semibold text-zinc-900 dark:text-zinc-100 mb-4">
-                            Resources
+                            {t('landing.footer.resources')}
                         </h4>
                         <ul className="space-y-3 text-sm text-zinc-500 dark:text-zinc-400">
                             <li>
@@ -140,7 +141,7 @@ export const Footer = () => {
                                     href="#"
                                     className="hover:text-green-600 transition-colors"
                                 >
-                                    Documentation
+                                    {t('landing.footer.documentation')}
                                 </a>
                             </li>
                             <li>
@@ -148,7 +149,7 @@ export const Footer = () => {
                                     href="#"
                                     className="hover:text-green-600 transition-colors"
                                 >
-                                    Security Audits
+                                    {t('landing.footer.security_audits')}
                                 </a>
                             </li>
                             <li>
@@ -156,7 +157,7 @@ export const Footer = () => {
                                     href="#"
                                     className="hover:text-green-600 transition-colors"
                                 >
-                                    Whitepaper
+                                    {t('landing.footer.whitepaper')}
                                 </a>
                             </li>
                             <li>
@@ -164,7 +165,7 @@ export const Footer = () => {
                                     href="#"
                                     className="hover:text-green-600 transition-colors"
                                 >
-                                    Help Center
+                                    {t('landing.footer.help_center')}
                                 </a>
                             </li>
                         </ul>
@@ -172,7 +173,7 @@ export const Footer = () => {
 
                     <div>
                         <h4 className="font-semibold text-zinc-900 dark:text-zinc-100 mb-4">
-                            Contact
+                            {t('landing.footer.contact')}
                         </h4>
                         <ul className="space-y-3 text-sm text-zinc-500 dark:text-zinc-400">
                             <li>
@@ -196,7 +197,7 @@ export const Footer = () => {
                                     href="#"
                                     className="hover:text-green-600 transition-colors"
                                 >
-                                    Partnerships
+                                    {t('landing.footer.partnerships')}
                                 </a>
                             </li>
                         </ul>
@@ -205,21 +206,20 @@ export const Footer = () => {
 
                 <div className="pt-8 border-t border-zinc-200 dark:border-zinc-900 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-zinc-500 dark:text-zinc-400">
                     <p>
-                        © {new Date().getFullYear()} Harvest Finance. All rights
-                        reserved.
+                        © {new Date().getFullYear()} Harvest Finance. {t('landing.footer.rights')}
                     </p>
                     <div className="flex gap-4">
                         <Link
                             href="/privacy"
                             className="hover:text-zinc-900 dark:hover:text-zinc-100"
                         >
-                            Privacy Policy
+                            {t('landing.footer.privacy_policy')}
                         </Link>
                         <Link
                             href="/terms"
                             className="hover:text-zinc-900 dark:hover:text-zinc-100"
                         >
-                            Terms of Service
+                            {t('landing.footer.terms_of_service')}
                         </Link>
                     </div>
                 </div>

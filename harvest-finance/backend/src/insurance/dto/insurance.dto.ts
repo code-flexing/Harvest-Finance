@@ -1,4 +1,12 @@
-import { IsString, IsNumber, IsPositive, IsUUID, IsOptional, Min, Max } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsPositive,
+  IsUUID,
+  IsOptional,
+  Min,
+  Max,
+} from 'class-validator';
 
 export class RiskAssessmentDto {
   @IsString()

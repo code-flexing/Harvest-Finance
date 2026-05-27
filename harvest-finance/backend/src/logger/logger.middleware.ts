@@ -6,22 +6,30 @@ import { CustomLoggerService } from './custom-logger.service';
 export class LoggerMiddleware implements NestMiddleware {
   constructor(private readonly logger: CustomLoggerService) {}
 
-  use(req: Request, res: Response, next: NextFunction) {
+  use(req: Request, res: Response, next: NextFunction): void {
     const { ip, method, originalUrl } = req;
-    const userAgent = req.get('user-agent') || '';
+    const userAgent = req.get('user-agent') ?? '';
     const startTime = Date.now();
 
     res.on('finish', () => {
       const { statusCode } = res;
-      const responseTime = Date.now() - startTime;
-      const message = `${method} ${originalUrl} ${statusCode} - ${responseTime}ms - ${userAgent} ${ip}`;
+      const durationMs = Date.now() - startTime;
+      const fields = {
+        msg: `${method} ${originalUrl} ${statusCode} ${durationMs}ms`,
+        method,
+        url: originalUrl,
+        statusCode,
+        durationMs,
+        userAgent,
+        ip,
+      };
 
       if (statusCode >= 500) {
-        this.logger.error(message, undefined, 'HTTP');
+        this.logger.error(fields, undefined, 'HTTP');
       } else if (statusCode >= 400) {
-        this.logger.warn(message, 'HTTP');
+        this.logger.warn(fields, 'HTTP');
       } else {
-        this.logger.log(message, 'HTTP');
+        this.logger.log(fields, 'HTTP');
       }
     });
 

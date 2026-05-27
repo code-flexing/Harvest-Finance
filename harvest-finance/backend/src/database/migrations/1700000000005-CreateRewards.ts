@@ -4,7 +4,9 @@ export class CreateRewards1700000000005 implements MigrationInterface {
   name = 'CreateRewards1700000000005';
 
   async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`CREATE TYPE "reward_status_enum" AS ENUM ('ACCRUING', 'CLAIMED')`);
+    await queryRunner.query(
+      `CREATE TYPE "reward_status_enum" AS ENUM ('ACCRUING', 'CLAIMED')`,
+    );
     await queryRunner.query(`
       CREATE TABLE "rewards" (
         "id" uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -20,9 +22,15 @@ export class CreateRewards1700000000005 implements MigrationInterface {
         CONSTRAINT "pk_rewards" PRIMARY KEY ("id")
       )
     `);
-    await queryRunner.query(`CREATE INDEX "idx_rewards_user" ON "rewards" ("user_id")`);
-    await queryRunner.query(`CREATE INDEX "idx_rewards_vault" ON "rewards" ("vault_id")`);
-    await queryRunner.query(`CREATE INDEX "idx_rewards_status" ON "rewards" ("status")`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_rewards_user" ON "rewards" ("user_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_rewards_vault" ON "rewards" ("vault_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_rewards_status" ON "rewards" ("status")`,
+    );
   }
 
   async down(queryRunner: QueryRunner): Promise<void> {

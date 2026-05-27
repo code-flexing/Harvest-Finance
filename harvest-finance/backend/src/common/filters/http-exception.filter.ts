@@ -8,6 +8,17 @@ import {
 import { Request, Response } from 'express';
 import { CustomLoggerService } from '../../logger/custom-logger.service';
 
+/**
+ * Global exception filter to catch all NestJS and unhandled exceptions.
+ * Formats all error responses into a consistent JSON structure:
+ * {
+ *   "statusCode": number,
+ *   "timestamp": "ISO 8601 string",
+ *   "path": "request url path",
+ *   "method": "HTTP method",
+ *   "message": "Error description or array of error details"
+ * }
+ */
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   constructor(private readonly logger: CustomLoggerService) {}

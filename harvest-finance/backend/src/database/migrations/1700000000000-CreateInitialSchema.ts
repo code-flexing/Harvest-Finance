@@ -1,15 +1,21 @@
-import { MigrationInterface, QueryRunner, Table, TableIndex, TableForeignKey } from 'typeorm';
+import {
+  MigrationInterface,
+  QueryRunner,
+  Table,
+  TableIndex,
+  TableForeignKey,
+} from 'typeorm';
 
 /**
  * Initial Database Schema Migration
- * 
+ *
  * Creates all core tables for the agricultural marketplace:
  * - users
  * - orders
  * - transactions
  * - verifications
  * - credit_scores
- * 
+ *
  * This migration includes:
  * - All primary keys (UUID)
  * - Foreign key constraints
@@ -674,8 +680,14 @@ export class CreateInitialSchema1700000000000 implements MigrationInterface {
    */
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Drop foreign keys
-    await queryRunner.dropForeignKey('credit_scores', 'fk_credit_scores_farmer');
-    await queryRunner.dropForeignKey('verifications', 'fk_verifications_inspector');
+    await queryRunner.dropForeignKey(
+      'credit_scores',
+      'fk_credit_scores_farmer',
+    );
+    await queryRunner.dropForeignKey(
+      'verifications',
+      'fk_verifications_inspector',
+    );
     await queryRunner.dropForeignKey('verifications', 'fk_verifications_order');
     await queryRunner.dropForeignKey('transactions', 'fk_transactions_order');
     await queryRunner.dropForeignKey('orders', 'fk_orders_buyer');

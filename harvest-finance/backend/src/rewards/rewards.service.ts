@@ -5,7 +5,11 @@ import { Deposit, DepositStatus } from '../database/entities/deposit.entity';
 import { Vault } from '../database/entities/vault.entity';
 import { Reward, RewardStatus } from '../database/entities/reward.entity';
 import { calculateDepositReward } from './utils/reward-calculator';
-import { UserRewardsResponseDto, VaultRewardSummaryDto, ClaimRewardsResponseDto } from './dto/reward-response.dto';
+import {
+  UserRewardsResponseDto,
+  VaultRewardSummaryDto,
+  ClaimRewardsResponseDto,
+} from './dto/reward-response.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../database/entities/notification.entity';
 import { VaultGateway } from '../realtime/vault.gateway';
@@ -36,7 +40,12 @@ export class RewardsService {
       // interestRate stored as decimal (e.g. 0.08 = 8% APY)
       const apy = Number(deposit.vault.interestRate) * 100;
       const depositDate = deposit.confirmedAt ?? deposit.createdAt;
-      const reward = calculateDepositReward(Number(deposit.amount), apy, depositDate, now);
+      const reward = calculateDepositReward(
+        Number(deposit.amount),
+        apy,
+        depositDate,
+        now,
+      );
 
       if (!vaultMap.has(vaultId)) {
         vaultMap.set(vaultId, {
@@ -49,17 +58,26 @@ export class RewardsService {
       }
 
       const summary = vaultMap.get(vaultId)!;
-      summary.totalDeposited = parseFloat((summary.totalDeposited + Number(deposit.amount)).toFixed(8));
-      summary.totalReward = parseFloat((summary.totalReward + reward).toFixed(8));
+      summary.totalDeposited = parseFloat(
+        (summary.totalDeposited + Number(deposit.amount)).toFixed(8),
+      );
+      summary.totalReward = parseFloat(
+        (summary.totalReward + reward).toFixed(8),
+      );
     }
 
     const byVault = Array.from(vaultMap.values());
-    const totalReward = parseFloat(byVault.reduce((s, v) => s + v.totalReward, 0).toFixed(8));
+    const totalReward = parseFloat(
+      byVault.reduce((s, v) => s + v.totalReward, 0).toFixed(8),
+    );
 
     return { userId, totalReward, byVault, calculatedAt: now.toISOString() };
   }
 
-  async claimRewards(userId: string, vaultId?: string): Promise<ClaimRewardsResponseDto> {
+  async claimRewards(
+    userId: string,
+    vaultId?: string,
+  ): Promise<ClaimRewardsResponseDto> {
     const rewardsData = await this.getUserRewards(userId);
 
     let claimedAmount: number;
@@ -67,7 +85,9 @@ export class RewardsService {
     let asset = '';
 
     if (vaultId) {
-      const vaultSummary = rewardsData.byVault.find((v) => v.vaultId === vaultId);
+      const vaultSummary = rewardsData.byVault.find(
+        (v) => v.vaultId === vaultId,
+      );
       if (!vaultSummary) {
         throw new NotFoundException('No rewards found for the specified vault');
       }

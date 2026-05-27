@@ -1,0 +1,6 @@
+# Compiler files
+cache/
+out/
+
+# Ignoring environment variables
+.env

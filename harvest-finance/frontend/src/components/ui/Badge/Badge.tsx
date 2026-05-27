@@ -47,32 +47,32 @@ const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
     // Variant-specific styles
     const variantStyles: Record<string, string> = {
       default: cn(
-        'bg-gray-100 text-gray-700',
-        'ring-gray-200/50'
+        'bg-gray-100 text-gray-700 ring-gray-200/50',
+        'dark:bg-gray-700 dark:text-gray-300 dark:ring-gray-600/50'
       ),
       primary: cn(
-        'bg-harvest-green-100 text-harvest-green-800',
-        'ring-harvest-green-200/50'
+        'bg-harvest-green-100 text-harvest-green-800 ring-harvest-green-200/50',
+        'dark:bg-harvest-green-900 dark:text-harvest-green-300 dark:ring-harvest-green-800/50'
       ),
       secondary: cn(
-        'bg-purple-100 text-purple-800',
-        'ring-purple-200/50'
+        'bg-purple-100 text-purple-800 ring-purple-200/50',
+        'dark:bg-purple-900 dark:text-purple-300 dark:ring-purple-800/50'
       ),
       success: cn(
-        'bg-emerald-100 text-emerald-800',
-        'ring-emerald-200/50'
+        'bg-emerald-100 text-emerald-800 ring-emerald-200/50',
+        'dark:bg-emerald-900 dark:text-emerald-300 dark:ring-emerald-800/50'
       ),
       warning: cn(
-        'bg-amber-100 text-amber-800',
-        'ring-amber-200/50'
+        'bg-amber-100 text-amber-800 ring-amber-200/50',
+        'dark:bg-amber-900 dark:text-amber-300 dark:ring-amber-800/50'
       ),
       error: cn(
-        'bg-red-100 text-red-800',
-        'ring-red-200/50'
+        'bg-red-100 text-red-800 ring-red-200/50',
+        'dark:bg-red-900 dark:text-red-300 dark:ring-red-800/50'
       ),
       info: cn(
-        'bg-blue-100 text-blue-800',
-        'ring-blue-200/50'
+        'bg-blue-100 text-blue-800 ring-blue-200/50',
+        'dark:bg-blue-900 dark:text-blue-300 dark:ring-blue-800/50'
       ),
     };
 

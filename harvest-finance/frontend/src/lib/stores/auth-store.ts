@@ -23,6 +23,7 @@ interface AuthState {
 interface AuthActions {
   login: (email: string, password: string) => Promise<void>;
   signup: (name: string, email: string, password: string, role: UserRole) => Promise<void>;
+  stellarLogin: (publicKey: string, walletType?: string) => Promise<void>;
   logout: () => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
   clearError: () => void;
@@ -125,6 +126,98 @@ export const useAuthStore = create<AuthStore>((set) => ({
     } finally {
       clearStorage();
       set({ user: null, token: null, isAuthenticated: false, error: null });
+    }
+  },
+
+  stellarLogin: async (publicKey, walletType = 'freighter') => {
+    set({ isLoading: true, error: null });
+    try {
+      // Step 1: Request challenge
+      const challengeResponse = await axios.post(`${API_BASE_URL}/auth/stellar/challenge`, {
+        public_key: publicKey,
+      });
+
+      const { transaction, network_passphrase } = challengeResponse.data;
+
+      // Step 2: Sign the transaction with the appropriate wallet
+      let signedTransaction: string;
+
+      switch (walletType) {
+        case 'freighter':
+          if (!window.freighter) {
+            throw new Error('Freighter wallet is not installed');
+          }
+          signedTransaction = await window.freighter.signTransaction(transaction);
+          break;
+
+        case 'metamask':
+          if (!window.ethereum) {
+            throw new Error('MetaMask is not installed');
+          }
+          if (!window.ethereum.isStellarSupported) {
+            throw new Error('MetaMask Stellar support is not enabled');
+          }
+          signedTransaction = await window.ethereum.request({
+            method: 'stellar_signTransaction',
+            params: { transaction, network_passphrase }
+          });
+          break;
+
+        case 'albedo':
+          signedTransaction = await new Promise((resolve, reject) => {
+            const popup = window.open(
+              `https://albedo.link/?action=sign&xdr=${encodeURIComponent(transaction)}`,
+              'albedo-sign',
+              'width=400,height=600'
+            );
+            
+            const messageHandler = (event: MessageEvent) => {
+              if (event.origin === 'https://albedo.link') {
+                if (event.data.signed_transaction_xdr) {
+                  resolve(event.data.signed_transaction_xdr);
+                } else if (event.data.error) {
+                  reject(new Error(event.data.error));
+                }
+                popup?.close();
+                window.removeEventListener('message', messageHandler);
+              }
+            };
+            
+            window.addEventListener('message', messageHandler);
+            
+            // Timeout after 5 minutes
+            setTimeout(() => {
+              popup?.close();
+              window.removeEventListener('message', messageHandler);
+              reject(new Error('Albedo signing timed out'));
+            }, 300000);
+          });
+          break;
+
+        default:
+          throw new Error('Unsupported wallet type');
+      }
+
+      // Step 3: Verify the signed transaction and get tokens
+      const verifyResponse = await axios.post(`${API_BASE_URL}/auth/stellar/verify`, {
+        transaction: signedTransaction,
+      });
+
+      const { access_token, user } = verifyResponse.data;
+      const normalizedUser = { 
+        id: user.id,
+        name: user.full_name,
+        email: user.email,
+        role: normalizeRole(user.role) 
+      } as User;
+      
+      saveToStorage(access_token, normalizedUser);
+      set({ user: normalizedUser, token: access_token, isAuthenticated: true, isLoading: false });
+    } catch (err: any) {
+      set({
+        isLoading: false,
+        error: err.response?.data?.message || err.message || 'Stellar authentication failed',
+      });
     }
   },
 

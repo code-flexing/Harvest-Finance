@@ -205,6 +205,7 @@ const Modal = forwardRef<HTMLDivElement, ModalProps>(
             ref={modalRef}
             className={cn(
               'relative w-full bg-white rounded-xl shadow-2xl',
+              'dark:bg-[#162a1a]',
               'transform transition-all duration-200',
               sizeStyles[size],
               animation !== 'none' && animation !== 'fade' && 'animate-modalScaleIn',
@@ -228,6 +229,7 @@ const Modal = forwardRef<HTMLDivElement, ModalProps>(
                   'p-1.5 rounded-lg text-gray-400',
                   'transition-colors duration-150',
                   'hover:bg-gray-100 hover:text-gray-600',
+                  'dark:text-gray-400 dark:hover:bg-[#1a3020] dark:hover:text-gray-200',
                   'focus:outline-none focus-visible:ring-2 focus-visible:ring-harvest-green-500'
                 )}
                 aria-label="Close modal"
@@ -265,7 +267,7 @@ const ModalHeader = forwardRef<HTMLDivElement, ModalHeaderProps>(
         ref={ref}
         className={cn(
           'px-6 pt-6 pb-4',
-          'border-b border-gray-100',
+          'border-b border-gray-100 dark:border-[rgba(141,187,85,0.15)]',
           className
         )}
         {...props}
@@ -273,7 +275,7 @@ const ModalHeader = forwardRef<HTMLDivElement, ModalHeaderProps>(
         <div className="flex items-start justify-between gap-4">
           <div>
             {title && (
-              <h2 className="text-xl font-semibold text-gray-900">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
                 {title}
               </h2>
             )}
@@ -287,6 +289,7 @@ const ModalHeader = forwardRef<HTMLDivElement, ModalHeaderProps>(
                 'p-1.5 rounded-lg text-gray-400',
                 'transition-colors duration-150',
                 'hover:bg-gray-100 hover:text-gray-600',
+                'dark:text-gray-400 dark:hover:bg-[#1a3020] dark:hover:text-gray-200',
                 'focus:outline-none focus-visible:ring-2 focus-visible:ring-harvest-green-500'
               )}
               aria-label="Close modal"
@@ -345,7 +348,7 @@ const ModalFooter = forwardRef<HTMLDivElement, ModalFooterProps>(
         className={cn(
           'px-6 pb-6 pt-4',
           'flex items-center justify-end gap-3',
-          divider && 'border-t border-gray-100 mt-4',
+          divider && 'border-t border-gray-100 dark:border-[rgba(141,187,85,0.15)] mt-4',
           className
         )}
         {...props}

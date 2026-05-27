@@ -1,0 +1,107 @@
+# Staging environment
+# Usage: IMAGE_TAG=<sha> docker compose -f docker-compose.staging.yml up -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - postgres_staging:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_staging:/data
+    networks:
+      - internal
+
+  backend:
+    image: ${REGISTRY:-ghcr.io}/harvest-finance-backend:${IMAGE_TAG:-staging}
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env.staging
+    environment:
+      NODE_ENV: staging
+      DB_HOST: postgres
+      REDIS_HOST: redis
+    networks:
+      - internal
+      - web
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3001/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 45s
+      retries: 3
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api-staging.rule=Host(`api-staging.harvestfinance.io`)"
+      - "traefik.http.routers.api-staging.tls.certresolver=letsencrypt"
+      - "traefik.http.services.api-staging.loadbalancer.server.port=3001"
+
+  frontend:
+    image: ${REGISTRY:-ghcr.io}/harvest-finance-frontend:${IMAGE_TAG:-staging}
+    restart: always
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_API_URL: https://api-staging.harvestfinance.io
+    networks:
+      - web
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 15s
+      retries: 3
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.app-staging.rule=Host(`staging.harvestfinance.io`)"
+      - "traefik.http.routers.app-staging.tls.certresolver=letsencrypt"
+      - "traefik.http.services.app-staging.loadbalancer.server.port=3000"
+
+  traefik:
+    image: traefik:v3
+    restart: always
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt:/letsencrypt
+    networks:
+      - web
+
+networks:
+  internal:
+    internal: true
+  web:
+
+volumes:
+  postgres_staging:
+  redis_staging:
+  letsencrypt:

@@ -21,7 +21,7 @@ export class VaultDeposit {
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @ManyToOne(() => Vault, vault => vault.deposits)
+  @ManyToOne(() => Vault, (vault) => vault.deposits)
   @JoinColumn({ name: 'vault_id' })
   vault: Vault;
 

@@ -2,15 +2,22 @@ import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User, UserRole } from '../entities/user.entity';
 import { Order, OrderStatus } from '../entities/order.entity';
-import { Transaction, TransactionStatus, TransactionType } from '../entities/transaction.entity';
-import { Verification, VerificationStatus } from '../entities/verification.entity';
+import {
+  Transaction,
+  TransactionStatus,
+  TransactionType,
+} from '../entities/transaction.entity';
+import {
+  Verification,
+  VerificationStatus,
+} from '../entities/verification.entity';
 import { CreditScore } from '../entities/credit-score.entity';
 import { CropCycle } from '../entities/crop-cycle.entity';
 import { FarmVault } from '../entities/farm-vault.entity';
 
 /**
  * Seed Data Configuration
- * 
+ *
  * This file contains sample data for testing and development purposes.
  * Run with: npm run seed
  */
@@ -24,7 +31,7 @@ export interface SeedConfig {
 
 /**
  * Generate seed data for the database
- * 
+ *
  * This function creates sample data for all entities:
  * - 3 Farmers
  * - 2 Buyers
@@ -34,7 +41,9 @@ export interface SeedConfig {
  * - Transactions and verifications
  * - Credit scores for farmers
  */
-export async function generateSeedData(dataSource: DataSource): Promise<SeedConfig> {
+export async function generateSeedData(
+  dataSource: DataSource,
+): Promise<SeedConfig> {
   const userRepository = dataSource.getRepository(User);
   const orderRepository = dataSource.getRepository(Order);
   const transactionRepository = dataSource.getRepository(Transaction);

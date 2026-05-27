@@ -57,3 +57,12 @@ export function getPasswordStrength(password: string): {
   const labels = ['Weak', 'Weak', 'Fair', 'Strong', 'Very Strong'];
   return { score, label: labels[score] };
 }
+
+// ─── Stellar Authentication Schema ───────────────────────────
+export const stellarAuthSchema = z.object({
+  public_key: z
+    .string()
+    .min(1, 'Stellar public key is required')
+    .regex(/^G[A-Z0-9]{55}$/, 'Invalid Stellar public key format'),
+});
+export type StellarAuthFormData = z.infer<typeof stellarAuthSchema>;

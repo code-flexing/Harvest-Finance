@@ -5,30 +5,32 @@ import { motion } from 'framer-motion';
 import { Card, CardHeader, CardBody, Badge } from '@/components/ui';
 import { PortfolioStats } from '@/lib/mock-data';
 import { Wallet, TrendingUp, Award } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface PortfolioOverviewProps {
   stats: PortfolioStats;
 }
 
 export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({ stats }) => {
+  const { t } = useTranslation();
   const cards = [
     {
-      title: 'Total Deposited',
+      title: t('portfolio.overview.total_deposited'),
       value: stats.totalDeposited,
       icon: <Wallet className="w-5 h-5 text-harvest-green-600" />,
-      subtitle: 'Assets in vaults',
+      subtitle: t('portfolio.overview.assets_in_vaults'),
     },
     {
-      title: 'Total Rewards',
+      title: t('portfolio.overview.total_rewards'),
       value: stats.totalRewards,
       icon: <Award className="w-5 h-5 text-harvest-green-600" />,
-      subtitle: 'Earned from yields',
+      subtitle: t('portfolio.overview.earned_yields'),
     },
     {
-      title: 'Portfolio Value',
+      title: t('portfolio.overview.portfolio_value'),
       value: stats.portfolioValue,
       icon: <TrendingUp className="w-5 h-5 text-harvest-green-600" />,
-      subtitle: 'Current total balance',
+      subtitle: t('portfolio.overview.current_balance'),
       trend: stats.change24h,
     },
   ];
@@ -50,7 +52,7 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({ stats }) =
             />
             <CardBody className="mt-4">
               <div className="flex items-baseline justify-between">
-                <span className="text-2xl font-bold text-gray-900">{card.value}</span>
+                <span className="text-2xl font-bold text-gray-900 dark:text-white">{card.value}</span>
                 {card.trend && (
                   <Badge variant="success" size="sm" isPill>
                     {card.trend}

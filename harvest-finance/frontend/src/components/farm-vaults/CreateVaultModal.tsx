@@ -13,10 +13,12 @@ import {
   Badge,
   Card,
   CardBody,
+  Tooltip,
   cn
 } from '@/components/ui';
-import { Sprout, Wheat, Coffee, Leaf, ChevronRight, Check } from 'lucide-react';
+import { Sprout, Wheat, Coffee, Leaf, ChevronRight, Check, Info } from 'lucide-react';
 import { useAuthStore } from '@/lib/stores/auth-store';
+import { getTermTooltip } from '@/lib/defi-terms';
 import axios from '@/lib/api-client';
 
 const iconMap: Record<string, any> = {
@@ -134,14 +136,14 @@ export function CreateVaultModal({ isOpen, onClose, onSuccess }: { isOpen: boole
               const Icon = iconMap[cycle.icon] || Sprout;
               const isSelected = selectedCycle?.id === cycle.id;
               return (
-                <div 
+                <div
                   key={cycle.id}
                   onClick={() => setSelectedCycle(cycle)}
                   className={cn(
                     "cursor-pointer rounded-xl border-2 p-4 transition-all relative overflow-hidden",
-                    isSelected 
-                      ? "border-harvest-green-600 bg-harvest-green-50 shadow-sm" 
-                      : "border-gray-100 bg-white hover:border-gray-200"
+                    isSelected
+                      ? "border-harvest-green-600 dark:border-harvest-green-500 bg-harvest-green-50 dark:bg-[rgba(74,222,128,0.08)] shadow-sm"
+                      : "border-gray-200 dark:border-[rgba(141,187,85,0.15)] bg-white dark:bg-[#1f3826] hover:border-harvest-green-300 dark:hover:border-[rgba(141,187,85,0.3)] hover:bg-harvest-green-50/40 dark:hover:bg-[rgba(74,222,128,0.05)]"
                   )}
                 >
                   {isSelected && (
@@ -149,12 +151,20 @@ export function CreateVaultModal({ isOpen, onClose, onSuccess }: { isOpen: boole
                       <Check className="w-3 h-3" />
                     </div>
                   )}
-                  <Icon className={cn("w-8 h-8 mb-3", isSelected ? "text-harvest-green-600" : "text-gray-400")} />
-                  <h4 className="font-bold text-gray-900 text-sm mb-1">{cycle.name}</h4>
-                  <p className="text-gray-500 text-[10px] leading-relaxed mb-3 line-clamp-2">{cycle.description}</p>
+                  <Icon className={cn("w-8 h-8 mb-3", isSelected ? "text-harvest-green-600 dark:text-harvest-green-400" : "text-gray-400 dark:text-gray-500")} />
+                  <h4 className="font-bold text-gray-900 dark:text-white text-sm mb-1">{cycle.name}</h4>
+                  <p className="text-gray-500 dark:text-gray-400 text-[10px] leading-relaxed mb-3 line-clamp-2">{cycle.description}</p>
                   <div className="flex items-center gap-2">
-                    <Badge variant="primary" size="sm">+{cycle.yieldRate}% APY</Badge>
-                    <span className="text-[10px] font-medium text-gray-400">{cycle.durationDays} Days</span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-harvest-green-100 dark:bg-[rgba(74,222,128,0.15)] text-harvest-green-800 dark:text-harvest-green-300">
+                      +{cycle.yieldRate}% APY
+                    </span>
+                    <Tooltip content={getTermTooltip('slippage')} position="top">
+                      <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500 cursor-help flex items-center gap-0.5">
+                        Slippage
+                        <Info className="w-2.5 h-2.5 opacity-60" />
+                      </span>
+                    </Tooltip>
+                    <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500">{cycle.durationDays} Days</span>
                   </div>
                 </div>
               );
@@ -162,13 +172,18 @@ export function CreateVaultModal({ isOpen, onClose, onSuccess }: { isOpen: boole
           </div>
         ) : (
           <Stack gap="lg">
-            <div className="bg-harvest-green-50 p-4 rounded-xl flex items-center gap-4 border border-harvest-green-100">
-              <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-harvest-green-600 shadow-sm">
+            <div className="bg-harvest-green-50 dark:bg-[rgba(74,222,128,0.08)] p-4 rounded-xl flex items-center gap-4 border border-harvest-green-100 dark:border-[rgba(74,222,128,0.2)]">
+              <div className="w-12 h-12 bg-white dark:bg-[#1a3020] rounded-lg flex items-center justify-center text-harvest-green-600 dark:text-harvest-green-400 shadow-sm">
                 {selectedCycle && React.createElement(iconMap[selectedCycle.icon] || Sprout, { className: "w-6 h-6" })}
               </div>
               <div>
-                <h4 className="font-bold text-harvest-green-900">{selectedCycle?.name}</h4>
-                <p className="text-harvest-green-700 text-xs">Expected Yield: +{selectedCycle?.yieldRate}%</p>
+                <h4 className="font-bold text-harvest-green-900 dark:text-harvest-green-100">{selectedCycle?.name}</h4>
+                <Tooltip content={getTermTooltip('yield')} position="top">
+                  <p className="text-harvest-green-700 dark:text-harvest-green-400 text-xs flex items-center gap-1 cursor-help">
+                    Expected Yield: +{selectedCycle?.yieldRate}%
+                    <Info className="w-3 h-3 opacity-60" />
+                  </p>
+                </Tooltip>
               </div>
             </div>
 
@@ -186,7 +201,7 @@ export function CreateVaultModal({ isOpen, onClose, onSuccess }: { isOpen: boole
                 value={targetAmount}
                 onChange={(e) => setTargetAmount(e.target.value)}
               />
-              <div className="p-3 bg-blue-50 text-blue-700 rounded-lg text-xs flex gap-3">
+              <div className="p-3 bg-harvest-green-50 dark:bg-[rgba(74,222,128,0.08)] text-harvest-green-800 dark:text-harvest-green-300 border border-harvest-green-100 dark:border-[rgba(74,222,128,0.15)] rounded-lg text-xs flex gap-3">
                 <div className="mt-0.5"><ChevronRight className="w-4 h-4" /></div>
                 <p>Establishing a clear goal helps you stay committed to your agricultural savings plan.</p>
               </div>

@@ -6,7 +6,10 @@ import {
   UpdateDateColumn,
   OneToMany,
 } from 'typeorm';
-import { VerificationStatus, DeliveryStatus } from '../enums/verification.enums';
+import {
+  VerificationStatus,
+  DeliveryStatus,
+} from '../enums/verification.enums';
 import { Verification } from './verification.entity';
 import { InspectorAssignment } from './inspector-assignment.entity';
 
@@ -52,10 +55,7 @@ export class Delivery {
   @OneToMany(() => Verification, (verification) => verification.delivery)
   verifications: Verification[];
 
-  @OneToMany(
-    () => InspectorAssignment,
-    (assignment) => assignment.delivery,
-  )
+  @OneToMany(() => InspectorAssignment, (assignment) => assignment.delivery)
   inspectorAssignments: InspectorAssignment[];
 
   @CreateDateColumn()

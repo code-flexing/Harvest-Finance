@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { AppStatusResponseDto } from './app/dto/app-status-response.dto';
 
 /**
  * Main application service
@@ -6,7 +7,7 @@ import { Injectable } from '@nestjs/common';
  */
 @Injectable()
 export class AppService {
-  getHello(): string {
-    return 'Hello World!';
+  getHello(): AppStatusResponseDto {
+    return { message: 'Hello World!' };
   }
 }

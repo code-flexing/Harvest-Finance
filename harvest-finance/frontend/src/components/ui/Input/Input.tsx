@@ -76,7 +76,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             htmlFor={inputId}
             className={cn(
               'block text-sm font-medium mb-1.5',
-              hasError ? 'text-red-600' : 'text-gray-700',
+              hasError ? 'text-red-600' : 'text-gray-700 dark:text-gray-200',
               isDisabled && 'opacity-50 cursor-not-allowed'
             )}
           >
@@ -127,6 +127,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
               // Base styles
               'w-full rounded-lg border bg-white',
               'text-gray-900 placeholder:text-gray-400',
+              'dark:bg-[#1a3020] dark:text-gray-100 dark:placeholder:text-gray-500',
               'transition-all duration-200 ease-out',
               'focus:outline-none focus:ring-2 focus:ring-offset-0',
 
@@ -140,13 +141,13 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
               // State styles
               hasError
                 ? 'border-red-500 focus:border-red-500 focus:ring-red-200'
-                : 'border-gray-300 hover:border-gray-400 focus:border-harvest-green-500 focus:ring-harvest-green-200',
+                : 'border-gray-300 hover:border-gray-400 focus:border-harvest-green-500 focus:ring-harvest-green-200 dark:border-[rgba(141,187,85,0.25)] dark:hover:border-[rgba(141,187,85,0.4)] dark:focus:border-harvest-green-500 dark:focus:ring-harvest-green-900',
 
               // Disabled styles
-              isDisabled && 'bg-gray-100 cursor-not-allowed text-gray-500',
+              isDisabled && 'bg-gray-100 cursor-not-allowed text-gray-500 dark:bg-[#162a1a] dark:text-gray-400',
 
               // Read-only styles
-              isReadOnly && 'bg-gray-50 cursor-default'
+              isReadOnly && 'bg-gray-50 cursor-default dark:bg-[#162a1a]'
             )}
             {...props}
           />
@@ -199,7 +200,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
 
         {/* Hint text */}
         {hint && !error && (
-          <p id={`${inputId}-hint`} className="mt-1.5 text-sm text-gray-500">
+          <p id={`${inputId}-hint`} className="mt-1.5 text-sm text-gray-500 dark:text-gray-400">
             {hint}
           </p>
         )}
@@ -248,7 +249,7 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
             htmlFor={textareaId}
             className={cn(
               'block text-sm font-medium mb-1.5',
-              hasError ? 'text-red-600' : 'text-gray-700',
+              hasError ? 'text-red-600' : 'text-gray-700 dark:text-gray-200',
               isDisabled && 'opacity-50 cursor-not-allowed'
             )}
           >
@@ -280,23 +281,24 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
             // Base styles
             'w-full rounded-lg border bg-white px-4 py-3',
             'text-gray-900 placeholder:text-gray-400',
+            'dark:bg-[#1a3020] dark:text-gray-100 dark:placeholder:text-gray-500',
             'transition-all duration-200 ease-out',
             'focus:outline-none focus:ring-2 focus:ring-offset-0 resize-y',
 
             // State styles
             hasError
               ? 'border-red-500 focus:border-red-500 focus:ring-red-200'
-              : 'border-gray-300 hover:border-gray-400 focus:border-harvest-green-500 focus:ring-harvest-green-200',
+              : 'border-gray-300 hover:border-gray-400 focus:border-harvest-green-500 focus:ring-harvest-green-200 dark:border-[rgba(141,187,85,0.25)] dark:hover:border-[rgba(141,187,85,0.4)] dark:focus:border-harvest-green-500 dark:focus:ring-harvest-green-900',
 
             // Disabled styles
-            isDisabled && 'bg-gray-100 cursor-not-allowed text-gray-500'
+            isDisabled && 'bg-gray-100 cursor-not-allowed text-gray-500 dark:bg-[#162a1a] dark:text-gray-400'
           )}
           {...props}
         />
 
         {/* Character count */}
         {showCount && maxLength && (
-          <div className="mt-1.5 text-sm text-gray-500 text-right">
+          <div className="mt-1.5 text-sm text-gray-500 dark:text-gray-400 text-right">
             {currentLength}/{maxLength}
           </div>
         )}
@@ -314,7 +316,7 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
 
         {/* Hint text */}
         {hint && !error && (
-          <p id={`${textareaId}-hint`} className="mt-1.5 text-sm text-gray-500">
+          <p id={`${textareaId}-hint`} className="mt-1.5 text-sm text-gray-500 dark:text-gray-400">
             {hint}
           </p>
         )}

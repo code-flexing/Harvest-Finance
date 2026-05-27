@@ -65,8 +65,12 @@ export class CreateInsurance1700000000009 implements MigrationInterface {
       )
     `);
 
-    await queryRunner.query(`CREATE INDEX "idx_ins_subs_user" ON "insurance_subscriptions" ("user_id")`);
-    await queryRunner.query(`CREATE INDEX "idx_ins_subs_plan" ON "insurance_subscriptions" ("plan_id")`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_ins_subs_user" ON "insurance_subscriptions" ("user_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_ins_subs_plan" ON "insurance_subscriptions" ("plan_id")`,
+    );
 
     // ── Seed default insurance plans ───────────────────────────────────────────
     await queryRunner.query(`
