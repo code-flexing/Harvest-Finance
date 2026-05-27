@@ -292,4 +292,37 @@ describe('VaultsService', () => {
       expect(result.length).toBe(365);
     });
   });
+
+  describe('getUserTotalDeposits — unit tests', () => {
+    it('should sum all confirmed deposits for a user', async () => {
+      const mockQB = {
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn().mockResolvedValue({ total: '1234.56' }),
+      };
+      mockDepositRepository.createQueryBuilder.mockReturnValue(mockQB);
+
+      const total = await service.getUserTotalDeposits('user-1');
+
+      expect(total).toBe(1234.56);
+      expect(mockQB.andWhere).toHaveBeenCalledWith('deposit.status = :status', {
+        status: DepositStatus.CONFIRMED,
+      });
+    });
+
+    it('should return 0 when repository returns null total', async () => {
+      const mockQB = {
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn().mockResolvedValue({ total: null }),
+      };
+      mockDepositRepository.createQueryBuilder.mockReturnValue(mockQB);
+
+      const total = await service.getUserTotalDeposits('user-2');
+
+      expect(total).toBe(0);
+    });
+  });
 });

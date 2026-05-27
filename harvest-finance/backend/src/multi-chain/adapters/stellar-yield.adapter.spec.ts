@@ -93,4 +93,36 @@ describe('StellarYieldAdapter', () => {
     expect(result[0].apr).toBeNull();
     expect(result[0].estimatedAnnualYield).toBeNull();
   });
+
+  it('returns [] when deposits query throws', async () => {
+    const badDeposits = ({
+      createQueryBuilder: () => ({
+        select: () => ({
+          addSelect: () => ({
+            where: () => ({
+              andWhere: () => ({
+                groupBy: () => ({
+                  getRawMany: () => Promise.reject(new Error('db failure')),
+                }),
+              }),
+            }),
+          }),
+        }),
+      }),
+    } as unknown) as Repository<Deposit>;
+
+    const adapter = new StellarYieldAdapter(badDeposits, buildVaults([]));
+    const result = await adapter.getYieldsForUser('user-error');
+    expect(result).toEqual([]);
+  });
+
+  it('returns [] when vaults.find throws', async () => {
+    const adapter = new StellarYieldAdapter(
+      buildDeposits([{ vaultId: 'v1', principal: '100' }]),
+      ({ find: () => Promise.reject(new Error('network')) } as unknown) as Repository<Vault>,
+    );
+
+    const result = await adapter.getYieldsForUser('user-2');
+    expect(result).toEqual([]);
+  });
 });
