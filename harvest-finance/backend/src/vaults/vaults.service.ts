@@ -24,6 +24,9 @@ import { VaultGateway } from '../realtime/vault.gateway';
 import { ContractCacheService } from '../common/cache/contract-cache.service';
 import { InputSanitizerService } from '../common/sanitization/input-sanitizer.service';
 
+const MAX_SAFE_DEPOSIT = 1e30;
+const LARGE_DEPOSIT_THRESHOLD = 10000;
+
 @Injectable()
 export class VaultsService {
   constructor(
@@ -91,8 +94,6 @@ export class VaultsService {
       throw new BadRequestException('Deposit amount must be greater than 0');
     }
 
-    // Check for unreasonably large amounts that could cause overflow
-    const MAX_SAFE_DEPOSIT = 1e30; // Very large but safe number
     if (amount > MAX_SAFE_DEPOSIT) {
       throw new BadRequestException(
         'Deposit amount exceeds maximum allowed value',
@@ -148,7 +149,7 @@ export class VaultsService {
       return { deposit: savedDeposit, vault: updatedVault };
     });
 
-    if (amount >= 10000) {
+    if (amount >= LARGE_DEPOSIT_THRESHOLD) {
       await this.notificationsService.create({
         title: 'Large Deposit Alert',
         message: `A large deposit of ${amount} has been initiated for vault ${vault.vaultName}.`,
