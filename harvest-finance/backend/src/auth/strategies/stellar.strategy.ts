@@ -17,6 +17,8 @@ export interface StellarPayload {
   exp?: number;
 }
 
+const DEFAULT_STELLAR_USER_ROLE = UserRole.FARMER;
+
 @Injectable()
 export class StellarStrategy extends PassportStrategy(
   PassportStrategyBase,
@@ -69,10 +71,11 @@ export class StellarStrategy extends PassportStrategy(
       // Validate client public key
       const clientKeypair = StellarSdk.Keypair.fromPublicKey(clientPublicKey);
 
-      // Create server account with invalid sequence number (0) to prevent execution
+      // TransactionBuilder increments the source account sequence; start at -1
+      // so the SEP-10 challenge transaction carries invalid sequence 0.
       const serverAccount = new StellarSdk.Account(
         this.serverKeypair.publicKey(),
-        '0',
+        '-1',
       );
 
       // Set time bounds (5 minutes from now)
@@ -140,16 +143,7 @@ export class StellarStrategy extends PassportStrategy(
       });
 
       if (!user) {
-        // Create new user for Stellar authentication
-        const newUser = new User();
-        newUser.stellarAddress = clientPublicKey;
-        newUser.email = '';
-        newUser.password = '';
-        newUser.role = UserRole.FARMER;
-        newUser.firstName = 'Stellar';
-        newUser.lastName = 'User';
-        newUser.isActive = true;
-        user = await this.userRepository.save(newUser);
+        user = await this.createStellarUser(clientPublicKey);
       } else if (!user.isActive) {
         throw new UnauthorizedException('User account is deactivated');
       }
@@ -182,8 +176,8 @@ export class StellarStrategy extends PassportStrategy(
       throw new UnauthorizedException('Invalid source account');
     }
 
-    // Check sequence number is 0 or 1 (SDK may normalize sequence), reject otherwise
-    if (transaction.sequence !== '0' && transaction.sequence !== '1') {
+    // Check sequence number is 0 (invalid)
+    if (transaction.sequence !== '0') {
       throw new UnauthorizedException('Invalid sequence number');
     }
 
@@ -261,6 +255,32 @@ export class StellarStrategy extends PassportStrategy(
       nonce[i] = Math.floor(Math.random() * 256);
     }
     return Buffer.from(nonce).toString('hex');
+  }
+
+  private async createStellarUser(clientPublicKey: string): Promise<User> {
+    const user = this.userRepository.create({
+      stellarAddress: clientPublicKey,
+      email: '',
+      password: '',
+      role: this.resolveDefaultRole(),
+      firstName: 'Stellar',
+      lastName: 'User',
+      isActive: true,
+    });
+
+    this.assertValidRole(user.role);
+
+    return this.userRepository.save(user);
+  }
+
+  private resolveDefaultRole(): UserRole {
+    return DEFAULT_STELLAR_USER_ROLE;
+  }
+
+  private assertValidRole(role: UserRole): void {
+    if (!Object.values(UserRole).includes(role)) {
+      throw new Error(`Invalid default Stellar user role: ${role}`);
+    }
   }
 
   /**

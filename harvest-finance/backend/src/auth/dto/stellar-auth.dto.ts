@@ -108,7 +108,7 @@ export class StellarAuthResponseDto {
       id: 'uuid-string',
       stellar_address:
         'GC5X3FML4S25HDAMJYZJYAC3CKLDWV2Z6YPV3IZXOSHSQKNSKUNQFXQN',
-      role: 'USER',
+      role: 'FARMER',
       full_name: 'Stellar User',
     },
   })

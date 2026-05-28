@@ -75,6 +75,7 @@ import { CreateInsurance1700000000009 } from './database/migrations/170000000000
 import { AddInsuranceNotificationType1700000000010 } from './database/migrations/1700000000010-AddInsuranceNotificationType';
 import { CreateSorobanEvents1700000000011 } from './database/migrations/1700000000011-CreateSorobanEvents';
 import { CreateYieldAnalytics1700000000012 } from './database/migrations/1700000000012-CreateYieldAnalytics';
+import { AddSorobanEventQueryIndexes1700000000013 } from './database/migrations/1700000000013-AddSorobanEventQueryIndexes';
 
 @Module({
   imports: [
@@ -124,6 +125,7 @@ import { CreateYieldAnalytics1700000000012 } from './database/migrations/1700000
           AddInsuranceNotificationType1700000000010,
           CreateSorobanEvents1700000000011,
           CreateYieldAnalytics1700000000012,
+          AddSorobanEventQueryIndexes1700000000013,
         ],
         synchronize: false,
         migrationsRun: false,

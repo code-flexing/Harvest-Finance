@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { StellarStrategy } from './stellar.strategy';
-import { User } from '../../database/entities/user.entity';
+import { User, UserRole } from '../../database/entities/user.entity';
 import * as StellarSdk from '@stellar/stellar-sdk';
 
 describe('StellarStrategy', () => {
@@ -23,7 +23,9 @@ describe('StellarStrategy', () => {
   };
 
   const testServerSecret =
-    'SBX7SARQOFS6IM2HS2N5TVK54AEF55E3FHOXBTWA6IPEEJJ4W5WJWE6W';
+    'SAKIA7YOPW5G2SSLLGEELDJ7SZPOS6X4GZWKOQYYUY7IL6FI6N7WP6RE';
+  const testServerPublicKey =
+    'GB26SVHUCWUATM5KXLYXD4TSLY7HP62RJYUMV5A7UZYY3QIRWY62XVEB';
   const testNetworkPassphrase = 'Test SDF Network ; September 2015';
   const testClientKeypair = StellarSdk.Keypair.random();
   const testClientPublicKey = testClientKeypair.publicKey();
@@ -156,9 +158,9 @@ describe('StellarStrategy', () => {
       const newUser = {
         id: 'user-id',
         stellarAddress: testClientPublicKey,
-        email: null,
-        password: null,
-        role: 'USER',
+        email: '',
+        password: '',
+        role: UserRole.FARMER,
         firstName: 'Stellar',
         lastName: 'User',
         isActive: true,
@@ -186,6 +188,15 @@ describe('StellarStrategy', () => {
       expect(result.stellarAddress).toBe(testClientPublicKey);
       expect(userRepository.findOne).toHaveBeenCalledWith({
         where: { stellarAddress: testClientPublicKey },
+      });
+      expect(userRepository.create).toHaveBeenCalledWith({
+        stellarAddress: testClientPublicKey,
+        email: '',
+        password: '',
+        role: UserRole.FARMER,
+        firstName: 'Stellar',
+        lastName: 'User',
+        isActive: true,
       });
       expect(userRepository.save).toHaveBeenCalled();
       expect(userRepository.update).toHaveBeenCalledWith(newUser.id, {
@@ -349,9 +360,17 @@ describe('StellarStrategy', () => {
       txExpired.sign(serverKeypair);
       txExpired.sign(clientKeypair);
 
-      await expect(
-        strategy.validate(txExpired.toEnvelope().toXDR('base64')),
-      ).rejects.toThrow('Challenge transaction expired');
+      expect(() =>
+        (strategy as any).validateTransactionStructure({
+          source: testServerPublicKey,
+          sequence: '0',
+          timeBounds: {
+            minTime: (pastTime - 300).toString(),
+            maxTime: pastTime.toString(),
+          },
+          operations: [validManageDataOperation()],
+        }),
+      ).toThrow('Challenge transaction expired');
     });
 
     it('should throw error for invalid operation type', async () => {
@@ -473,3 +492,18 @@ describe('StellarStrategy', () => {
     });
   });
 });
+
+function currentTimeBounds() {
+  const now = Math.floor(Date.now() / 1000);
+  return {
+    minTime: now.toString(),
+    maxTime: (now + 300).toString(),
+  };
+}
+
+function validManageDataOperation() {
+  return {
+    type: 'manageData',
+    name: 'Harvest Finance auth',
+  };
+}

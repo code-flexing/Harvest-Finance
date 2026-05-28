@@ -5,7 +5,7 @@ import { Repository } from 'typeorm';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { StellarStrategy } from './strategies/stellar.strategy';
-import { User } from '../database/entities/user.entity';
+import { User, UserRole } from '../database/entities/user.entity';
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { StellarChallengeDto, StellarVerifyDto } from './dto/stellar-auth.dto';
 
@@ -16,12 +16,12 @@ describe('Stellar Authentication Integration', () => {
   let userRepository: jest.Mocked<Repository<User>>;
 
   const testServerSecret =
-    'SBX7SARQOFS6IM2HS2N5TVK54AEF55E3FHOXBTWA6IPEEJJ4W5WJWE6W';
+    'SAKIA7YOPW5G2SSLLGEELDJ7SZPOS6X4GZWKOQYYUY7IL6FI6N7WP6RE';
   const testNetworkPassphrase = 'Test SDF Network ; September 2015';
   const testClientSecret =
-    'SCZANGBAZEY5BOOEO6SCKZ3SPNGE6US4QOANF3XRGA4Q2BMVIQZB4H7Q';
+    'SCZW6PF5EUSR6FCFKRMPB52HHOI5BQXN256AUG356GTNJXHQAC5ALT6D';
   const testClientPublicKey =
-    'GD5DJQDQKG6GSUWQJQGQKQ5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q';
+    'GASVN2GNYP2DZCASZ6MOPS3RO26UIT6ZKH4ORN2FKTIQFD5P5OUKJPFW';
 
   beforeAll(async () => {
     const mockConfigService = {
@@ -130,9 +130,9 @@ describe('Stellar Authentication Integration', () => {
       const newUser = {
         id: 'new-user-id',
         stellarAddress: testClientPublicKey,
-        email: null,
-        password: null,
-        role: 'USER',
+        email: '',
+        password: '',
+        role: UserRole.FARMER,
         firstName: 'Stellar',
         lastName: 'User',
         isActive: true,
@@ -160,7 +160,7 @@ describe('Stellar Authentication Integration', () => {
       );
       expect(authResponse).toHaveProperty('user');
       expect(authResponse.user.stellar_address).toBe(testClientPublicKey);
-      expect(authResponse.user.role).toBe('USER');
+      expect(authResponse.user.role).toBe(UserRole.FARMER);
       expect(authResponse.user.full_name).toBe('Stellar User');
 
       // Verify user was created
@@ -169,9 +169,9 @@ describe('Stellar Authentication Integration', () => {
       });
       expect(userRepository.create).toHaveBeenCalledWith({
         stellarAddress: testClientPublicKey,
-        email: null,
-        password: null,
-        role: 'USER',
+        email: '',
+        password: '',
+        role: UserRole.FARMER,
         firstName: 'Stellar',
         lastName: 'User',
         isActive: true,

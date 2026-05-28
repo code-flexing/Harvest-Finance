@@ -192,11 +192,13 @@ export class VaultsService {
       throw new NotFoundException('Deposit not found');
     }
 
+    const stellarTransactionId: string | null = `mock_stellar_${Date.now()}`;
+
     await this.depositRepository.update(depositId, {
       status: DepositStatus.CONFIRMED,
       confirmedAt: new Date(),
       transactionHash: `mock_tx_${Date.now()}`,
-      stellarTransactionId: `mock_stellar_${Date.now()}`,
+      ...(stellarTransactionId != null ? { stellarTransactionId } : {}),
     });
 
     const updatedDeposit = await this.depositRepository.findOne({
