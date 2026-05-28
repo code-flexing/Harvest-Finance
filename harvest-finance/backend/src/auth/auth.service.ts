@@ -8,7 +8,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, MoreThan } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
@@ -291,12 +291,24 @@ export class AuthService {
   ): Promise<{ success: boolean; message: string }> {
     const { token, new_password } = resetPasswordDto;
 
-    // Find user with valid reset token
-    const user = await this.userRepository.findOne({
+    // Find users with active reset tokens
+    const activeUsers = await this.userRepository.find({
       where: {
-        resetPasswordExpires: new Date(),
+        resetPasswordExpires: MoreThan(new Date()),
       },
+      select: ['id', 'password', 'resetPasswordToken', 'resetPasswordExpires'],
     });
+
+    let user = null;
+    for (const u of activeUsers) {
+      if (
+        u.resetPasswordToken &&
+        (await bcrypt.compare(token, u.resetPasswordToken))
+      ) {
+        user = u;
+        break;
+      }
+    }
 
     if (!user) {
       throw new BadRequestException('Invalid or expired reset token');

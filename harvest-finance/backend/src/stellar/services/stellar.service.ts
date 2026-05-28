@@ -1129,4 +1129,13 @@ export class StellarService implements OnModuleInit {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         const response = await this.server.submitTransaction(transaction);
-        if
+        return response;
+      } catch (error) {
+        lastError = error as Error;
+        if (attempt === maxRetries) break;
+        await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+      }
+    }
+    throw lastError;
+  }
+}
