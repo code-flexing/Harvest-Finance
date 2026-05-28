@@ -27,6 +27,7 @@ export class OrdersService {
       cropType: dto.cropType,
       quantity: dto.quantity,
       price: dto.price,
+      assetCode: dto.assetCode ?? 'XLM',
     });
     return order;
   }
@@ -89,7 +90,7 @@ export class OrdersService {
       orderId,
       farmerPublicKey,
       amount: upfrontAmount,
-      assetCode: 'XLM', // TODO: support other assets if needed
+      assetCode: order.assetCode ?? 'XLM',
     });
     // Update order status and record tx
     order.status = OrderStatus.ACCEPTED;

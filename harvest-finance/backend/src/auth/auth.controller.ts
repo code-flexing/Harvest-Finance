@@ -22,7 +22,7 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-import { AuthResponseDto, TokenResponseDto } from './dto/auth-response.dto';
+import { AuthResponseDto, LogoutResponseDto, TokenResponseDto } from './dto/auth-response.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RateLimit } from '../common/decorators/rate-limit.decorator';
 import { RateLimitGuard } from '../common/guards/rate-limit.guard';
@@ -124,10 +124,11 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'Logged out successfully',
+    type: LogoutResponseDto,
   })
   async logout(
     @Req() req: Request,
-  ): Promise<{ success: boolean; message: string }> {
+  ): Promise<LogoutResponseDto> {
     const token = (req as any).headers.authorization?.replace('Bearer ', '');
     return this.authService.logout(token);
   }
