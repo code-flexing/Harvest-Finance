@@ -5,7 +5,10 @@ import { Order } from './entities/order.entity';
 import { Transaction } from './entities/transaction.entity';
 import { Verification } from './entities/verification.entity';
 import { CreditScore } from './entities/credit-score.entity';
+import { SorobanEvent } from './entities/soroban-event.entity';
 import { CreateInitialSchema1700000000000 } from './migrations/1700000000000-CreateInitialSchema';
+import { CreateSorobanEvents1700000000011 } from './migrations/1700000000011-CreateSorobanEvents';
+import { AddSorobanEventQueryIndexes1700000000013 } from './migrations/1700000000013-AddSorobanEventQueryIndexes';
 
 // Load environment variables
 config();
@@ -26,8 +29,12 @@ const options: DataSourceOptions = {
   username: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'password',
   database: process.env.DB_NAME || 'harvest_finance',
-  entities: [User, Order, Transaction, Verification, CreditScore],
-  migrations: [CreateInitialSchema1700000000000],
+  entities: [User, Order, Transaction, Verification, CreditScore, SorobanEvent],
+  migrations: [
+    CreateInitialSchema1700000000000,
+    CreateSorobanEvents1700000000011,
+    AddSorobanEventQueryIndexes1700000000013,
+  ],
   synchronize: false,
   logging: process.env.NODE_ENV === 'development',
 };

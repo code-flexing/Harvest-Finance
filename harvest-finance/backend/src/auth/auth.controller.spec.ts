@@ -237,7 +237,7 @@ describe('AuthController', () => {
           id: 'stellar-user-id',
           stellarAddress:
             'GD5DJQDQKG6GSUWQJQGQKQ5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q',
-          role: 'USER',
+          role: UserRole.FARMER,
           firstName: 'Stellar',
           lastName: 'User',
         };
@@ -257,7 +257,7 @@ describe('AuthController', () => {
             id: 'stellar-user-id',
             stellar_address:
               'GD5DJQDQKG6GSUWQJQGQKQ5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q',
-            role: 'USER',
+            role: UserRole.FARMER,
             full_name: 'Stellar User',
           },
         });

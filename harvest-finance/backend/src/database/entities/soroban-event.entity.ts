@@ -14,9 +14,16 @@ export enum SorobanEventType {
 
 @Entity('soroban_events')
 @Index('idx_soroban_events_contract', ['contractId'])
+@Index('idx_soroban_events_type', ['type'])
 @Index('idx_soroban_events_ledger', ['ledger'])
 @Index('idx_soroban_events_event_id', ['eventId'], { unique: true })
 @Index('idx_soroban_events_tx', ['transactionHash'])
+@Index('idx_soroban_events_query', [
+  'contractId',
+  'type',
+  'ledger',
+  'pagingToken',
+])
 export class SorobanEvent {
   @PrimaryGeneratedColumn('uuid')
   id: string;
