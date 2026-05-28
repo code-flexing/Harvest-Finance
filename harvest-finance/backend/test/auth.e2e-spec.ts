@@ -2,7 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
-import { UserRole } from '../src/database/entities/user.entity';
+import { User, UserRole } from '../src/database/entities/user.entity';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import * as bcrypt from 'bcrypt';
 
 describe('AuthController (e2e)', () => {
   let app: INestApplication;
@@ -199,6 +201,101 @@ describe('AuthController (e2e)', () => {
         .expect(200);
 
       expect(response.body).toHaveProperty('success', true);
+    });
+  });
+
+  describe('/api/v1/auth/reset-password (POST)', () => {
+    let userRepository;
+    const plaintextToken = 'valid-test-token-12345';
+    const expiredToken = 'expired-test-token-12345';
+    const testUserEmail = `reset_user_${Date.now()}@example.com`;
+    const expiredUserEmail = `expired_user_${Date.now()}@example.com`;
+
+    beforeAll(async () => {
+      userRepository = app.get(getRepositoryToken(User));
+
+      // Create a user with a valid reset token
+      const hashedValidToken = await bcrypt.hash(plaintextToken, 10);
+      const validUser = userRepository.create({
+        email: testUserEmail,
+        password: await bcrypt.hash('OldPassword123!', 10),
+        role: UserRole.FARMER,
+        firstName: 'Reset',
+        lastName: 'User',
+        isActive: true,
+        resetPasswordToken: hashedValidToken,
+        resetPasswordExpires: new Date(Date.now() + 3600000), // 1 hour in future
+      });
+      await userRepository.save(validUser);
+
+      // Create a user with an expired reset token
+      const hashedExpiredToken = await bcrypt.hash(expiredToken, 10);
+      const expiredUser = userRepository.create({
+        email: expiredUserEmail,
+        password: await bcrypt.hash('OldPassword123!', 10),
+        role: UserRole.FARMER,
+        firstName: 'Expired',
+        lastName: 'User',
+        isActive: true,
+        resetPasswordToken: hashedExpiredToken,
+        resetPasswordExpires: new Date(Date.now() - 3600000), // 1 hour in past
+      });
+      await userRepository.save(expiredUser);
+    });
+
+    it('should reject invalid signature (invalid token)', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/auth/reset-password')
+        .send({
+          token: 'invalid-token-signature',
+          new_password: 'NewSecurePass123!',
+        })
+        .expect(400); // BadRequestException
+    });
+
+    it('should reject expired token', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/auth/reset-password')
+        .send({
+          token: expiredToken,
+          new_password: 'NewSecurePass123!',
+        })
+        .expect(400); // BadRequestException
+    });
+
+    it('should successfully reset password (happy path)', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/auth/reset-password')
+        .send({
+          token: plaintextToken,
+          new_password: 'NewSecurePass123!',
+        })
+        .expect(201); // Created by default for POST unless overridden
+
+      expect(response.body).toHaveProperty('success', true);
+
+      // Verify the user can login with the new password
+      const loginResponse = await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({
+          email: testUserEmail,
+          password: 'NewSecurePass123!',
+        })
+        .expect(200);
+        
+      expect(loginResponse.body).toHaveProperty('access_token');
+    });
+
+    it('should reject reused token', async () => {
+      // Trying to reset again with the same token should fail
+      // because the token was cleared in the happy path
+      await request(app.getHttpServer())
+        .post('/api/v1/auth/reset-password')
+        .send({
+          token: plaintextToken,
+          new_password: 'AnotherPassword123!',
+        })
+        .expect(400);
     });
   });
 });
