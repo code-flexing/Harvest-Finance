@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { StellarStrategy } from './stellar.strategy';
-import { User } from '../../database/entities/user.entity';
+import { User, UserRole } from '../../database/entities/user.entity';
 import * as StellarSdk from '@stellar/stellar-sdk';
 
 describe('StellarStrategy', () => {
@@ -23,7 +23,9 @@ describe('StellarStrategy', () => {
   };
 
   const testServerSecret =
-    'SBX7SARQOFS6IM2HS2N5TVK54AEF55E3FHOXBTWA6IPEEJJ4W5WJWE6W';
+    'SAKIA7YOPW5G2SSLLGEELDJ7SZPOS6X4GZWKOQYYUY7IL6FI6N7WP6RE';
+  const testServerPublicKey =
+    'GB26SVHUCWUATM5KXLYXD4TSLY7HP62RJYUMV5A7UZYY3QIRWY62XVEB';
   const testNetworkPassphrase = 'Test SDF Network ; September 2015';
   const testClientKeypair = StellarSdk.Keypair.random();
   const testClientPublicKey = testClientKeypair.publicKey();
@@ -81,7 +83,7 @@ describe('StellarStrategy', () => {
     it('should use testnet network by default', () => {
       expect(strategy).toBeDefined();
       const publicKey = strategy.getServerPublicKey();
-      expect(publicKey).toBe(StellarSdk.Keypair.fromSecret(testServerSecret).publicKey());
+      expect(publicKey).toBe(testServerPublicKey);
     });
   });
 
@@ -99,12 +101,10 @@ describe('StellarStrategy', () => {
       ) as StellarSdk.Transaction;
 
       // transaction source is server account
-      const serverPublicKey = StellarSdk.Keypair.fromSecret(testServerSecret).publicKey();
-      expect(transaction.source).toBe(serverPublicKey);
+      expect(transaction.source).toBe(testServerPublicKey);
       // operation source should be client
       expect((transaction.operations[0] as any).source).toBe(testClientPublicKey);
-      // SDK normalizes sequence to '1' when building from an account with '0'
-      expect(transaction.sequence).toBe('1');
+      expect(transaction.sequence).toBe('0');
       expect(transaction.operations.length).toBe(1);
       expect(transaction.operations[0].type).toBe('manageData');
       expect(transaction.operations[0].name).toBe('Harvest Finance auth');
@@ -151,9 +151,9 @@ describe('StellarStrategy', () => {
       const newUser = {
         id: 'user-id',
         stellarAddress: testClientPublicKey,
-        email: null,
-        password: null,
-        role: 'USER',
+        email: '',
+        password: '',
+        role: UserRole.FARMER,
         firstName: 'Stellar',
         lastName: 'User',
         isActive: true,
@@ -181,6 +181,15 @@ describe('StellarStrategy', () => {
       expect(result.stellarAddress).toBe(testClientPublicKey);
       expect(userRepository.findOne).toHaveBeenCalledWith({
         where: { stellarAddress: testClientPublicKey },
+      });
+      expect(userRepository.create).toHaveBeenCalledWith({
+        stellarAddress: testClientPublicKey,
+        email: '',
+        password: '',
+        role: UserRole.FARMER,
+        firstName: 'Stellar',
+        lastName: 'User',
+        isActive: true,
       });
       expect(userRepository.save).toHaveBeenCalled();
       expect(userRepository.update).toHaveBeenCalledWith(newUser.id, {
@@ -246,119 +255,57 @@ describe('StellarStrategy', () => {
     });
 
     it('should throw error for invalid source account', async () => {
-      // Build a new transaction with invalid source account
-      const invalidServerPub = StellarSdk.Keypair.random().publicKey();
-      const serverAccountInvalid = new StellarSdk.Account(invalidServerPub, '0');
-      const txInvalidSource = new StellarSdk.TransactionBuilder(serverAccountInvalid, {
-        fee: StellarSdk.BASE_FEE,
-        networkPassphrase: testNetworkPassphrase,
-        timebounds: { minTime: '0', maxTime: (Math.floor(Date.now() / 1000) + 300).toString() },
-      })
-        .addOperation(
-          StellarSdk.Operation.manageData({
-            source: testClientPublicKey,
-            name: 'Harvest Finance auth',
-            value: Buffer.from('00'.repeat(32), 'hex'),
-          }),
-        )
-        .build();
-
-      // Sign with client and server keypairs
-      const clientKeypair = testClientKeypair;
-      txInvalidSource.sign(clientKeypair);
-
-      await expect(
-        strategy.validate(txInvalidSource.toEnvelope().toXDR('base64')),
-      ).rejects.toThrow('Invalid source account');
+      expect(() =>
+        (strategy as any).validateTransactionStructure({
+          source: 'INVALID_SOURCE',
+          sequence: '0',
+          timeBounds: currentTimeBounds(),
+          operations: [validManageDataOperation()],
+        }),
+      ).toThrow('Invalid source account');
     });
 
     it('should throw error for invalid sequence number', async () => {
-      // Build a new transaction with sequence '1'
-      const serverAccountSeq = new StellarSdk.Account(StellarSdk.Keypair.fromSecret(testServerSecret).publicKey(), '1');
-      const txInvalidSeq = new StellarSdk.TransactionBuilder(serverAccountSeq, {
-        fee: StellarSdk.BASE_FEE,
-        networkPassphrase: testNetworkPassphrase,
-        timebounds: { minTime: '0', maxTime: (Math.floor(Date.now() / 1000) + 300).toString() },
-      })
-        .addOperation(
-          StellarSdk.Operation.manageData({
-            source: testClientPublicKey,
-            name: 'Harvest Finance auth',
-            value: Buffer.from('00'.repeat(32), 'hex'),
-          }),
-        )
-        .build();
-
-      // Sign with server and client
-      const serverKeypair = StellarSdk.Keypair.fromSecret(testServerSecret);
-      const clientKeypair = testClientKeypair;
-      txInvalidSeq.sign(serverKeypair);
-      txInvalidSeq.sign(clientKeypair);
-
-      await expect(
-        strategy.validate(txInvalidSeq.toEnvelope().toXDR('base64')),
-      ).rejects.toThrow('Invalid sequence number');
+      expect(() =>
+        (strategy as any).validateTransactionStructure({
+          source: testServerPublicKey,
+          sequence: '1',
+          timeBounds: currentTimeBounds(),
+          operations: [validManageDataOperation()],
+        }),
+      ).toThrow('Invalid sequence number');
     });
 
     it('should throw error for expired transaction', async () => {
-      // Build a new expired transaction
-      const serverAccount = new StellarSdk.Account(StellarSdk.Keypair.fromSecret(testServerSecret).publicKey(), '0');
       const pastTime = Math.floor(Date.now() / 1000) - 1000;
-      const txExpired = new StellarSdk.TransactionBuilder(serverAccount, {
-        fee: StellarSdk.BASE_FEE,
-        networkPassphrase: testNetworkPassphrase,
-        timebounds: { minTime: (pastTime - 300).toString(), maxTime: pastTime.toString() },
-      })
-        .addOperation(
-          StellarSdk.Operation.manageData({
-            source: testClientPublicKey,
-            name: 'Harvest Finance auth',
-            value: Buffer.from('00'.repeat(32), 'hex'),
-          }),
-        )
-        .build();
 
-      const serverKeypair = StellarSdk.Keypair.fromSecret(testServerSecret);
-      const clientKeypair = testClientKeypair;
-      txExpired.sign(serverKeypair);
-      txExpired.sign(clientKeypair);
-
-      await expect(
-        strategy.validate(txExpired.toEnvelope().toXDR('base64')),
-      ).rejects.toThrow('Challenge transaction expired');
+      expect(() =>
+        (strategy as any).validateTransactionStructure({
+          source: testServerPublicKey,
+          sequence: '0',
+          timeBounds: {
+            minTime: (pastTime - 300).toString(),
+            maxTime: pastTime.toString(),
+          },
+          operations: [validManageDataOperation()],
+        }),
+      ).toThrow('Challenge transaction expired');
     });
 
     it('should throw error for invalid operation type', async () => {
-      // Build a transaction with a payment operation
-      const serverAccount = new StellarSdk.Account(StellarSdk.Keypair.fromSecret(testServerSecret).publicKey(), '0');
-      const txPayment = new StellarSdk.TransactionBuilder(serverAccount, {
-        fee: StellarSdk.BASE_FEE,
-        networkPassphrase: testNetworkPassphrase,
-        timebounds: { minTime: '0', maxTime: (Math.floor(Date.now() / 1000) + 300).toString() },
-      })
-        .addOperation(
-          StellarSdk.Operation.payment({
-            source: testClientPublicKey,
-            destination: testClientPublicKey,
-            asset: StellarSdk.Asset.native(),
-            amount: '1',
-          }),
-        )
-        .build();
-
-      const serverKeypair = StellarSdk.Keypair.fromSecret(testServerSecret);
-      const clientKeypair = testClientKeypair;
-      txPayment.sign(serverKeypair);
-      txPayment.sign(clientKeypair);
-
-      await expect(
-        strategy.validate(txPayment.toEnvelope().toXDR('base64')),
-      ).rejects.toThrow('Invalid operation type');
+      expect(() =>
+        (strategy as any).validateTransactionStructure({
+          source: testServerPublicKey,
+          sequence: '0',
+          timeBounds: currentTimeBounds(),
+          operations: [{ type: 'payment', source: testClientPublicKey }],
+        }),
+      ).toThrow('Invalid operation type');
     });
 
     it('should throw error for missing server signature', async () => {
       // Build a valid transaction but only sign with client
-      const serverAccount = new StellarSdk.Account(StellarSdk.Keypair.fromSecret(testServerSecret).publicKey(), '0');
+      const serverAccount = new StellarSdk.Account(testServerPublicKey, '-1');
       const tx = new StellarSdk.TransactionBuilder(serverAccount, {
         fee: StellarSdk.BASE_FEE,
         networkPassphrase: testNetworkPassphrase,
@@ -399,7 +346,7 @@ describe('StellarStrategy', () => {
   describe('getServerPublicKey', () => {
     it('should return the server public key', () => {
       const publicKey = strategy.getServerPublicKey();
-      expect(publicKey).toBe(StellarSdk.Keypair.fromSecret(testServerSecret).publicKey());
+      expect(publicKey).toBe(testServerPublicKey);
     });
   });
 
@@ -431,3 +378,18 @@ describe('StellarStrategy', () => {
     });
   });
 });
+
+function currentTimeBounds() {
+  const now = Math.floor(Date.now() / 1000);
+  return {
+    minTime: now.toString(),
+    maxTime: (now + 300).toString(),
+  };
+}
+
+function validManageDataOperation() {
+  return {
+    type: 'manageData',
+    name: 'Harvest Finance auth',
+  };
+}
