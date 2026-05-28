@@ -21,6 +21,7 @@ import {
   ReleaseUpfrontPaymentParams,
   FeeBumpResult,
   PriorityFeeInfo,
+  StellarBalance,
 } from '../interfaces/stellar.interfaces';
 
 @Injectable()
@@ -118,8 +119,8 @@ export class StellarService implements OnModuleInit {
     this.validatePublicKey(publicKey);
     try {
       const account = await this.server.loadAccount(publicKey);
-      return account.balances.map((b: any) => ({
-        assetCode: b.asset_type === 'native' ? 'XLM' : b.asset_code,
+      return account.balances.map((b: StellarBalance) => ({
+        assetCode: b.asset_type === 'native' ? 'XLM' : b.asset_code!,
         assetIssuer:
           b.asset_type === 'native' ? null : (b.asset_issuer ?? null),
         balance: String(b.balance ?? '0'),
@@ -1128,31 +1129,4 @@ export class StellarService implements OnModuleInit {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         const response = await this.server.submitTransaction(transaction);
-        if (response.successful) {
-          return response;
-        }
-        this.logger.warn(
-          `Transaction not successful on attempt ${attempt}, retrying...`,
-        );
-      } catch (err) {
-        lastError = err;
-        this.logger.warn(
-          `Submit attempt ${attempt} failed in ${context}: ${err?.message ?? 'unknown'}`,
-        );
-        if (attempt < maxRetries) {
-          // Exponential backoff
-          await new Promise((resolve) =>
-            setTimeout(resolve, Math.pow(2, attempt) * 100),
-          );
-        }
-      }
-    }
-
-    throw (
-      lastError ??
-      new InternalServerErrorException(
-        `Transaction failed after ${maxRetries} attempts`,
-      )
-    );
-  }
-}
+        if
