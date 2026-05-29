@@ -299,7 +299,7 @@ export class AuthService {
       select: ['id', 'password', 'resetPasswordToken', 'resetPasswordExpires'],
     });
 
-    let user = null;
+    let user: User | null = null;
     for (const u of activeUsers) {
       if (
         u.resetPasswordToken &&
@@ -311,16 +311,6 @@ export class AuthService {
     }
 
     if (!user) {
-      throw new BadRequestException('Invalid or expired reset token');
-    }
-
-    // Verify reset token
-    const isTokenValid = await bcrypt.compare(
-      token,
-      user.resetPasswordToken || '',
-    );
-
-    if (!isTokenValid) {
       throw new BadRequestException('Invalid or expired reset token');
     }
 
