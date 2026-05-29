@@ -26,7 +26,9 @@ export class StellarStrategy extends PassportStrategy(
 ) {
   authenticate(req: any, options?: any): void {
     const transactionXdr =
-      req.body?.transaction || req.query?.transaction || req.headers?.transaction;
+      req.body?.transaction ||
+      req.query?.transaction ||
+      req.headers?.transaction;
 
     if (!transactionXdr) {
       return this.fail('Missing Stellar transaction', 400);

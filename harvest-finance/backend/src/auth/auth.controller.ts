@@ -38,6 +38,14 @@ import {
 } from './dto/stellar-auth.dto';
 import { StellarStrategy } from './strategies/stellar.strategy';
 
+/**
+ * Authentication Controller
+ * 
+ * Throttling Tiers Overview:
+ * - short: Strict rate limits for high-risk or resource-intensive operations (e.g., login, password reset). Protects against brute-force attacks.
+ * - medium: Moderate limits for standard operations (e.g., token refresh, generating challenges). Balances usability with spam prevention.
+ * - long: Generous limits for low-risk, infrequent operations (e.g., registration, public data fetching). Prevents general abuse over longer periods.
+ */
 @ApiTags('Authentication')
 @Controller({
   path: 'auth',
@@ -51,6 +59,9 @@ export class AuthController {
 
   /**
    * Register a new user
+   *
+   * Uses long tier: Registration is an infrequent operation, so a longer 
+   * window prevents spam while allowing normal user onboarding.
    */
   @Post('register')
   @Throttle({ long: { limit: 10, ttl: 60000 } })
@@ -76,6 +87,9 @@ export class AuthController {
 
   /**
    * Login user
+   *
+   * Uses stricter long tier limits: Login is a high-value target for 
+   * brute-force attacks and requires tighter throttling.
    */
   @Post('login')
   @Throttle({ long: { limit: 5, ttl: 60000 } })
@@ -97,6 +111,9 @@ export class AuthController {
 
   /**
    * Refresh access token
+   *
+   * Uses default (medium) tier: Token refresh is a standard operation
+   * that balances usability with spam prevention.
    */
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
@@ -198,6 +215,9 @@ export class AuthController {
 
   /**
    * Generate Stellar challenge for authentication
+   *
+   * Uses default tier: Moderate limits for standard operations to
+   * prevent challenge spam while supporting regular login flows.
    */
   @Post('stellar/challenge')
   @Throttle({ default: { limit: 10, ttl: 60000 } })
@@ -229,6 +249,9 @@ export class AuthController {
 
   /**
    * Verify Stellar challenge and authenticate user
+   *
+   * Uses stricter default limits: Verification involves cryptographic checks
+   * and token generation, requiring tighter throttling against abuse.
    */
   @Post('stellar/verify')
   @Throttle({ default: { limit: 5, ttl: 60000 } })

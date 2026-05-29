@@ -271,7 +271,8 @@ describe('AuthService', () => {
       new_password: 'NewSecurePass123!',
     };
 
-    it('should throw BadRequestException if no active reset tokens exist', async () => {
+    it('should throw BadRequestException when no active (non-expired) tokens exist', async () => {
+      // find() returns empty array — no users with resetPasswordExpires > now
       mockUserRepository.find.mockResolvedValue([]);
 
       await expect(service.resetPassword(resetPasswordDto)).rejects.toThrow(
@@ -279,12 +280,41 @@ describe('AuthService', () => {
       );
     });
 
-    it('should successfully reset password', async () => {
+    it('should throw BadRequestException when token hash does not match', async () => {
+      const userWithToken = {
+        ...mockUser,
+        resetPasswordToken: 'some_other_hashed_token',
+        resetPasswordExpires: new Date(Date.now() + 3600000),
+      };
+      mockUserRepository.find.mockResolvedValue([userWithToken]);
+      // bcrypt.compare returns false — token does not match stored hash
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+
+      await expect(service.resetPassword(resetPasswordDto)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw BadRequestException when token has null resetPasswordToken', async () => {
+      const userWithNullToken = {
+        ...mockUser,
+        resetPasswordToken: null,
+        resetPasswordExpires: new Date(Date.now() + 3600000),
+      };
+      mockUserRepository.find.mockResolvedValue([userWithNullToken]);
+
+      await expect(service.resetPassword(resetPasswordDto)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should successfully reset password with valid non-expired token', async () => {
       const userWithToken = {
         ...mockUser,
         resetPasswordToken: 'hashed_valid_token',
         resetPasswordExpires: new Date(Date.now() + 3600000),
       };
+      // Only non-expired users are returned by the MoreThan query
       mockUserRepository.find.mockResolvedValue([userWithToken]);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       (bcrypt.hash as jest.Mock).mockResolvedValue('new_hashed_password');
@@ -293,7 +323,27 @@ describe('AuthService', () => {
       const result = await service.resetPassword(resetPasswordDto);
 
       expect(result).toHaveProperty('success', true);
-      expect(mockUserRepository.update).toHaveBeenCalled();
+      expect(result).toHaveProperty('message', 'Password reset successfully');
+      expect(mockUserRepository.update).toHaveBeenCalledWith(
+        mockUser.id,
+        expect.objectContaining({
+          password: 'new_hashed_password',
+          resetPasswordToken: null,
+          resetPasswordExpires: null,
+        }),
+      );
+    });
+
+    it('should reject expired tokens (expired users never appear in find results)', async () => {
+      // The MoreThan(new Date()) query excludes expired tokens at the DB level.
+      // Simulate: only users with expiry > now are returned; expired user is absent.
+      mockUserRepository.find.mockResolvedValue([]);
+
+      await expect(service.resetPassword(resetPasswordDto)).rejects.toThrow(
+        BadRequestException,
+      );
+      // update must NOT be called — password must not change
+      expect(mockUserRepository.update).not.toHaveBeenCalled();
     });
   });
 });

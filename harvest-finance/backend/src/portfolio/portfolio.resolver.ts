@@ -16,6 +16,9 @@ export class PortfolioResolver {
     stellarAddresses?: string[],
   ): Promise<PortfolioResponse> {
     const user = context.req.user;
-    return this.portfolioService.buildPortfolio(user.id, stellarAddresses || []);
+    return this.portfolioService.buildPortfolio(
+      user.id,
+      stellarAddresses || [],
+    );
   }
 }

@@ -314,16 +314,6 @@ export class AuthService {
       throw new BadRequestException('Invalid or expired reset token');
     }
 
-    // Verify reset token
-    const isTokenValid = await bcrypt.compare(
-      token,
-      user.resetPasswordToken || '',
-    );
-
-    if (!isTokenValid) {
-      throw new BadRequestException('Invalid or expired reset token');
-    }
-
     // Hash new password
     const hashedPassword = await bcrypt.hash(new_password, this.saltRounds);
 

@@ -35,7 +35,9 @@ export class StellarYieldAdapter implements ChainAdapter {
         .select('deposit.vaultId', 'vaultId')
         .addSelect('SUM(deposit.amount)', 'principal')
         .where('deposit.userId = :userId', { userId })
-        .andWhere('deposit.status = :status', { status: DepositStatus.CONFIRMED })
+        .andWhere('deposit.status = :status', {
+          status: DepositStatus.CONFIRMED,
+        })
         .groupBy('deposit.vaultId')
         .getRawMany<{ vaultId: string; principal: string }>();
 

@@ -282,7 +282,7 @@ describe('AuthController (e2e)', () => {
           password: 'NewSecurePass123!',
         })
         .expect(200);
-        
+
       expect(loginResponse.body).toHaveProperty('access_token');
     });
 
@@ -320,7 +320,10 @@ describe('AuthController (e2e)', () => {
 
       expect(registerResponse.body).toHaveProperty('access_token');
       expect(registerResponse.body).toHaveProperty('refresh_token');
-      expect(registerResponse.body.user).toHaveProperty('email', flowUser.email);
+      expect(registerResponse.body.user).toHaveProperty(
+        'email',
+        flowUser.email,
+      );
 
       accessToken = registerResponse.body.access_token;
       refreshToken = registerResponse.body.refresh_token;
@@ -379,7 +382,8 @@ describe('AuthController (e2e)', () => {
     });
 
     it('should handle token expiry on protected endpoints', async () => {
-      const expiredToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U';
+      const expiredToken =
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U';
 
       await request(app.getHttpServer())
         .post('/api/v1/auth/logout')
@@ -470,7 +474,8 @@ describe('AuthController (e2e)', () => {
     });
 
     it('should reject missing Bearer prefix', async () => {
-      const validToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U';
+      const validToken =
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U';
 
       await request(app.getHttpServer())
         .post('/api/v1/auth/logout')

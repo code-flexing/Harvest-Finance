@@ -5,7 +5,9 @@ import { CustomLoggerService } from '../../logger/custom-logger.service';
 const mockJson = jest.fn();
 const mockStatus = jest.fn().mockReturnValue({ json: mockJson });
 const mockGetResponse = jest.fn().mockReturnValue({ status: mockStatus });
-const mockGetRequest = jest.fn().mockReturnValue({ url: '/test', method: 'GET' });
+const mockGetRequest = jest
+  .fn()
+  .mockReturnValue({ url: '/test', method: 'GET' });
 
 const mockHost = {
   switchToHttp: () => ({
@@ -27,7 +29,10 @@ describe('HttpExceptionFilter', () => {
   });
 
   it('maps HttpException to its status code and string message', () => {
-    filter.catch(new HttpException('Not found', HttpStatus.NOT_FOUND), mockHost);
+    filter.catch(
+      new HttpException('Not found', HttpStatus.NOT_FOUND),
+      mockHost,
+    );
 
     expect(mockStatus).toHaveBeenCalledWith(HttpStatus.NOT_FOUND);
     expect(mockJson).toHaveBeenCalledWith(
@@ -42,7 +47,10 @@ describe('HttpExceptionFilter', () => {
 
   it('maps HttpException with object response to message field', () => {
     filter.catch(
-      new HttpException({ message: 'Validation failed', error: 'Bad Request' }, HttpStatus.BAD_REQUEST),
+      new HttpException(
+        { message: 'Validation failed', error: 'Bad Request' },
+        HttpStatus.BAD_REQUEST,
+      ),
       mockHost,
     );
 
@@ -77,7 +85,10 @@ describe('HttpExceptionFilter', () => {
   });
 
   it('includes timestamp, path, and method in every response', () => {
-    filter.catch(new HttpException('Forbidden', HttpStatus.FORBIDDEN), mockHost);
+    filter.catch(
+      new HttpException('Forbidden', HttpStatus.FORBIDDEN),
+      mockHost,
+    );
 
     const payload = mockJson.mock.calls[0][0];
     expect(payload.timestamp).toBeDefined();

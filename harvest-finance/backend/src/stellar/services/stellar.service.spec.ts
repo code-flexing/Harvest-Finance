@@ -4,7 +4,10 @@ import { ConfigService } from '@nestjs/config';
 import { SecretsService } from '../../common/secrets/secrets.service';
 import { CustomLoggerService } from '../../logger/custom-logger.service';
 import * as StellarSdk from 'stellar-sdk';
-import { BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import {
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 
 describe('StellarService - Escrow Creation', () => {
   let service: StellarService;
@@ -32,19 +35,26 @@ describe('StellarService - Escrow Creation', () => {
             get: jest.fn().mockImplementation((key, defaultValue) => {
               const config: Record<string, any> = {
                 STELLAR_NETWORK: 'testnet',
-                STELLAR_PLATFORM_PUBLIC_KEY: 'GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
+                STELLAR_PLATFORM_PUBLIC_KEY:
+                  'GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
               };
               return config[key] ?? defaultValue;
             }),
             getOrThrow: jest
               .fn()
-              .mockReturnValue('GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'),
+              .mockReturnValue(
+                'GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
+              ),
           },
         },
         {
           provide: SecretsService,
           useValue: {
-            getSecret: jest.fn().mockResolvedValue('SDXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'),
+            getSecret: jest
+              .fn()
+              .mockResolvedValue(
+                'SDXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
+              ),
           },
         },
         {
@@ -97,7 +107,9 @@ describe('StellarService - Escrow Creation', () => {
       mockServer.loadAccount.mockResolvedValue(mockAccount);
       mockServer.submitTransaction.mockResolvedValue(mockResponse);
 
-      jest.spyOn(StellarSdk.TransactionBuilder.prototype, 'build').mockReturnValue(mockTransaction as any);
+      jest
+        .spyOn(StellarSdk.TransactionBuilder.prototype, 'build')
+        .mockReturnValue(mockTransaction as any);
       jest.spyOn(service as any, 'getBaseFee').mockResolvedValue('100');
 
       const result = await service.createEscrow(validParams);
@@ -125,9 +137,14 @@ describe('StellarService - Escrow Creation', () => {
       };
 
       mockServer.loadAccount.mockResolvedValue(mockAccount);
-      mockServer.transactions().transaction().call.mockResolvedValue(mockResponse);
+      mockServer
+        .transactions()
+        .transaction()
+        .call.mockResolvedValue(mockResponse);
 
-      jest.spyOn(StellarSdk.TransactionBuilder.prototype, 'build').mockReturnValue(mockTransaction as any);
+      jest
+        .spyOn(StellarSdk.TransactionBuilder.prototype, 'build')
+        .mockReturnValue(mockTransaction as any);
       jest.spyOn(service as any, 'getBaseFee').mockResolvedValue('100');
       jest.spyOn(service as any, 'submitWithFeeBump').mockResolvedValue({
         feeBumpTransactionHash: 'fee-bump-hash',
@@ -159,7 +176,9 @@ describe('StellarService - Escrow Creation', () => {
         deadlineUnixTimestamp: Math.floor(Date.now() / 1000) - 3600,
       };
 
-      await expect(service.createEscrow(pastDeadline)).rejects.toThrow(BadRequestException);
+      await expect(service.createEscrow(pastDeadline)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should handle submission errors gracefully', async () => {
@@ -169,12 +188,18 @@ describe('StellarService - Escrow Creation', () => {
       };
 
       mockServer.loadAccount.mockResolvedValue(mockAccount);
-      mockServer.submitTransaction.mockRejectedValue(new Error('Network timeout'));
+      mockServer.submitTransaction.mockRejectedValue(
+        new Error('Network timeout'),
+      );
 
       jest.spyOn(service as any, 'getBaseFee').mockResolvedValue('100');
-      jest.spyOn(service as any, 'handleStellarError').mockImplementation(() => {
-        throw new InternalServerErrorException('Failed to submit transaction');
-      });
+      jest
+        .spyOn(service as any, 'handleStellarError')
+        .mockImplementation(() => {
+          throw new InternalServerErrorException(
+            'Failed to submit transaction',
+          );
+        });
 
       await expect(service.createEscrow(validParams)).rejects.toThrow();
     });
@@ -214,11 +239,15 @@ describe('StellarService - Escrow Creation', () => {
     });
 
     it('should throw error after max retries', async () => {
-      mockServer.submitTransaction.mockRejectedValue(new Error('Persistent failure'));
+      mockServer.submitTransaction.mockRejectedValue(
+        new Error('Persistent failure'),
+      );
 
       const mockTx = {} as any;
 
-      await expect(service['submitWithRetry'](mockTx, 'test')).rejects.toThrow('Persistent failure');
+      await expect(service['submitWithRetry'](mockTx, 'test')).rejects.toThrow(
+        'Persistent failure',
+      );
       expect(mockServer.submitTransaction).toHaveBeenCalledTimes(3);
     });
 
@@ -247,11 +276,13 @@ describe('StellarService - Escrow Creation', () => {
 
   describe('Fee Bump Transactions', () => {
     it('should submit fee bump with priority fee', async () => {
-      const submitFeeBumpSpy = jest.spyOn(service as any, 'submitWithFeeBump').mockResolvedValue({
-        feeBumpTransactionHash: 'fee-bump-hash',
-        innerTransactionHash: 'inner-hash',
-        createdAt: new Date(),
-      });
+      const submitFeeBumpSpy = jest
+        .spyOn(service as any, 'submitWithFeeBump')
+        .mockResolvedValue({
+          feeBumpTransactionHash: 'fee-bump-hash',
+          innerTransactionHash: 'inner-hash',
+          createdAt: new Date(),
+        });
 
       const xdrString = 'mock-xdr';
       const secretKey = 'SDXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX';
@@ -259,7 +290,11 @@ describe('StellarService - Escrow Creation', () => {
 
       await service['submitWithFeeBump'](xdrString, secretKey, priorityFee);
 
-      expect(submitFeeBumpSpy).toHaveBeenCalledWith(xdrString, secretKey, priorityFee);
+      expect(submitFeeBumpSpy).toHaveBeenCalledWith(
+        xdrString,
+        secretKey,
+        priorityFee,
+      );
     });
   });
 
