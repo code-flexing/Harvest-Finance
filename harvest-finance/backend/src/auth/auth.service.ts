@@ -205,7 +205,7 @@ export class AuthService {
         },
       );
 
-      return { access_token: accessToken };
+      return { access_token: accessToken, token_type: 'Bearer' };
     } catch (error) {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
@@ -299,7 +299,7 @@ export class AuthService {
       select: ['id', 'password', 'resetPasswordToken', 'resetPasswordExpires'],
     });
 
-    let user = null;
+    let user: User | null = null;
     for (const u of activeUsers) {
       if (
         u.resetPasswordToken &&

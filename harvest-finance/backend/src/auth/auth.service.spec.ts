@@ -43,6 +43,7 @@ describe('AuthService', () => {
   beforeEach(async () => {
     mockUserRepository = {
       findOne: jest.fn(),
+      find: jest.fn(),
       create: jest.fn(),
       save: jest.fn(),
       update: jest.fn(),
@@ -222,6 +223,7 @@ describe('AuthService', () => {
 
       expect(result).toHaveProperty('access_token');
       expect(result.access_token).toBe('new_access_token');
+      expect(result).toHaveProperty('token_type', 'Bearer');
     });
   });
 
@@ -269,8 +271,8 @@ describe('AuthService', () => {
       new_password: 'NewSecurePass123!',
     };
 
-    it('should throw BadRequestException if token is invalid', async () => {
-      mockUserRepository.findOne.mockResolvedValue(null);
+    it('should throw BadRequestException if no active reset tokens exist', async () => {
+      mockUserRepository.find.mockResolvedValue([]);
 
       await expect(service.resetPassword(resetPasswordDto)).rejects.toThrow(
         BadRequestException,
@@ -278,14 +280,14 @@ describe('AuthService', () => {
     });
 
     it('should successfully reset password', async () => {
-      const hashedToken = await bcrypt.hash('valid_token', 10);
       const userWithToken = {
         ...mockUser,
-        resetPasswordToken: hashedToken,
+        resetPasswordToken: 'hashed_valid_token',
         resetPasswordExpires: new Date(Date.now() + 3600000),
       };
-      mockUserRepository.findOne.mockResolvedValue(userWithToken);
+      mockUserRepository.find.mockResolvedValue([userWithToken]);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      (bcrypt.hash as jest.Mock).mockResolvedValue('new_hashed_password');
       mockUserRepository.update.mockResolvedValue({ affected: 1 });
 
       const result = await service.resetPassword(resetPasswordDto);

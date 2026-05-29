@@ -22,7 +22,11 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-import { AuthResponseDto, LogoutResponseDto, TokenResponseDto } from './dto/auth-response.dto';
+import {
+  AuthResponseDto,
+  LogoutResponseDto,
+  TokenResponseDto,
+} from './dto/auth-response.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RateLimit } from '../common/decorators/rate-limit.decorator';
 import { RateLimitGuard } from '../common/guards/rate-limit.guard';
@@ -107,6 +111,10 @@ export class AuthController {
     status: 401,
     description: 'Invalid or expired refresh token',
   })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error — refresh_token field is missing or malformed',
+  })
   async refresh(
     @Body() refreshTokenDto: RefreshTokenDto,
   ): Promise<TokenResponseDto> {
@@ -126,9 +134,7 @@ export class AuthController {
     description: 'Logged out successfully',
     type: LogoutResponseDto,
   })
-  async logout(
-    @Req() req: Request,
-  ): Promise<LogoutResponseDto> {
+  async logout(@Req() req: Request): Promise<LogoutResponseDto> {
     const token = (req as any).headers.authorization?.replace('Bearer ', '');
     return this.authService.logout(token);
   }
@@ -142,7 +148,11 @@ export class AuthController {
    */
   @Post('forgot-password')
   @UseGuards(RateLimitGuard)
-  @RateLimit({ limit: 5, ttl: 3600, message: 'Too many password reset requests. Please try again in 1 hour.' })
+  @RateLimit({
+    limit: 5,
+    ttl: 3600,
+    message: 'Too many password reset requests. Please try again in 1 hour.',
+  })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request password reset' })
   @ApiBody({ type: ForgotPasswordDto })
@@ -164,7 +174,11 @@ export class AuthController {
    */
   @Post('reset-password')
   @UseGuards(RateLimitGuard)
-  @RateLimit({ limit: 5, ttl: 3600, message: 'Too many password reset attempts. Please try again in 1 hour.' })
+  @RateLimit({
+    limit: 5,
+    ttl: 3600,
+    message: 'Too many password reset attempts. Please try again in 1 hour.',
+  })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reset password with token' })
   @ApiBody({ type: ResetPasswordDto })
@@ -236,16 +250,16 @@ export class AuthController {
     const user = await this.stellarStrategy.validate(verifyDto.transaction);
     const tokens = await this.authService['generateTokens'](user);
 
-return {
-       access_token: tokens.accessToken,
-       refresh_token: tokens.refreshToken,
-       user: {
-         id: user.id,
-         stellar_address: user.stellarAddress ?? '',
-         role: user.role,
-         full_name:
-           [user.firstName, user.lastName].filter(Boolean).join(' ') || '',
-       },
-     };
+    return {
+      access_token: tokens.accessToken,
+      refresh_token: tokens.refreshToken,
+      user: {
+        id: user.id,
+        stellar_address: user.stellarAddress ?? '',
+        role: user.role,
+        full_name:
+          [user.firstName, user.lastName].filter(Boolean).join(' ') || '',
+      },
+    };
   }
 }
