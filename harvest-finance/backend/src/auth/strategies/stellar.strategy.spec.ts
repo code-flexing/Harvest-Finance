@@ -77,7 +77,10 @@ describe('StellarStrategy', () => {
 
       expect(
         () => new StellarStrategy(mockConfigService, mockUserRepository as any),
-      ).toThrow('STELLAR_SERVER_SECRET environment variable is required');
+      ).toThrow(
+        'Missing required environment variable: STELLAR_SERVER_SECRET. ' +
+          'Please define it in your .env file before starting the server.',
+      );
     });
 
     it('should use testnet network by default', () => {
