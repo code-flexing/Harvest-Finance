@@ -223,6 +223,7 @@ describe('AuthService', () => {
 
       expect(result).toHaveProperty('access_token');
       expect(result.access_token).toBe('new_access_token');
+      expect(result).toHaveProperty('token_type', 'Bearer');
     });
   });
 

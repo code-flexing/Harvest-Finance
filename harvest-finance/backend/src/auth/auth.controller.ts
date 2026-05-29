@@ -128,6 +128,10 @@ export class AuthController {
     status: 401,
     description: 'Invalid or expired refresh token',
   })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error — refresh_token field is missing or malformed',
+  })
   async refresh(
     @Body() refreshTokenDto: RefreshTokenDto,
   ): Promise<TokenResponseDto> {

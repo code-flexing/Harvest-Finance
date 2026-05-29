@@ -76,9 +76,16 @@ export class TokenResponseDto {
   /** Freshly issued short-lived JWT access token. */
   @ApiProperty({
     example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-    description: 'Access token (JWT)',
+    description: 'JWT access token to be sent as a Bearer token in the Authorization header',
   })
   access_token: string;
+
+  /** OAuth 2.0 token type. Always "Bearer" for this API. */
+  @ApiProperty({
+    example: 'Bearer',
+    description: 'Token type — always "Bearer". Prefix the access_token with this value in the Authorization header.',
+  })
+  token_type: string;
 }
 
 /** Response shape returned after a successful logout. */
