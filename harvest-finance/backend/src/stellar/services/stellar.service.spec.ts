@@ -14,6 +14,10 @@ describe('StellarService - Escrow Creation', () => {
   let configService: ConfigService;
   let secretsService: SecretsService;
   let mockServer: any;
+  const platformKeypair = StellarSdk.Keypair.random();
+  const farmerKeypair = StellarSdk.Keypair.random();
+  const buyerKeypair = StellarSdk.Keypair.random();
+  const issuerKeypair = StellarSdk.Keypair.random();
 
   beforeEach(async () => {
     mockServer = {
@@ -79,11 +83,11 @@ describe('StellarService - Escrow Creation', () => {
 
   describe('createEscrow', () => {
     const validParams = {
-      farmerPublicKey: 'GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX1',
-      buyerPublicKey: 'GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX2',
+      farmerPublicKey: farmerKeypair.publicKey(),
+      buyerPublicKey: buyerKeypair.publicKey(),
       amount: '100.00',
       assetCode: 'USDC',
-      assetIssuer: 'GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX3',
+      assetIssuer: issuerKeypair.publicKey(),
       deadlineUnixTimestamp: Math.floor(Date.now() / 1000) + 3600,
       orderId: 'order-123',
     };
@@ -95,6 +99,7 @@ describe('StellarService - Escrow Creation', () => {
       };
 
       const mockTransaction = {
+        sign: jest.fn(),
         toXDR: jest.fn().mockReturnValue('xdr-string'),
       };
 
@@ -111,6 +116,7 @@ describe('StellarService - Escrow Creation', () => {
         .spyOn(StellarSdk.TransactionBuilder.prototype, 'build')
         .mockReturnValue(mockTransaction as any);
       jest.spyOn(service as any, 'getBaseFee').mockResolvedValue('100');
+      jest.spyOn(service as any, 'extractBalanceId').mockReturnValue('balance-id-123');
 
       const result = await service.createEscrow(validParams);
 
@@ -127,6 +133,7 @@ describe('StellarService - Escrow Creation', () => {
       };
 
       const mockTransaction = {
+        sign: jest.fn(),
         toXDR: jest.fn().mockReturnValue('xdr-string'),
       };
 
@@ -146,6 +153,7 @@ describe('StellarService - Escrow Creation', () => {
         .spyOn(StellarSdk.TransactionBuilder.prototype, 'build')
         .mockReturnValue(mockTransaction as any);
       jest.spyOn(service as any, 'getBaseFee').mockResolvedValue('100');
+      jest.spyOn(service as any, 'extractBalanceId').mockReturnValue('balance-id-123');
       jest.spyOn(service as any, 'submitWithFeeBump').mockResolvedValue({
         feeBumpTransactionHash: 'fee-bump-hash',
         innerTransactionHash: 'inner-hash',
@@ -265,7 +273,7 @@ describe('StellarService - Escrow Creation', () => {
       const mockTx = {} as any;
 
       const promise = service['submitWithRetry'](mockTx, 'test');
-      jest.advanceTimersByTime(1000);
+      await jest.advanceTimersByTimeAsync(1000);
 
       const result = await promise;
       expect(result.hash).toBe('success');
@@ -301,11 +309,11 @@ describe('StellarService - Escrow Creation', () => {
   describe('Edge Cases', () => {
     it('should handle zero amount', async () => {
       const params = {
-        farmerPublicKey: 'GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX1',
-        buyerPublicKey: 'GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX2',
+        farmerPublicKey: farmerKeypair.publicKey(),
+        buyerPublicKey: buyerKeypair.publicKey(),
         amount: '0',
         assetCode: 'USDC',
-        assetIssuer: 'GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX3',
+        assetIssuer: issuerKeypair.publicKey(),
         deadlineUnixTimestamp: Math.floor(Date.now() / 1000) + 3600,
         orderId: 'order-123',
       };
@@ -315,25 +323,141 @@ describe('StellarService - Escrow Creation', () => {
 
     it('should handle very large amounts', async () => {
       const params = {
-        farmerPublicKey: 'GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX1',
-        buyerPublicKey: 'GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX2',
+        farmerPublicKey: farmerKeypair.publicKey(),
+        buyerPublicKey: buyerKeypair.publicKey(),
         amount: '922337203685.4775807',
         assetCode: 'USDC',
-        assetIssuer: 'GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX3',
+        assetIssuer: issuerKeypair.publicKey(),
         deadlineUnixTimestamp: Math.floor(Date.now() / 1000) + 3600,
         orderId: 'order-123',
       };
 
       const mockAccount = {
         sequence: '12345',
+        balances: [{ asset_type: 'native', balance: '1000' }],
+      };
+
+      const mockTransaction = {
+        sign: jest.fn(),
+        toXDR: jest.fn().mockReturnValue('xdr-string'),
       };
 
       mockServer.loadAccount.mockResolvedValue(mockAccount);
+      mockServer.submitTransaction.mockResolvedValue({
+        hash: 'tx-hash-123',
+        result_xdr:
+          'AAAAAgAAAABZ6/qWZrwJZO2d5fLVdDKnJV0R9H7r5ygEfL1sSkPZvO+/tL7tZqqzVON4eXiR6xrN7o7PmWXNZcvNLpEXXs4=',
+      });
       jest.spyOn(service as any, 'getBaseFee').mockResolvedValue('100');
+      jest.spyOn(service as any, 'extractBalanceId').mockReturnValue('balance-id-123');
+      jest
+        .spyOn(StellarSdk.TransactionBuilder.prototype, 'build')
+        .mockReturnValue(mockTransaction as any);
 
-      expect(async () => {
-        await service.createEscrow(params);
-      }).not.toThrow();
+      await expect(service.createEscrow(params)).resolves.toMatchObject({
+        amount: params.amount,
+        farmerPublicKey: params.farmerPublicKey,
+        buyerPublicKey: params.buyerPublicKey,
+      });
+    });
+  });
+
+  describe('Multi-Sig Setup', () => {
+    const sourceKeypair = StellarSdk.Keypair.random();
+    const cosignerKeypairOne = StellarSdk.Keypair.random();
+    const cosignerKeypairTwo = StellarSdk.Keypair.random();
+
+    const baseParams = {
+      primaryPublicKey: sourceKeypair.publicKey(),
+      cosignerPublicKeys: [
+        cosignerKeypairOne.publicKey(),
+        cosignerKeypairTwo.publicKey(),
+      ],
+      threshold: 2,
+      sourceSecretKey: sourceKeypair.secret(),
+    };
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('should reject a threshold higher than the total number of signers', async () => {
+      await expect(
+        service.setupMultiSigAccount({
+          ...baseParams,
+          threshold: 4,
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockServer.loadAccount).not.toHaveBeenCalled();
+    });
+
+    it('should apply the requested threshold to the multisig transaction', async () => {
+      const mockAccount = {
+        sequence: '12345',
+      };
+
+      const addOperationSpy = jest
+        .spyOn(StellarSdk.TransactionBuilder.prototype, 'addOperation')
+        .mockReturnThis();
+      const setTimeoutSpy = jest
+        .spyOn(StellarSdk.TransactionBuilder.prototype, 'setTimeout')
+        .mockReturnThis();
+      const buildSpy = jest
+        .spyOn(StellarSdk.TransactionBuilder.prototype, 'build')
+        .mockReturnValue({
+          sign: jest.fn(),
+        } as any);
+      const setOptionsSpy = jest
+        .spyOn(StellarSdk.Operation, 'setOptions')
+        .mockImplementation((options: any) => options as any);
+      const fromSecretSpy = jest
+        .spyOn(StellarSdk.Keypair, 'fromSecret')
+        .mockReturnValue({
+          publicKey: () => baseParams.primaryPublicKey,
+        } as any);
+
+      mockServer.loadAccount.mockResolvedValue(mockAccount);
+      jest.spyOn(service as any, 'getBaseFee').mockResolvedValue('100');
+      jest.spyOn(service as any, 'submitWithRetry').mockResolvedValue({
+        hash: 'tx-hash-123',
+        ledger: 123,
+      });
+
+      const result = await service.setupMultiSigAccount(baseParams);
+
+      expect(result.status).toBe('success');
+      expect(fromSecretSpy).toHaveBeenCalledWith(baseParams.sourceSecretKey);
+      expect(setOptionsSpy).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          masterWeight: 1,
+          lowThreshold: baseParams.threshold,
+          medThreshold: baseParams.threshold,
+          highThreshold: baseParams.threshold,
+        }),
+      );
+      expect(setOptionsSpy).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          signer: {
+            ed25519PublicKey: baseParams.cosignerPublicKeys[0],
+            weight: 1,
+          },
+        }),
+      );
+      expect(setOptionsSpy).toHaveBeenNthCalledWith(
+        3,
+        expect.objectContaining({
+          signer: {
+            ed25519PublicKey: baseParams.cosignerPublicKeys[1],
+            weight: 1,
+          },
+        }),
+      );
+      expect(addOperationSpy).toHaveBeenCalledTimes(3);
+      expect(setTimeoutSpy).toHaveBeenCalledWith(30);
+      expect(buildSpy).toHaveBeenCalled();
     });
   });
 });
