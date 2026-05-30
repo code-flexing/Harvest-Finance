@@ -4,11 +4,19 @@ import {
   BadRequestException,
   InternalServerErrorException,
   OnModuleInit,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SecretsService } from '../../common/secrets/secrets.service';
 import * as StellarSdk from 'stellar-sdk';
 import { CustomLoggerService } from '../../logger/custom-logger.service';
+import { retry } from '../../common/utils/retry';
+import {
+  CircuitBreaker,
+  CircuitBreakerOpenError,
+  CircuitBreakerStateChange,
+} from '../utils/circuit-breaker';
+import { isRetryableStellarError } from '../utils/stellar-retry';
 import {
   EscrowCreateParams,
   EscrowResult,
@@ -30,6 +38,7 @@ export class StellarService implements OnModuleInit {
   private readonly server: StellarSdk.Horizon.Server;
   private readonly networkPassphrase: string;
   private readonly platformPublicKey: string;
+  private readonly horizonCircuitBreaker: CircuitBreaker;
   private platformSecretKey: string;
   private structuredLogger: CustomLoggerService;
 
@@ -61,6 +70,7 @@ export class StellarService implements OnModuleInit {
     this.platformPublicKey = this.configService.getOrThrow<string>(
       'STELLAR_PLATFORM_PUBLIC_KEY',
     );
+    this.horizonCircuitBreaker = this.createHorizonCircuitBreaker();
   }
 
   async onModuleInit() {
@@ -85,7 +95,10 @@ export class StellarService implements OnModuleInit {
   async getAccountInfo(publicKey: string): Promise<AccountInfo> {
     this.validatePublicKey(publicKey);
     try {
-      const account = await this.server.loadAccount(publicKey);
+      const account = await this.loadHorizonAccount(
+        publicKey,
+        `getAccountInfo(${publicKey})`,
+      );
       const xlmBalance = account.balances.find(
         (b) => b.asset_type === 'native',
       );
@@ -118,7 +131,10 @@ export class StellarService implements OnModuleInit {
   > {
     this.validatePublicKey(publicKey);
     try {
-      const account = await this.server.loadAccount(publicKey);
+      const account = await this.loadHorizonAccount(
+        publicKey,
+        `getAccountBalances(${publicKey})`,
+      );
       return account.balances.map((b: StellarBalance) => ({
         assetCode: b.asset_type === 'native' ? 'XLM' : b.asset_code!,
         assetIssuer:
@@ -170,7 +186,10 @@ export class StellarService implements OnModuleInit {
           .limit(pageSize);
         if (cursor) call.cursor(cursor);
 
-        const page = await call.call();
+        const page = await this.callHorizon(
+          `getAccountTransactions(${publicKey})`,
+          () => call.call(),
+        );
         if (page.records.length === 0) {
           return {
             total: null,
@@ -207,7 +226,10 @@ export class StellarService implements OnModuleInit {
         .limit(finalPageSize);
       if (cursor) finalCall.cursor(cursor);
 
-      const finalPage = await finalCall.call();
+      const finalPage = await this.callHorizon(
+        `getAccountTransactions(${publicKey})`,
+        () => finalCall.call(),
+      );
       const slice = finalPage.records.slice(
         remainingToSkip,
         remainingToSkip + safeLimit,
@@ -266,10 +288,10 @@ export class StellarService implements OnModuleInit {
     const decodedRecords = await Promise.all(
       history.records.map(async (txMeta: any) => {
         try {
-          const fullTx = await this.server
-            .transactions()
-            .transaction(txMeta.hash)
-            .call();
+          const fullTx = await this.callHorizon(
+            `getDecodedAccountTransactions(${txMeta.hash})`,
+            () => this.server.transactions().transaction(txMeta.hash).call(),
+          );
           const envelope = StellarSdk.TransactionBuilder.fromXDR(
             fullTx.envelope_xdr,
             this.networkPassphrase,
@@ -323,7 +345,7 @@ export class StellarService implements OnModuleInit {
 
   async verifyConnection(): Promise<boolean> {
     try {
-      await this.server.loadAccount(this.platformPublicKey);
+      await this.loadHorizonAccount(this.platformPublicKey, 'verifyConnection');
       this.logger.log(
         `Stellar connection OK — platform account: ${this.platformPublicKey}`,
       );
@@ -357,8 +379,9 @@ export class StellarService implements OnModuleInit {
     const platformKeypair = StellarSdk.Keypair.fromSecret(
       this.platformSecretKey,
     );
-    const platformAccount = await this.server.loadAccount(
+    const platformAccount = await this.loadHorizonAccount(
       this.platformPublicKey,
+      'releaseUpfrontPayment.loadPlatformAccount',
     );
 
     const transaction = new StellarSdk.TransactionBuilder(platformAccount, {
@@ -442,8 +465,9 @@ export class StellarService implements OnModuleInit {
     }
 
     const asset = this.resolveAsset(assetCode, assetIssuer);
-    const platformAccount = await this.server.loadAccount(
+    const platformAccount = await this.loadHorizonAccount(
       this.platformPublicKey,
+      'createEscrow.loadPlatformAccount',
     );
 
     // Predicate: farmer can claim unconditionally
@@ -490,10 +514,14 @@ export class StellarService implements OnModuleInit {
         this.platformSecretKey,
         params.priorityFeeStroops,
       );
-      const response = await this.server
-        .transactions()
-        .transaction(bumpResult.feeBumpTransactionHash)
-        .call();
+      const response = await this.callHorizon(
+        'createEscrow.lookupFeeBumpTransaction',
+        () =>
+          this.server
+            .transactions()
+            .transaction(bumpResult.feeBumpTransactionHash)
+            .call(),
+      );
       const balanceId = this.extractBalanceId(response as any);
 
       return {
@@ -554,7 +582,10 @@ export class StellarService implements OnModuleInit {
       );
     }
 
-    const farmerAccount = await this.server.loadAccount(farmerPublicKey);
+    const farmerAccount = await this.loadHorizonAccount(
+      farmerPublicKey,
+      'releasePayment.loadFarmerAccount',
+    );
 
     const transaction = new StellarSdk.TransactionBuilder(farmerAccount, {
       fee: await this.getBaseFee(),
@@ -626,7 +657,10 @@ export class StellarService implements OnModuleInit {
       );
     }
 
-    const buyerAccount = await this.server.loadAccount(buyerPublicKey);
+    const buyerAccount = await this.loadHorizonAccount(
+      buyerPublicKey,
+      'refundEscrow.loadBuyerAccount',
+    );
 
     const transaction = new StellarSdk.TransactionBuilder(buyerAccount, {
       fee: await this.getBaseFee(),
@@ -702,8 +736,9 @@ export class StellarService implements OnModuleInit {
     }
 
     const sourceKeypair = StellarSdk.Keypair.fromSecret(sourceSecretKey);
-    const sourceAccount = await this.server.loadAccount(
+    const sourceAccount = await this.loadHorizonAccount(
       sourceKeypair.publicKey(),
+      'setupMultiSigAccount.loadSourceAccount',
     );
 
     const txBuilder = new StellarSdk.TransactionBuilder(sourceAccount, {
@@ -760,14 +795,14 @@ export class StellarService implements OnModuleInit {
     transactionHash: string,
   ): Promise<TransactionStatus> {
     try {
-      const tx = await this.server
-        .transactions()
-        .transaction(transactionHash)
-        .call();
-      const ops = await this.server
-        .operations()
-        .forTransaction(transactionHash)
-        .call();
+      const tx = await this.callHorizon(
+        `getTransactionStatus(${transactionHash})`,
+        () => this.server.transactions().transaction(transactionHash).call(),
+      );
+      const ops = await this.callHorizon(
+        `getTransactionStatus.operations(${transactionHash})`,
+        () => this.server.operations().forTransaction(transactionHash).call(),
+      );
 
       const operations = ops.records.map((op: any) => ({
         type: op.type,
@@ -800,10 +835,10 @@ export class StellarService implements OnModuleInit {
   async getClaimableBalances(publicKey: string): Promise<any[]> {
     this.validatePublicKey(publicKey);
     try {
-      const response = await this.server
-        .claimableBalances()
-        .claimant(publicKey)
-        .call();
+      const response = await this.callHorizon(
+        `getClaimableBalances(${publicKey})`,
+        () => this.server.claimableBalances().claimant(publicKey).call(),
+      );
       return response.records;
     } catch (err) {
       this.handleStellarError(err, 'getClaimableBalances');
@@ -842,7 +877,7 @@ export class StellarService implements OnModuleInit {
   async estimateFee(operationCount = 1): Promise<FeeEstimate> {
     const safeOperationCount = Math.max(1, operationCount);
     try {
-      const feeStats = await this.server.feeStats();
+      const feeStats = await this.getHorizonFeeStats('estimateFee');
       const chargedStats = feeStats.fee_charged as any;
       const baseFeeStroops = parseInt(chargedStats.mode, 10);
       const totalStroops = baseFeeStroops * safeOperationCount;
@@ -894,7 +929,7 @@ export class StellarService implements OnModuleInit {
     percentile: number = 90,
   ): Promise<PriorityFeeInfo> {
     try {
-      const stats = await this.server.feeStats();
+      const stats = await this.getHorizonFeeStats('getRecommendedPriorityFee');
       const pStats = stats.fee_charged as any;
 
       let recommendedStroops = parseInt(pStats.mode, 10);
@@ -991,6 +1026,100 @@ export class StellarService implements OnModuleInit {
   // PRIVATE HELPERS
   // ─────────────────────────────────────────────────────────────────────────────
 
+  private createHorizonCircuitBreaker(): CircuitBreaker {
+    return new CircuitBreaker({
+      name: 'stellar-horizon',
+      failureThreshold: this.getPositiveIntegerConfig(
+        'STELLAR_CIRCUIT_FAILURE_THRESHOLD',
+        5,
+      ),
+      resetTimeoutMs: this.getPositiveIntegerConfig(
+        'STELLAR_CIRCUIT_RESET_TIMEOUT_MS',
+        30_000,
+      ),
+      shouldTrip: isRetryableStellarError,
+      onStateChange: (change) => this.logCircuitBreakerStateChange(change),
+    });
+  }
+
+  private getPositiveIntegerConfig(key: string, defaultValue: number): number {
+    const raw = this.configService.get<string | number>(key);
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) && parsed > 0
+      ? Math.floor(parsed)
+      : defaultValue;
+  }
+
+  private logCircuitBreakerStateChange(
+    change: CircuitBreakerStateChange,
+  ): void {
+    const payload = {
+      event: 'stellar_horizon_circuit_state_changed',
+      circuit: change.name,
+      from: change.from,
+      to: change.to,
+      reason: change.reason,
+      failureCount: change.failureCount,
+      retryAfterMs: change.retryAfterMs,
+    };
+
+    if (change.to === 'open') {
+      this.structuredLogger?.warn(payload, StellarService.name);
+      this.logger.warn(
+        `Stellar Horizon circuit opened | retryAfterMs=${change.retryAfterMs} reason=${change.reason}`,
+      );
+      return;
+    }
+
+    this.structuredLogger?.log(payload, StellarService.name);
+    this.logger.log(
+      `Stellar Horizon circuit state changed | ${change.from} -> ${change.to} reason=${change.reason}`,
+    );
+  }
+
+  private async callHorizon<T>(
+    context: string,
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    try {
+      return await this.horizonCircuitBreaker.execute(operation, context);
+    } catch (err) {
+      if (err instanceof CircuitBreakerOpenError) {
+        throw this.createHorizonUnavailableException(err, context);
+      }
+      throw err;
+    }
+  }
+
+  private async loadHorizonAccount(
+    publicKey: string,
+    context: string,
+  ): Promise<any> {
+    return this.callHorizon(context, () => this.server.loadAccount(publicKey));
+  }
+
+  private async getHorizonFeeStats(context: string): Promise<any> {
+    return this.callHorizon(context, () => this.server.feeStats());
+  }
+
+  private createHorizonUnavailableException(
+    err: CircuitBreakerOpenError,
+    context: string,
+  ): ServiceUnavailableException {
+    this.structuredLogger?.errorEvent?.(
+      'stellar_horizon_circuit_open',
+      {
+        context,
+        retryAfterMs: err.retryAfterMs,
+        message: err.message,
+      },
+      StellarService.name,
+    );
+    return new ServiceUnavailableException(
+      `Stellar Horizon is temporarily unavailable (context: ${context}). Retry after ${err.retryAfterMs}ms`,
+    );
+  }
+
   private resolveAsset(
     assetCode?: string,
     assetIssuer?: string,
@@ -1008,7 +1137,7 @@ export class StellarService implements OnModuleInit {
 
   private async getBaseFee(): Promise<string> {
     try {
-      const stats = await this.server.feeStats();
+      const stats = await this.getHorizonFeeStats('getBaseFee');
       return stats.fee_charged.mode;
     } catch {
       return '100';
@@ -1067,11 +1196,15 @@ export class StellarService implements OnModuleInit {
   }
 
   private handleStellarError(err: any, context: string): never {
+    if (err instanceof CircuitBreakerOpenError) {
+      throw this.createHorizonUnavailableException(err, context);
+    }
+
     const status = err?.response?.status;
 
     if (err?.response?.data?.extras?.result_codes) {
       const resultCodes = err.response.data.extras.result_codes;
-      this.structuredLogger?.errorEvent(
+      this.structuredLogger?.errorEvent?.(
         'stellar_tx_failed',
         {
           context,
@@ -1100,7 +1233,11 @@ export class StellarService implements OnModuleInit {
       throw err;
     }
 
-    this.structuredLogger?.errorEvent(
+    if (err instanceof ServiceUnavailableException) {
+      throw err;
+    }
+
+    this.structuredLogger?.errorEvent?.(
       'stellar_tx_failed',
       {
         context,
@@ -1123,19 +1260,24 @@ export class StellarService implements OnModuleInit {
     transaction: StellarSdk.Transaction | StellarSdk.FeeBumpTransaction,
     context: string,
   ): Promise<StellarSdk.Horizon.HorizonApi.SubmitTransactionResponse> {
-    const maxRetries = 3;
-    let lastError: Error | null = null;
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        const response = await this.server.submitTransaction(transaction);
-        return response;
-      } catch (error) {
-        lastError = error as Error;
-        if (attempt === maxRetries) break;
-        await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
-      }
-    }
-    throw lastError;
+    return retry(
+      () =>
+        this.callHorizon(context, () =>
+          this.server.submitTransaction(transaction),
+        ),
+      {
+        maxAttempts: 3,
+        baseDelayMs: 1000,
+        maxDelayMs: 2000,
+        factor: 2,
+        jitter: false,
+        isRetryable: isRetryableStellarError,
+        onRetry: (err, attempt, delayMs) => {
+          this.logger.warn(
+            `Retrying Stellar submit in ${delayMs}ms | context=${context} attempt=${attempt} error=${(err as Error)?.message ?? 'unknown'}`,
+          );
+        },
+      },
+    );
   }
 }
