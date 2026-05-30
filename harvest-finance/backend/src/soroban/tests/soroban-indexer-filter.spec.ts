@@ -1,7 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Cache } from 'cache-manager';
 import { SorobanIndexerService } from '../soroban-indexer.service';
-import { SorobanEvent, SorobanEventType } from '../../database/entities/soroban-event.entity';
+import {
+  SorobanEvent,
+  SorobanEventType,
+} from '../../database/entities/soroban-event.entity';
 import { Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -36,23 +39,27 @@ describe('SorobanIndexerService - Filter handling', () => {
       findAndCount: jest.fn(async (opts: any) => {
         let items = data.slice();
         const where = opts?.where ?? {};
-        if (where.contractId) items = items.filter((e) => e.contractId === where.contractId);
+        if (where.contractId)
+          items = items.filter((e) => e.contractId === where.contractId);
         if (where.type) items = items.filter((e) => e.type === where.type);
 
         if (where.ledger) {
           // Handle several possible shapes for Between(...) operator
           let min: number | undefined;
           let max: number | undefined;
-          const w = where.ledger as any;
+          const w = where.ledger;
           if (Array.isArray(w) && w.length === 2) {
             [min, max] = w;
           } else if (w && typeof w === 'object') {
             if (Array.isArray(w._value)) [min, max] = w._value;
             else if (Array.isArray(w.value)) [min, max] = w.value;
-            else if (w.low !== undefined && w.high !== undefined) { min = w.low; max = w.high; }
+            else if (w.low !== undefined && w.high !== undefined) {
+              min = w.low;
+              max = w.high;
+            }
           }
           if (min !== undefined && max !== undefined) {
-            items = items.filter((e) => e.ledger >= min! && e.ledger <= max!);
+            items = items.filter((e) => e.ledger >= min && e.ledger <= max);
           }
         }
 
@@ -67,8 +74,13 @@ describe('SorobanIndexerService - Filter handling', () => {
         const sliced = items.slice(skip, skip + take);
         return [sliced, items.length];
       }),
-      save: jest.fn(async (entities: SorobanEvent[]) => { data.push(...entities); return entities; }),
-      clear: jest.fn(async () => { data.length = 0; }),
+      save: jest.fn(async (entities: SorobanEvent[]) => {
+        data.push(...entities);
+        return entities;
+      }),
+      clear: jest.fn(async () => {
+        data.length = 0;
+      }),
       count: jest.fn(async () => data.length),
     };
 
@@ -95,7 +107,8 @@ describe('SorobanIndexerService - Filter handling', () => {
 
   function makeEvent(overrides: Partial<SorobanEvent>): SorobanEvent {
     const ev = new SorobanEvent();
-    ev.eventId = overrides.eventId ?? `evt-${Math.random().toString(36).slice(2)}`;
+    ev.eventId =
+      overrides.eventId ?? `evt-${Math.random().toString(36).slice(2)}`;
     ev.type = overrides.type ?? SorobanEventType.CONTRACT;
     ev.contractId = overrides.contractId ?? null;
     ev.ledger = overrides.ledger ?? 1;
@@ -156,7 +169,11 @@ describe('SorobanIndexerService - Filter handling', () => {
     const other = makeEvent({ contractId: 'CY', ledger: 15 });
     await repo.save([a1, a2, a3, other]);
 
-    const res = await service.query({ contractId: 'CX', fromLedger: 10, toLedger: 20 });
+    const res = await service.query({
+      contractId: 'CX',
+      fromLedger: 10,
+      toLedger: 20,
+    });
     expect(res.total).toBe(1);
     expect(res.items[0].ledger).toBe(15);
     expect(res.items[0].contractId).toBe('CX');

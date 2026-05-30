@@ -47,14 +47,14 @@ export function isRetryableStellarError(err: unknown): boolean {
   // conditions (connection dropped, DNS hiccup, unreachable host) that
   // are safe to retry once connectivity is restored.
   const transientCodes = new Set([
-    'ECONNRESET',   // Connection was forcibly closed by the remote peer
+    'ECONNRESET', // Connection was forcibly closed by the remote peer
     'ECONNREFUSED', // Nothing is listening on the target port (Horizon down/restarting)
     'ECONNABORTED', // Connection was aborted before the response completed
-    'ETIMEDOUT',    // TCP handshake or response timed out at the OS level
-    'EAI_AGAIN',    // DNS resolution failed transiently (retry-able lookup error)
-    'ENETUNREACH',  // No route to the network (temporary routing issue)
+    'ETIMEDOUT', // TCP handshake or response timed out at the OS level
+    'EAI_AGAIN', // DNS resolution failed transiently (retry-able lookup error)
+    'ENETUNREACH', // No route to the network (temporary routing issue)
     'EHOSTUNREACH', // No route to the specific host
-    'EPIPE',        // Write to a closed socket (connection dropped mid-request)
+    'EPIPE', // Write to a closed socket (connection dropped mid-request)
   ]);
   if (e.code && transientCodes.has(e.code)) return true;
 

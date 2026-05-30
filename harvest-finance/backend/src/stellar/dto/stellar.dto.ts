@@ -129,7 +129,8 @@ export class SetupMultiSigDto {
 export class OperationRecordDto {
   @ApiProperty({
     example: 'payment',
-    description: 'The type of operation (e.g. payment, create_claimable_balance, etc.)',
+    description:
+      'The type of operation (e.g. payment, create_claimable_balance, etc.)',
   })
   @IsString()
   type: string;
@@ -213,4 +214,3 @@ export class StellarTransactionStatusDto {
   @IsOptional()
   operations?: OperationRecordDto[];
 }
-

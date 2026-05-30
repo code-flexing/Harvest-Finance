@@ -22,7 +22,11 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-import { AuthResponseDto, LogoutResponseDto, TokenResponseDto } from './dto/auth-response.dto';
+import {
+  AuthResponseDto,
+  LogoutResponseDto,
+  TokenResponseDto,
+} from './dto/auth-response.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RateLimit } from '../common/decorators/rate-limit.decorator';
 import { RateLimitGuard } from '../common/guards/rate-limit.guard';
@@ -34,6 +38,14 @@ import {
 } from './dto/stellar-auth.dto';
 import { StellarStrategy } from './strategies/stellar.strategy';
 
+/**
+ * Authentication Controller
+ * 
+ * Throttling Tiers Overview:
+ * - short: Strict rate limits for high-risk or resource-intensive operations (e.g., login, password reset). Protects against brute-force attacks.
+ * - medium: Moderate limits for standard operations (e.g., token refresh, generating challenges). Balances usability with spam prevention.
+ * - long: Generous limits for low-risk, infrequent operations (e.g., registration, public data fetching). Prevents general abuse over longer periods.
+ */
 @ApiTags('Authentication')
 @Controller({
   path: 'auth',
@@ -47,6 +59,9 @@ export class AuthController {
 
   /**
    * Register a new user
+   *
+   * Uses long tier: Registration is an infrequent operation, so a longer 
+   * window prevents spam while allowing normal user onboarding.
    */
   @Post('register')
   @Throttle({ long: { limit: 10, ttl: 60000 } })
@@ -72,6 +87,9 @@ export class AuthController {
 
   /**
    * Login user
+   *
+   * Uses stricter long tier limits: Login is a high-value target for 
+   * brute-force attacks and requires tighter throttling.
    */
   @Post('login')
   @Throttle({ long: { limit: 5, ttl: 60000 } })
@@ -93,6 +111,9 @@ export class AuthController {
 
   /**
    * Refresh access token
+   *
+   * Uses default (medium) tier: Token refresh is a standard operation
+   * that balances usability with spam prevention.
    */
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
@@ -106,6 +127,10 @@ export class AuthController {
   @ApiResponse({
     status: 401,
     description: 'Invalid or expired refresh token',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error — refresh_token field is missing or malformed',
   })
   async refresh(
     @Body() refreshTokenDto: RefreshTokenDto,
@@ -126,9 +151,7 @@ export class AuthController {
     description: 'Logged out successfully',
     type: LogoutResponseDto,
   })
-  async logout(
-    @Req() req: Request,
-  ): Promise<LogoutResponseDto> {
+  async logout(@Req() req: Request): Promise<LogoutResponseDto> {
     const token = (req as any).headers.authorization?.replace('Bearer ', '');
     return this.authService.logout(token);
   }
@@ -142,7 +165,11 @@ export class AuthController {
    */
   @Post('forgot-password')
   @UseGuards(RateLimitGuard)
-  @RateLimit({ limit: 5, ttl: 3600, message: 'Too many password reset requests. Please try again in 1 hour.' })
+  @RateLimit({
+    limit: 5,
+    ttl: 3600,
+    message: 'Too many password reset requests. Please try again in 1 hour.',
+  })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request password reset' })
   @ApiBody({ type: ForgotPasswordDto })
@@ -164,7 +191,11 @@ export class AuthController {
    */
   @Post('reset-password')
   @UseGuards(RateLimitGuard)
-  @RateLimit({ limit: 5, ttl: 3600, message: 'Too many password reset attempts. Please try again in 1 hour.' })
+  @RateLimit({
+    limit: 5,
+    ttl: 3600,
+    message: 'Too many password reset attempts. Please try again in 1 hour.',
+  })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reset password with token' })
   @ApiBody({ type: ResetPasswordDto })
@@ -184,6 +215,9 @@ export class AuthController {
 
   /**
    * Generate Stellar challenge for authentication
+   *
+   * Uses default tier: Moderate limits for standard operations to
+   * prevent challenge spam while supporting regular login flows.
    */
   @Post('stellar/challenge')
   @Throttle({ default: { limit: 10, ttl: 60000 } })
@@ -215,6 +249,9 @@ export class AuthController {
 
   /**
    * Verify Stellar challenge and authenticate user
+   *
+   * Uses stricter default limits: Verification involves cryptographic checks
+   * and token generation, requiring tighter throttling against abuse.
    */
   @Post('stellar/verify')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
@@ -236,16 +273,16 @@ export class AuthController {
     const user = await this.stellarStrategy.validate(verifyDto.transaction);
     const tokens = await this.authService['generateTokens'](user);
 
-return {
-       access_token: tokens.accessToken,
-       refresh_token: tokens.refreshToken,
-       user: {
-         id: user.id,
-         stellar_address: user.stellarAddress ?? '',
-         role: user.role,
-         full_name:
-           [user.firstName, user.lastName].filter(Boolean).join(' ') || '',
-       },
-     };
+    return {
+      access_token: tokens.accessToken,
+      refresh_token: tokens.refreshToken,
+      user: {
+        id: user.id,
+        stellar_address: user.stellarAddress ?? '',
+        role: user.role,
+        full_name:
+          [user.firstName, user.lastName].filter(Boolean).join(' ') || '',
+      },
+    };
   }
 }

@@ -26,7 +26,9 @@ export class StellarStrategy extends PassportStrategy(
 ) {
   authenticate(req: any, options?: any): void {
     const transactionXdr =
-      req.body?.transaction || req.query?.transaction || req.headers?.transaction;
+      req.body?.transaction ||
+      req.query?.transaction ||
+      req.headers?.transaction;
 
     if (!transactionXdr) {
       return this.fail('Missing Stellar transaction', 400);
@@ -50,7 +52,10 @@ export class StellarStrategy extends PassportStrategy(
 
     const serverSecret = configService.get<string>('STELLAR_SERVER_SECRET');
     if (!serverSecret) {
-      throw new Error('STELLAR_SERVER_SECRET environment variable is required');
+      throw new Error(
+        'Missing required environment variable: STELLAR_SERVER_SECRET. ' +
+          'Please define it in your .env file before starting the server.',
+      );
     }
 
     this.serverKeypair = StellarSdk.Keypair.fromSecret(serverSecret);

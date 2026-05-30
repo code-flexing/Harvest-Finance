@@ -143,7 +143,9 @@ describe('SorobanIndexerService - Error Handling', () => {
       };
 
       mockAxios.post.mockResolvedValue(validResponse);
-      mockEventRepository.createQueryBuilder().getRawOne.mockResolvedValue(null);
+      mockEventRepository
+        .createQueryBuilder()
+        .getRawOne.mockResolvedValue(null);
 
       const result = await service.runOnce();
 
@@ -168,7 +170,9 @@ describe('SorobanIndexerService - Error Handling', () => {
       };
 
       mockAxios.post.mockResolvedValue(validResponse);
-      mockEventRepository.createQueryBuilder().getRawOne.mockResolvedValue(null);
+      mockEventRepository
+        .createQueryBuilder()
+        .getRawOne.mockResolvedValue(null);
 
       const result = await service.runOnce();
 
@@ -193,10 +197,16 @@ describe('SorobanIndexerService - Error Handling', () => {
       };
 
       mockAxios.post.mockResolvedValue(validResponse);
-      mockEventRepository.createQueryBuilder().getRawOne.mockResolvedValue(null);
-      mockEventRepository.createQueryBuilder().insert().into().values().orIgnore().execute.mockRejectedValue(
-        new Error('Database error'),
-      );
+      mockEventRepository
+        .createQueryBuilder()
+        .getRawOne.mockResolvedValue(null);
+      mockEventRepository
+        .createQueryBuilder()
+        .insert()
+        .into()
+        .values()
+        .orIgnore()
+        .execute.mockRejectedValue(new Error('Database error'));
 
       await expect(service.runOnce()).rejects.toThrow();
     });
@@ -312,7 +322,9 @@ describe('SorobanIndexerService - Error Handling', () => {
       };
 
       mockAxios.post.mockResolvedValue(partialResponse);
-      mockEventRepository.createQueryBuilder().getRawOne.mockResolvedValue(null);
+      mockEventRepository
+        .createQueryBuilder()
+        .getRawOne.mockResolvedValue(null);
 
       const result = await service.runOnce();
 
@@ -323,7 +335,9 @@ describe('SorobanIndexerService - Error Handling', () => {
   describe('Start Ledger Resolution', () => {
     it('should fallback to ledger 1 if bootstrap fails', async () => {
       mockAxios.post.mockRejectedValue(new Error('RPC timeout'));
-      mockEventRepository.createQueryBuilder().getRawOne.mockResolvedValue(null);
+      mockEventRepository
+        .createQueryBuilder()
+        .getRawOne.mockResolvedValue(null);
 
       const startLedger = await service['resolveStartLedger']();
 

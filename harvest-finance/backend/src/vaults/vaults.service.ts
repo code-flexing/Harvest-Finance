@@ -297,6 +297,12 @@ export class VaultsService {
 
     const vault = await this.getVaultById(vaultId);
 
+    if (vault.status === VaultStatus.FROZEN) {
+      throw new BadRequestException(
+        'Vault is frozen. Withdrawals are blocked.',
+      );
+    }
+
     const userTotalDeposits = await this.getUserTotalDeposits(userId);
     if (amount > userTotalDeposits) {
       throw new BadRequestException('Insufficient balance for withdrawal');
