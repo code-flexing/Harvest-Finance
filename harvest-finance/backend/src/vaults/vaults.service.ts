@@ -18,7 +18,7 @@ import {
   DepositResponseDto,
 } from './dto/vault-response.dto';
 import { NotificationsService } from '../notifications/notifications.service';
-import { NotificationType } from '../database/entities/notification.entity';
+import { NotificationHelper } from '../notifications/notification.helper';
 import { CustomLoggerService } from '../logger/custom-logger.service';
 import { VaultGateway } from '../realtime/vault.gateway';
 import { ContractCacheService } from '../common/cache/contract-cache.service';
@@ -150,12 +150,12 @@ export class VaultsService {
     });
 
     if (amount >= LARGE_DEPOSIT_THRESHOLD) {
-      await this.notificationsService.create({
-        title: 'Large Deposit Alert',
-        message: `A large deposit of ${amount} has been initiated for vault ${vault.vaultName}.`,
-        type: NotificationType.LARGE_TRANSACTION,
-        adminOnly: true,
-      });
+      await this.notificationsService.create(
+        NotificationHelper.largeDepositAlert({
+          amount,
+          vaultName: vault.vaultName,
+        }),
+      );
     }
 
     const confirmedDeposit = await this.confirmDeposit(result.deposit.id);
@@ -209,12 +209,13 @@ export class VaultsService {
       throw new NotFoundException('Deposit not found after confirmation');
     }
 
-    await this.notificationsService.create({
-      userId: updatedDeposit.userId,
-      title: 'Deposit Confirmed',
-      message: `Your deposit of ${updatedDeposit.amount} into vault ${updatedDeposit.vaultId} has been confirmed.`,
-      type: NotificationType.DEPOSIT,
-    });
+    await this.notificationsService.create(
+      NotificationHelper.depositConfirmed({
+        userId: updatedDeposit.userId,
+        amount: updatedDeposit.amount,
+        vaultId: updatedDeposit.vaultId,
+      }),
+    );
 
     return updatedDeposit;
   }
@@ -350,12 +351,13 @@ export class VaultsService {
       throw new NotFoundException('Withdrawal not found after confirmation');
     }
 
-    await this.notificationsService.create({
-      userId,
-      title: 'Withdrawal Confirmed',
-      message: `Your withdrawal of ${amount} from vault ${vault.vaultName} has been confirmed.`,
-      type: NotificationType.DEPOSIT,
-    });
+    await this.notificationsService.create(
+      NotificationHelper.withdrawalConfirmed({
+        userId,
+        amount,
+        vaultName: vault.vaultName,
+      }),
+    );
 
     this.logger.log(
       `Withdrawal of ${amount} confirmed from vault ${vaultId} by user ${userId}`,
