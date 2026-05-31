@@ -12,7 +12,7 @@ import { Logger, UseGuards } from '@nestjs/common';
 
 /**
  * WebSocket gateway for real-time analytics events.
- * 
+ *
  * Room Naming Conventions & Access Rules:
  * ========================================================
  * 1. Admin Room: "admin"
@@ -81,7 +81,7 @@ export class RealtimeGateway
     this.server.to(`farmer:${userId}`).emit('metrics:farmer', payload);
   }
 
-  /** 
+  /**
    * Broadcast an alert to a specific farmer or all admins.
    * Resolves target to room:
    *  - if target is 'admin', resolves to 'admin' room.

@@ -95,7 +95,7 @@ describe('StellarYieldAdapter', () => {
   });
 
   it('returns [] when deposits query throws', async () => {
-    const badDeposits = ({
+    const badDeposits = {
       createQueryBuilder: () => ({
         select: () => ({
           addSelect: () => ({
@@ -109,7 +109,7 @@ describe('StellarYieldAdapter', () => {
           }),
         }),
       }),
-    } as unknown) as Repository<Deposit>;
+    } as unknown as Repository<Deposit>;
 
     const adapter = new StellarYieldAdapter(badDeposits, buildVaults([]));
     const result = await adapter.getYieldsForUser('user-error');
@@ -119,7 +119,9 @@ describe('StellarYieldAdapter', () => {
   it('returns [] when vaults.find throws', async () => {
     const adapter = new StellarYieldAdapter(
       buildDeposits([{ vaultId: 'v1', principal: '100' }]),
-      ({ find: () => Promise.reject(new Error('network')) } as unknown) as Repository<Vault>,
+      {
+        find: () => Promise.reject(new Error('network')),
+      } as unknown as Repository<Vault>,
     );
 
     const result = await adapter.getYieldsForUser('user-2');

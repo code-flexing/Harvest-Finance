@@ -1,3 +1,4 @@
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -37,6 +38,7 @@ describe('AuthController', () => {
       logout: jest.fn(),
       forgotPassword: jest.fn(),
       resetPassword: jest.fn(),
+      generateTokens: jest.fn(),
     };
 
     mockStellarStrategy = {
@@ -47,6 +49,7 @@ describe('AuthController', () => {
         .mockReturnValue(
           'GD5DJQDQKG6GSUWQJQGQKQ5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q',
         ),
+      networkPassphrase: 'Test SDF Network ; September 2015',
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -59,6 +62,14 @@ describe('AuthController', () => {
         {
           provide: StellarStrategy,
           useValue: mockStellarStrategy,
+        },
+        {
+          provide: CACHE_MANAGER,
+          useValue: {
+            get: jest.fn(),
+            set: jest.fn(),
+            del: jest.fn(),
+          },
         },
       ],
     }).compile();
@@ -226,7 +237,7 @@ describe('AuthController', () => {
           id: 'stellar-user-id',
           stellarAddress:
             'GD5DJQDQKG6GSUWQJQGQKQ5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q',
-          role: 'USER',
+          role: UserRole.FARMER,
           firstName: 'Stellar',
           lastName: 'User',
         };
@@ -246,7 +257,7 @@ describe('AuthController', () => {
             id: 'stellar-user-id',
             stellar_address:
               'GD5DJQDQKG6GSUWQJQGQKQ5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q',
-            role: 'USER',
+            role: UserRole.FARMER,
             full_name: 'Stellar User',
           },
         });

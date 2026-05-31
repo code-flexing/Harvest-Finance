@@ -1,4 +1,17 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
+import { StrKey } from '@stellar/stellar-sdk';
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const DEFAULT_MIN_AMOUNT = 0;
+const DEFAULT_MAX_AMOUNT = 1e30;
+const DEFAULT_MAX_STRING_LENGTH = 1000;
+const DEFAULT_MAX_PAGE_LIMIT = 100;
+const EXAMPLE_STELLAR_PUBLIC_KEY =
+  'GD3BFFX7DTNJAGDVVM5RYGGQQNURZTH4VSBLWF55YXY3L6T2WWZK57EI';
+const EXAMPLE_STELLAR_CONTRACT_ID =
+  'CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE';
 
 /**
  * Service for sanitizing and validating user inputs
@@ -15,14 +28,17 @@ export class InputSanitizerService {
    */
   validateStellarPublicKey(key: string): string {
     if (!key || typeof key !== 'string') {
-      throw new BadRequestException('Invalid Stellar public key format');
+      throw new BadRequestException(
+        `Stellar public key must be a non-empty string in G-address format, for example ${EXAMPLE_STELLAR_PUBLIC_KEY}.`,
+      );
     }
 
     const sanitized = key.trim();
 
-    // Stellar public keys start with 'G' and are 56 characters
-    if (!/^G[A-Z2-7]{55}$/.test(sanitized)) {
-      throw new BadRequestException('Invalid Stellar public key format');
+    if (!StrKey.isValidEd25519PublicKey(sanitized)) {
+      throw new BadRequestException(
+        'Stellar public key must be a valid 56-character G-address with a correct Stellar StrKey checksum.',
+      );
     }
 
     return sanitized;
@@ -32,22 +48,25 @@ export class InputSanitizerService {
    * Validate and sanitize a contract ID.
    *
    * @param id - The contract ID to validate.
-   * @returns The trimmed, lowercased contract ID if valid.
-   * @throws {BadRequestException} When the ID is missing, not a string, or is not a 56-character hex string.
+   * @returns The trimmed contract ID if valid.
+   * @throws {BadRequestException} When the ID is missing, not a string, or is not a 56-character Stellar contract C-address.
    */
   validateContractId(id: string): string {
     if (!id || typeof id !== 'string') {
-      throw new BadRequestException('Invalid contract ID format');
+      throw new BadRequestException(
+        `Contract ID must be a non-empty string in Stellar contract C-address format, for example ${EXAMPLE_STELLAR_CONTRACT_ID}.`,
+      );
     }
 
     const sanitized = id.trim();
 
-    // Contract IDs are hex strings, typically 56 characters
-    if (!/^[a-f0-9]{56}$/i.test(sanitized)) {
-      throw new BadRequestException('Invalid contract ID format');
+    if (!StrKey.isValidContract(sanitized)) {
+      throw new BadRequestException(
+        'Contract ID must be a valid 56-character Stellar contract C-address with a correct StrKey checksum.',
+      );
     }
 
-    return sanitized.toLowerCase();
+    return sanitized;
   }
 
   /**
@@ -59,15 +78,17 @@ export class InputSanitizerService {
    */
   validateUUID(id: string): string {
     if (!id || typeof id !== 'string') {
-      throw new BadRequestException('Invalid UUID format');
+      throw new BadRequestException(
+        'UUID must be a non-empty string in 8-4-4-4-12 hexadecimal format, for example 550e8400-e29b-41d4-a716-446655440000.',
+      );
     }
 
     const sanitized = id.trim();
-    const uuidRegex =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-    if (!uuidRegex.test(sanitized)) {
-      throw new BadRequestException('Invalid UUID format');
+    if (!UUID_PATTERN.test(sanitized)) {
+      throw new BadRequestException(
+        'UUID must use the 8-4-4-4-12 hexadecimal format, for example 550e8400-e29b-41d4-a716-446655440000.',
+      );
     }
 
     return sanitized.toLowerCase();
@@ -82,14 +103,17 @@ export class InputSanitizerService {
    */
   validateEmail(email: string): string {
     if (!email || typeof email !== 'string') {
-      throw new BadRequestException('Invalid email format');
+      throw new BadRequestException(
+        'Email must be a non-empty string in local@domain format, for example farmer@example.com.',
+      );
     }
 
     const sanitized = email.trim().toLowerCase();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-    if (!emailRegex.test(sanitized)) {
-      throw new BadRequestException('Invalid email format');
+    if (!EMAIL_PATTERN.test(sanitized)) {
+      throw new BadRequestException(
+        'Email must include one @ symbol, a local part, and a domain with a dot, for example farmer@example.com.',
+      );
     }
 
     return sanitized;
@@ -104,15 +128,23 @@ export class InputSanitizerService {
    * @returns The validated numeric amount.
    * @throws {BadRequestException} When the amount is not a finite number or is outside the allowed range.
    */
-  validateAmount(amount: any, min: number = 0, max: number = 1e30): number {
+  validateAmount(
+    amount: any,
+    min: number = DEFAULT_MIN_AMOUNT,
+    max: number = DEFAULT_MAX_AMOUNT,
+  ): number {
     const num = Number(amount);
 
     if (isNaN(num) || !isFinite(num)) {
-      throw new BadRequestException('Invalid amount format');
+      throw new BadRequestException(
+        `Amount must be a finite numeric value between ${min} and ${max}, for example 100.5.`,
+      );
     }
 
     if (num < min || num > max) {
-      throw new BadRequestException(`Amount must be between ${min} and ${max}`);
+      throw new BadRequestException(
+        `Amount must be between ${min} and ${max}, inclusive.`,
+      );
     }
 
     return num;
@@ -126,9 +158,14 @@ export class InputSanitizerService {
    * @returns The sanitized string.
    * @throws {BadRequestException} When the input is not a string or the sanitized value exceeds the maximum length.
    */
-  sanitizeString(input: string, maxLength: number = 1000): string {
+  sanitizeString(
+    input: string,
+    maxLength: number = DEFAULT_MAX_STRING_LENGTH,
+  ): string {
     if (typeof input !== 'string') {
-      throw new BadRequestException('Input must be a string');
+      throw new BadRequestException(
+        `Input must be a string with no more than ${maxLength} characters.`,
+      );
     }
 
     let sanitized = input.trim();
@@ -139,7 +176,7 @@ export class InputSanitizerService {
     // Enforce max length
     if (sanitized.length > maxLength) {
       throw new BadRequestException(
-        `Input exceeds maximum length of ${maxLength} characters`,
+        `Input must be ${maxLength} characters or fewer after trimming and null-byte removal.`,
       );
     }
 
@@ -157,7 +194,7 @@ export class InputSanitizerService {
   validatePagination(
     skip?: number,
     limit?: number,
-    maxLimit: number = 100,
+    maxLimit: number = DEFAULT_MAX_PAGE_LIMIT,
   ): { skip: number; limit: number } {
     const safeSkip = Math.max(0, Math.floor(skip || 0));
     const safeLimit = Math.min(Math.max(1, Math.floor(limit || 20)), maxLimit);

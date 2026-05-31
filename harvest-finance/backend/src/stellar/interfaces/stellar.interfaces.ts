@@ -114,6 +114,13 @@ export interface AccountInfo {
   thresholds: { low: number; med: number; high: number };
 }
 
+export interface StellarBalance {
+  asset_type: string;
+  asset_code?: string;
+  asset_issuer?: string;
+  balance: string;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // FEE-BUMP / MEV INTERFACES
 // ─────────────────────────────────────────────────────────────────────────────

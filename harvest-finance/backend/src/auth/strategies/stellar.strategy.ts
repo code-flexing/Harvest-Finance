@@ -4,16 +4,12 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
+import { Strategy as PassportStrategyBase } from 'passport-strategy';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { User, UserRole } from '../../database/entities/user.entity';
-
-// Minimal placeholder strategy class for PassportStrategy
-class StellarPlaceholderStrategy {
-  authenticate() {}
-}
 
 export interface StellarPayload {
   stellar_address: string;
@@ -21,11 +17,28 @@ export interface StellarPayload {
   exp?: number;
 }
 
+const DEFAULT_STELLAR_USER_ROLE = UserRole.FARMER;
+
 @Injectable()
 export class StellarStrategy extends PassportStrategy(
-  StellarPlaceholderStrategy,
+  PassportStrategyBase,
   'stellar',
 ) {
+  authenticate(req: any, options?: any): void {
+    const transactionXdr =
+      req.body?.transaction ||
+      req.query?.transaction ||
+      req.headers?.transaction;
+
+    if (!transactionXdr) {
+      return this.fail('Missing Stellar transaction', 400);
+    }
+
+    this.validate(transactionXdr)
+      .then((user) => this.success(user))
+      .catch((err) => this.fail(err, 401));
+  }
+
   private readonly serverKeypair: StellarSdk.Keypair;
   private readonly networkPassphrase: string;
   private readonly challengeTimeout: number = 300; // 5 minutes
@@ -39,7 +52,10 @@ export class StellarStrategy extends PassportStrategy(
 
     const serverSecret = configService.get<string>('STELLAR_SERVER_SECRET');
     if (!serverSecret) {
-      throw new Error('STELLAR_SERVER_SECRET environment variable is required');
+      throw new Error(
+        'Missing required environment variable: STELLAR_SERVER_SECRET. ' +
+          'Please define it in your .env file before starting the server.',
+      );
     }
 
     this.serverKeypair = StellarSdk.Keypair.fromSecret(serverSecret);
@@ -58,10 +74,11 @@ export class StellarStrategy extends PassportStrategy(
       // Validate client public key
       const clientKeypair = StellarSdk.Keypair.fromPublicKey(clientPublicKey);
 
-      // Create server account with invalid sequence number (0) to prevent execution
+      // TransactionBuilder increments the source account sequence; start at -1
+      // so the SEP-10 challenge transaction carries invalid sequence 0.
       const serverAccount = new StellarSdk.Account(
         this.serverKeypair.publicKey(),
-        '0',
+        '-1',
       );
 
       // Set time bounds (5 minutes from now)
@@ -72,10 +89,11 @@ export class StellarStrategy extends PassportStrategy(
       };
 
       // Create ManageData operation
+      const nonceHex = this.generateRandomNonce();
       const operation = StellarSdk.Operation.manageData({
         source: clientPublicKey,
         name: 'Harvest Finance auth',
-        value: this.generateRandomNonce(),
+        value: Buffer.from(nonceHex, 'hex'),
       });
 
       // Build transaction
@@ -128,16 +146,7 @@ export class StellarStrategy extends PassportStrategy(
       });
 
       if (!user) {
-        // Create new user for Stellar authentication
-        const newUser = new User();
-        newUser.stellarAddress = clientPublicKey;
-        newUser.email = '';
-        newUser.password = '';
-        newUser.role = UserRole.FARMER;
-        newUser.firstName = 'Stellar';
-        newUser.lastName = 'User';
-        newUser.isActive = true;
-        user = await this.userRepository.save(newUser);
+        user = await this.createStellarUser(clientPublicKey);
       } else if (!user.isActive) {
         throw new UnauthorizedException('User account is deactivated');
       }
@@ -249,6 +258,32 @@ export class StellarStrategy extends PassportStrategy(
       nonce[i] = Math.floor(Math.random() * 256);
     }
     return Buffer.from(nonce).toString('hex');
+  }
+
+  private async createStellarUser(clientPublicKey: string): Promise<User> {
+    const user = this.userRepository.create({
+      stellarAddress: clientPublicKey,
+      email: '',
+      password: '',
+      role: this.resolveDefaultRole(),
+      firstName: 'Stellar',
+      lastName: 'User',
+      isActive: true,
+    });
+
+    this.assertValidRole(user.role);
+
+    return this.userRepository.save(user);
+  }
+
+  private resolveDefaultRole(): UserRole {
+    return DEFAULT_STELLAR_USER_ROLE;
+  }
+
+  private assertValidRole(role: UserRole): void {
+    if (!Object.values(UserRole).includes(role)) {
+      throw new Error(`Invalid default Stellar user role: ${role}`);
+    }
   }
 
   /**

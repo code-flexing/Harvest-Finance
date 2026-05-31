@@ -7,6 +7,7 @@ export class OrderEntity {
   cropType: string;
   quantity: number;
   price: number;
+  assetCode?: string;
   status: OrderStatus;
   createdAt: Date;
   updatedAt: Date;

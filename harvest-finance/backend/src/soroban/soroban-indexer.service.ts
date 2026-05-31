@@ -250,6 +250,8 @@ export class SorobanIndexerService implements OnModuleInit {
     const skip = filter.skip ?? 0;
     const limit = Math.min(filter.limit ?? 50, 200);
 
+    // Keep DB indexes aligned with these predicates and sort keys:
+    // contract_id, type, ledger, and paging_token.
     const where: FindOptionsWhere<SorobanEvent> = {};
     if (filter.contractId) where.contractId = filter.contractId;
     if (filter.type) where.type = filter.type;

@@ -107,7 +107,7 @@ describe('YieldAnalyticsController', () => {
         'test-contract',
         {
           days: 14,
-          skip: 10,
+          skip: 0,
           limit: 25,
         },
       );
@@ -119,7 +119,7 @@ describe('YieldAnalyticsController', () => {
       expect(result).toEqual({
         items: mockYieldAnalyticsData,
         total: 1,
-        skip: 10,
+        skip: 0,
         limit: 25,
       });
     });

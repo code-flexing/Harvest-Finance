@@ -61,7 +61,7 @@ export class QuerySorobanEventsDto {
   skip?: number = 0;
 
   @ApiPropertyOptional({
-    description: 'Max records to return (1-200)',
+    description: 'Max records to return (1-100)',
     example: 50,
     default: 50,
   })
@@ -69,7 +69,7 @@ export class QuerySorobanEventsDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(200)
+  @Max(100)
   limit?: number = 50;
 }
 

@@ -1,5 +1,5 @@
-import { IsString, IsNumber, Min, IsIn } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsNumber, Min, IsIn, IsOptional } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 const SUPPORTED_CROPS = ['WHEAT', 'MAIZE', 'RICE', 'SOY'];
 
@@ -18,4 +18,12 @@ export class CreateOrderDto {
   @IsNumber()
   @Min(0.0000001)
   price: number;
+
+  @ApiPropertyOptional({
+    example: 'XLM',
+    description: 'Asset code for payment, defaults to XLM',
+  })
+  @IsOptional()
+  @IsString()
+  assetCode?: string;
 }
