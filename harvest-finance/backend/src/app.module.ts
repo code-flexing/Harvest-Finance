@@ -76,10 +76,12 @@ import { AddInsuranceNotificationType1700000000010 } from './database/migrations
 import { CreateSorobanEvents1700000000011 } from './database/migrations/1700000000011-CreateSorobanEvents';
 import { CreateYieldAnalytics1700000000012 } from './database/migrations/1700000000012-CreateYieldAnalytics';
 import { AddSorobanEventQueryIndexes1700000000013 } from './database/migrations/1700000000013-AddSorobanEventQueryIndexes';
+import { DomainEventsModule } from './domain-events';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    DomainEventsModule,
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

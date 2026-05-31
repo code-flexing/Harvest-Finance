@@ -4,6 +4,7 @@ import { OrdersRepository } from './orders.repository';
 import { StellarService } from './stellar.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderStatus } from './order-status.enum';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 describe('OrdersService', () => {
   let service: OrdersService;
@@ -12,7 +13,12 @@ describe('OrdersService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [OrdersService, OrdersRepository, StellarService],
+      providers: [
+        OrdersService,
+        OrdersRepository,
+        StellarService,
+        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
+      ],
     }).compile();
 
     service = module.get<OrdersService>(OrdersService);

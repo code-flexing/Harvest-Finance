@@ -1,9 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigModule } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { CustomLoggerService } from '../../logger/custom-logger.service';
 import * as StellarSdk from 'stellar-sdk';
 import { StellarService } from '../services/stellar.service';
 import { SecretsService } from '../../common/secrets/secrets.service';
 import { FeeBumpScenario } from '../interfaces/stellar.interfaces';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { CustomLoggerService } from '../../logger/custom-logger.service';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -70,6 +74,11 @@ describe('StellarService — Fee-Bump & MEV Testing', () => {
               Promise.resolve(platformKeypair.secret()),
           },
         },
+        {
+          provide: CustomLoggerService,
+          useValue: { log: jest.fn(), error: jest.fn(), warn: jest.fn() },
+        },
+        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
       ],
     }).compile();
 
