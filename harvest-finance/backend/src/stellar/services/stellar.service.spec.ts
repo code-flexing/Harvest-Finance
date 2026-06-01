@@ -8,6 +8,7 @@ import {
   BadRequestException,
   InternalServerErrorException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 describe('StellarService - Escrow Creation', () => {
   let service: StellarService;
@@ -70,6 +71,7 @@ describe('StellarService - Escrow Creation', () => {
             debug: jest.fn(),
           },
         },
+        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
       ],
     }).compile();
 

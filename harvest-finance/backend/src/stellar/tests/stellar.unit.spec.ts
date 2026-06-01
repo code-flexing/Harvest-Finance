@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { StellarService } from '../services/stellar.service';
 import { SecretsService } from '../../common/secrets/secrets.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { CustomLoggerService } from '../../logger/custom-logger.service';
 
 describe('StellarService (unit)', () => {
   let service: StellarService;
@@ -37,6 +39,11 @@ describe('StellarService (unit)', () => {
             },
           },
         },
+        {
+          provide: CustomLoggerService,
+          useValue: { log: jest.fn(), error: jest.fn(), warn: jest.fn() },
+        },
+        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
       ],
     }).compile();
 

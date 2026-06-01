@@ -26,6 +26,12 @@ import { ContractCacheService } from '../common/cache/contract-cache.service';
 import { InputSanitizerService } from '../common/sanitization/input-sanitizer.service';
 import { VaultApproval } from '../database/entities/vault-approval.entity';
 import { User } from '../database/entities/user.entity';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import {
+  DepositCompletedEvent,
+  DomainEventNames,
+  WithdrawalCompletedEvent,
+} from '../domain-events';
 
 const MAX_SAFE_DEPOSIT = 1e30;
 const LARGE_DEPOSIT_THRESHOLD = 10000;
@@ -45,6 +51,7 @@ export class VaultsService {
     private vaultGateway: VaultGateway,
     private contractCache: ContractCacheService,
     private sanitizer: InputSanitizerService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async getVaultById(vaultId: string): Promise<Vault> {
@@ -178,6 +185,18 @@ export class VaultsService {
       userId,
       newBalance: result.vault ? Number(result.vault.totalDeposits) : 0,
     });
+
+    this.eventEmitter.emit(
+      DomainEventNames.DEPOSIT_COMPLETED,
+      new DepositCompletedEvent(
+        confirmedDeposit.id,
+        userId,
+        vaultId,
+        amount,
+        vault.vaultName,
+        result.vault ? Number(result.vault.totalDeposits) : 0,
+      ),
+    );
 
     return {
       vault: result.vault ? this.mapVaultToResponse(result.vault) : null,
@@ -377,6 +396,18 @@ export class VaultsService {
       userId,
       newBalance: result.vault ? Number(result.vault.totalDeposits) : 0,
     });
+
+    this.eventEmitter.emit(
+      DomainEventNames.WITHDRAWAL_COMPLETED,
+      new WithdrawalCompletedEvent(
+        confirmedWithdrawal.id,
+        userId,
+        vaultId,
+        amount,
+        vault.vaultName,
+        result.vault ? Number(result.vault.totalDeposits) : 0,
+      ),
+    );
 
     return {
       withdrawal: confirmedWithdrawal,

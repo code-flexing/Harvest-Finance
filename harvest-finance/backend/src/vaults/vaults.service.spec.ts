@@ -12,6 +12,9 @@ import {
 import { NotificationsService } from '../notifications/notifications.service';
 import { CustomLoggerService } from '../logger/custom-logger.service';
 import { VaultGateway } from '../realtime/vault.gateway';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { ContractCacheService } from '../common/cache/contract-cache.service';
+import { InputSanitizerService } from '../common/sanitization/input-sanitizer.service';
 
 describe('VaultsService', () => {
   let service: VaultsService;
@@ -62,6 +65,13 @@ describe('VaultsService', () => {
     emitDeposit: jest.fn(),
     emitWithdrawal: jest.fn(),
   };
+  const mockEventEmitter = { emit: jest.fn() };
+  const mockContractCache = {
+    getVaultState: jest.fn((_id: string, fn: () => Promise<Vault>) => fn()),
+  };
+  const mockSanitizer = {
+    validateUUID: jest.fn((id: string) => id),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -80,6 +90,9 @@ describe('VaultsService', () => {
         { provide: NotificationsService, useValue: mockNotificationsService },
         { provide: CustomLoggerService, useValue: mockLogger },
         { provide: VaultGateway, useValue: mockVaultGateway },
+        { provide: EventEmitter2, useValue: mockEventEmitter },
+        { provide: ContractCacheService, useValue: mockContractCache },
+        { provide: InputSanitizerService, useValue: mockSanitizer },
       ],
     }).compile();
 

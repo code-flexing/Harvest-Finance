@@ -9,6 +9,12 @@ import { ConfigService } from '@nestjs/config';
 import { SecretsService } from '../../common/secrets/secrets.service';
 import * as StellarSdk from 'stellar-sdk';
 import { CustomLoggerService } from '../../logger/custom-logger.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import {
+  DomainEventNames,
+  EscrowChangeAction,
+  EscrowChangedEvent,
+} from '../../domain-events';
 import {
   EscrowCreateParams,
   EscrowResult,
@@ -37,6 +43,7 @@ export class StellarService implements OnModuleInit {
     private readonly configService: ConfigService,
     private readonly secretsService: SecretsService,
     customLogger: CustomLoggerService,
+    private readonly eventEmitter: EventEmitter2,
   ) {
     this.structuredLogger = customLogger;
     const network = this.configService.get<string>(
@@ -496,7 +503,7 @@ export class StellarService implements OnModuleInit {
         .call();
       const balanceId = this.extractBalanceId(response as any);
 
-      return {
+      const escrowResult: EscrowResult = {
         balanceId,
         transactionHash: bumpResult.innerTransactionHash,
         feeBumpTransactionHash: bumpResult.feeBumpTransactionHash,
@@ -508,6 +515,13 @@ export class StellarService implements OnModuleInit {
         buyerPublicKey,
         orderId,
       };
+      this.emitEscrowChanged('created', {
+        orderId: escrowResult.orderId,
+        transactionHash: escrowResult.transactionHash,
+        balanceId: escrowResult.balanceId,
+        amount: escrowResult.amount,
+      });
+      return escrowResult;
     }
 
     try {
@@ -518,7 +532,7 @@ export class StellarService implements OnModuleInit {
         `Escrow created | balanceId=${balanceId} txHash=${response.hash}`,
       );
 
-      return {
+      const escrowResult: EscrowResult = {
         balanceId,
         transactionHash: response.hash,
         createdAt: new Date(),
@@ -529,6 +543,13 @@ export class StellarService implements OnModuleInit {
         buyerPublicKey,
         orderId,
       };
+      this.emitEscrowChanged('created', {
+        orderId: escrowResult.orderId,
+        transactionHash: escrowResult.transactionHash,
+        balanceId: escrowResult.balanceId,
+        amount: escrowResult.amount,
+      });
+      return escrowResult;
     } catch (err) {
       this.handleStellarError(err, 'createEscrow');
     }
@@ -580,13 +601,19 @@ export class StellarService implements OnModuleInit {
         this.platformSecretKey, // Platform pays the bump fee to ensure release
         params.priorityFeeStroops,
       );
-      return {
+      const releaseStatus: TransactionStatus = {
         transactionHash: bumpResult.innerTransactionHash,
         status: 'success',
         ledger: bumpResult.ledger,
         createdAt: bumpResult.createdAt,
         fee: bumpResult.feeCharged,
       };
+      this.emitEscrowChanged('released', {
+        orderId: params.balanceId,
+        transactionHash: releaseStatus.transactionHash,
+        balanceId: params.balanceId,
+      });
+      return releaseStatus;
     }
 
     try {
@@ -596,13 +623,19 @@ export class StellarService implements OnModuleInit {
       );
       this.logger.log(`Payment released | txHash=${response.hash}`);
 
-      return {
+      const releaseStatus: TransactionStatus = {
         transactionHash: response.hash,
         status: 'success',
         ledger: response.ledger,
         createdAt: new Date(),
         fee: '0',
       };
+      this.emitEscrowChanged('released', {
+        orderId: params.balanceId,
+        transactionHash: releaseStatus.transactionHash,
+        balanceId: params.balanceId,
+      });
+      return releaseStatus;
     } catch (err) {
       this.handleStellarError(err, 'releasePayment');
     }
@@ -652,26 +685,38 @@ export class StellarService implements OnModuleInit {
         this.platformSecretKey, // Platform pays the bump fee to ensure refund
         params.priorityFeeStroops,
       );
-      return {
+      const refundStatus: TransactionStatus = {
         transactionHash: bumpResult.innerTransactionHash,
         status: 'success',
         ledger: bumpResult.ledger,
         createdAt: bumpResult.createdAt,
         fee: bumpResult.feeCharged,
       };
+      this.emitEscrowChanged('refunded', {
+        orderId: params.balanceId,
+        transactionHash: refundStatus.transactionHash,
+        balanceId: params.balanceId,
+      });
+      return refundStatus;
     }
 
     try {
       const response = await this.submitWithRetry(transaction, 'refund');
       this.logger.log(`Refund processed | txHash=${response.hash}`);
 
-      return {
+      const refundStatus: TransactionStatus = {
         transactionHash: response.hash,
         status: 'success',
         ledger: response.ledger,
         createdAt: new Date(),
         fee: '0',
       };
+      this.emitEscrowChanged('refunded', {
+        orderId: params.balanceId,
+        transactionHash: refundStatus.transactionHash,
+        balanceId: params.balanceId,
+      });
+      return refundStatus;
     } catch (err) {
       this.handleStellarError(err, 'refundEscrow');
     }
@@ -1056,6 +1101,27 @@ export class StellarService implements OnModuleInit {
     if (!StellarSdk.StrKey.isValidEd25519PublicKey(key)) {
       throw new BadRequestException(`Invalid Stellar public key: ${key}`);
     }
+  }
+
+  private emitEscrowChanged(
+    action: EscrowChangeAction,
+    payload: {
+      orderId: string;
+      transactionHash?: string;
+      balanceId?: string;
+      amount?: string;
+    },
+  ): void {
+    this.eventEmitter.emit(
+      DomainEventNames.ESCROW_CHANGED,
+      new EscrowChangedEvent(
+        action,
+        payload.orderId,
+        payload.transactionHash,
+        payload.balanceId,
+        payload.amount,
+      ),
+    );
   }
 
   /** Validates that an amount is a positive numeric string. */
