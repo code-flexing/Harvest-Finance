@@ -4,8 +4,8 @@ import {
   Injectable,
   Logger,
 } from '@nestjs/common';
-import {
-  FIAT_ON_RAMP_PROVIDER,
+import { FIAT_ON_RAMP_PROVIDER } from './interfaces/fiat-on-ramp-provider.interface';
+import type {
   FiatOnRampProvider,
   OnRampQuote,
   OnRampQuoteRequest,
