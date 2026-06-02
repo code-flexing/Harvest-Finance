@@ -33,6 +33,7 @@ import { SorobanModule } from './soroban/soroban.module';
 import { StellarModule } from './stellar/stellar.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { StateSyncModule } from './state-sync/state-sync.module';
+import { PaymentsModule } from './payments/payments.module';
 import { AchievementsModule } from './achievements/achievements.module';
 import { AdminModule } from './admin/admin.module';
 import { InsuranceModule } from './insurance/insurance.module';
@@ -173,6 +174,7 @@ import { DomainEventsModule } from './domain-events';
     PortfolioModule,
     AnalyticsModule,
     StateSyncModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [
