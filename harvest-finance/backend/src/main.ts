@@ -13,6 +13,7 @@ import { ThrottlerExceptionFilter } from './common/filters/throttler-exception.f
 import { SorobanExceptionFilter } from './common/filters/soroban-exception.filter';
 import { CustomLoggerService } from './logger/custom-logger.service';
 import { VersioningInterceptor } from './common/interceptors/versioning.interceptor';
+import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -38,6 +39,8 @@ async function bootstrap() {
       },
     }),
   );
+
+  app.useGlobalInterceptors(new ResponseInterceptor());
 
   app.useWebSocketAdapter(new IoAdapter(app));
 
