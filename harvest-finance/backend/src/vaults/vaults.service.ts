@@ -14,6 +14,7 @@ import {
   WithdrawalStatus,
 } from '../database/entities/withdrawal.entity';
 import { DepositDto } from './dto/deposit.dto';
+import { BatchDepositDto } from './dto/batch-deposit.dto';
 import {
   DepositVaultResponseDto,
   VaultResponseDto,
@@ -33,6 +34,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   DepositCompletedEvent,
   DomainEventNames,
+  WithdrawalConfirmedEvent,
   WithdrawalCompletedEvent,
 } from '../domain-events';
 
@@ -220,6 +222,234 @@ export class VaultsService {
       deposit: this.mapDepositToResponse(confirmedDeposit),
       userTotalDeposits,
     };
+  }
+
+  async batchDepositToVaults(
+    userId: string,
+    dto: BatchDepositDto,
+  ): Promise<{ results: DepositVaultResponseDto[]; userTotalDeposits: number }> {
+    const deposits = dto.deposits ?? [];
+    if (deposits.length === 0) {
+      throw new BadRequestException('At least one deposit is required');
+    }
+
+    // Minimal dedupe check: idempotencyKey duplicates within the same request.
+    const keys = deposits
+      .map((d) => d.idempotencyKey)
+      .filter((k): k is string => typeof k === 'string' && k.length > 0);
+    const uniqueKeys = new Set(keys);
+    if (uniqueKeys.size !== keys.length) {
+      throw new BadRequestException('Duplicate idempotencyKey in batch request');
+    }
+
+    const results = await this.dataSource.transaction(async (manager) => {
+      // Load and validate all vaults up front.
+      const uniqueVaultIds = Array.from(new Set(deposits.map((d) => d.vaultId)));
+      const vaults = await manager.find(Vault, {
+        where: uniqueVaultIds.map((id) => ({ id })),
+      });
+      const vaultById = new Map(vaults.map((v) => [v.id, v]));
+
+      for (const vaultId of uniqueVaultIds) {
+        if (!vaultById.has(vaultId)) {
+          throw new NotFoundException(`Vault not found: ${vaultId}`);
+        }
+      }
+
+      // Aggregate requested amounts per vault so we can fail-fast on capacity.
+      const totalByVault = new Map<string, number>();
+      for (const item of deposits) {
+        const amount = item.amount;
+        if (amount <= 0) {
+          throw new BadRequestException('Deposit amount must be greater than 0');
+        }
+        if (amount > MAX_SAFE_DEPOSIT) {
+          throw new BadRequestException(
+            'Deposit amount exceeds maximum allowed value',
+          );
+        }
+        totalByVault.set(item.vaultId, (totalByVault.get(item.vaultId) ?? 0) + amount);
+      }
+
+      for (const [vaultId, totalAmount] of totalByVault.entries()) {
+        const vault = vaultById.get(vaultId)!;
+        if (vault.status !== VaultStatus.ACTIVE) {
+          throw new BadRequestException(
+            `Vault is not active for deposits: ${vaultId}`,
+          );
+        }
+        if (vault.isFullCapacity) {
+          throw new BadRequestException(
+            `Vault has reached maximum capacity: ${vaultId}`,
+          );
+        }
+        if (totalAmount > vault.availableCapacity) {
+          throw new BadRequestException(
+            `Batch deposits exceed available vault capacity for ${vaultId}. Available: ${vault.availableCapacity}`,
+          );
+        }
+      }
+
+      // Idempotency: if any requested idempotencyKey already exists, fail the whole batch.
+      if (uniqueKeys.size > 0) {
+        const existing = await manager.find(Deposit, {
+          where: Array.from(uniqueKeys).map((key) => ({ userId, idempotencyKey: key })),
+          relations: ['vault'],
+        });
+        if (existing.length > 0) {
+          const first = existing[0];
+          throw new BadRequestException(
+            `Duplicate deposit detected with idempotencyKey: ${first.idempotencyKey}`,
+          );
+        }
+      }
+
+      const perDepositResponses: DepositVaultResponseDto[] = [];
+
+      // Create + confirm each deposit within the same transaction for atomicity.
+      for (const item of deposits) {
+        const deposit = manager.getRepository(Deposit).create({
+          userId,
+          vaultId: item.vaultId,
+          amount: item.amount,
+          status: DepositStatus.PENDING,
+          transactionHash: null,
+          stellarTransactionId: null,
+          confirmedAt: null,
+          idempotencyKey: item.idempotencyKey || null,
+        });
+
+        const savedDeposit = await manager.save(deposit);
+
+        await this.depositEventService.appendEvent(
+          {
+            depositId: savedDeposit.id,
+            userId,
+            vaultId: item.vaultId,
+            eventType: DepositEventType.INITIATED,
+            amount: item.amount,
+            idempotencyKey: item.idempotencyKey || null,
+            payload: { status: DepositStatus.PENDING },
+          },
+          manager,
+        );
+
+        await manager.increment(
+          Vault,
+          { id: item.vaultId },
+          'totalDeposits',
+          item.amount,
+        );
+
+        const stellarTransactionId: string | null = `mock_stellar_${Date.now()}`;
+        const transactionHash = `mock_tx_${Date.now()}`;
+        const confirmedAt = new Date();
+
+        await manager.update(Deposit, savedDeposit.id, {
+          status: DepositStatus.CONFIRMED,
+          confirmedAt,
+          transactionHash,
+          ...(stellarTransactionId != null ? { stellarTransactionId } : {}),
+        });
+
+        await this.depositEventService.appendEvent(
+          {
+            depositId: savedDeposit.id,
+            userId,
+            vaultId: item.vaultId,
+            eventType: DepositEventType.CONFIRMED,
+            amount: item.amount,
+            transactionHash,
+            stellarTransactionId,
+            idempotencyKey: item.idempotencyKey || null,
+            payload: {
+              status: DepositStatus.CONFIRMED,
+              confirmedAt: confirmedAt.toISOString(),
+            },
+          },
+          manager,
+        );
+
+        const updatedVault = await manager.findOne(Vault, {
+          where: { id: item.vaultId },
+        });
+
+        if (updatedVault && updatedVault.isFullCapacity) {
+          await manager.update(
+            Vault,
+            { id: item.vaultId },
+            { status: VaultStatus.FULL_CAPACITY },
+          );
+          updatedVault.status = VaultStatus.FULL_CAPACITY;
+        }
+
+        const confirmedDeposit = await manager.findOne(Deposit, {
+          where: { id: savedDeposit.id },
+        });
+
+        if (!confirmedDeposit) {
+          throw new NotFoundException('Deposit not found after confirmation');
+        }
+
+        const userTotalDeposits = await manager
+          .getRepository(Deposit)
+          .createQueryBuilder('deposit')
+          .select('SUM(deposit.amount)', 'total')
+          .where('deposit.userId = :userId', { userId })
+          .andWhere('deposit.status = :status', { status: DepositStatus.CONFIRMED })
+          .getRawOne();
+
+        perDepositResponses.push({
+          vault: updatedVault ? this.mapVaultToResponse(updatedVault) : null,
+          deposit: this.mapDepositToResponse(confirmedDeposit),
+          userTotalDeposits: userTotalDeposits?.total
+            ? parseFloat(userTotalDeposits.total)
+            : 0,
+        });
+      }
+
+      return perDepositResponses;
+    });
+
+    // Post-transaction: recompute total deposits and emit events/notifications asynchronously.
+    const userTotalDeposits = await this.getUserTotalDeposits(userId);
+
+    for (const r of results) {
+      const amount = r.deposit.amount;
+      if (amount >= LARGE_DEPOSIT_THRESHOLD && r.vault) {
+        await this.notificationsService.create(
+          NotificationHelper.largeDepositAlert({
+            amount,
+            vaultName: r.vault.vaultName,
+          }),
+        );
+      }
+
+      if (r.vault) {
+        this.vaultGateway.emitDeposit({
+          vaultId: r.vault.id,
+          vaultName: r.vault.vaultName,
+          asset: r.vault.type,
+          amount,
+          userId,
+          newBalance: r.vault.totalDeposits,
+        });
+
+        this.eventEmitter.emit(
+          DomainEventNames.DEPOSIT_COMPLETED,
+          new DepositCompletedEvent(
+            r.deposit.id,
+            userId,
+            r.vault.id,
+            amount,
+            r.vault.vaultName,
+            r.vault.totalDeposits,
+          ),
+        );
+      }
+    }
+
+    return { results, userTotalDeposits };
   }
 
   private async confirmDeposit(depositId: string): Promise<Deposit> {
@@ -449,37 +679,18 @@ export class VaultsService {
       throw new NotFoundException('Withdrawal not found after confirmation');
     }
 
-    await this.notificationsService.create(
-      NotificationHelper.withdrawalConfirmed({
-        userId,
-        amount,
-        vaultName: vault.vaultName,
-      }),
-    );
-
-    this.logger.log(
-      `Withdrawal of ${amount} confirmed from vault ${vaultId} by user ${userId}`,
-      'VaultsService',
-    );
-
-    this.vaultGateway.emitWithdrawal({
-      vaultId,
-      vaultName: vault.vaultName,
-      asset: vault.type,
-      amount,
-      userId,
-      newBalance: result.vault ? Number(result.vault.totalDeposits) : 0,
-    });
-
+    // Emit an async event for post-confirmation work (notifications, realtime, downstream domain events).
     this.eventEmitter.emit(
-      DomainEventNames.WITHDRAWAL_COMPLETED,
-      new WithdrawalCompletedEvent(
+      DomainEventNames.WITHDRAWAL_CONFIRMED,
+      new WithdrawalConfirmedEvent(
         confirmedWithdrawal.id,
         userId,
         vaultId,
         amount,
         vault.vaultName,
         result.vault ? Number(result.vault.totalDeposits) : 0,
+        confirmedWithdrawal.transactionHash,
+        confirmedWithdrawal.confirmedAt ?? new Date(),
       ),
     );
 

@@ -38,6 +38,7 @@ import { AdminModule } from './admin/admin.module';
 import { InsuranceModule } from './insurance/insurance.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { RewardsModule } from './rewards/rewards.module';
+import { ObservabilityModule } from './observability/observability.module';
 import {
   Achievement,
   CreditScore,
@@ -85,6 +86,7 @@ import { DomainEventsModule } from './domain-events';
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnvironment }),
     DomainEventsModule,
+    ObservabilityModule,
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

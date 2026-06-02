@@ -21,7 +21,9 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { VaultsService } from './vaults.service';
 import { DepositDto } from './dto/deposit.dto';
+import { BatchDepositDto } from './dto/batch-deposit.dto';
 import {
+  BatchDepositResponseDto,
   DepositVaultResponseDto,
   VaultResponseDto,
 } from './dto/vault-response.dto';
@@ -37,6 +39,23 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 @ApiBearerAuth()
 export class VaultsController {
   constructor(private readonly vaultsService: VaultsService) {}
+
+  @Post('deposits/batch')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Submit multiple deposits atomically' })
+  @ApiBody({ type: BatchDepositDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Batch deposit processed successfully',
+    type: BatchDepositResponseDto,
+  })
+  async batchDeposit(
+    @Body() dto: BatchDepositDto,
+    @Request() req: any,
+  ): Promise<BatchDepositResponseDto> {
+    return this.vaultsService.batchDepositToVaults(req.user.id, dto);
+  }
 
   @Post(':vaultId/deposit')
   @Throttle({ default: { limit: 20, ttl: 60000 } })

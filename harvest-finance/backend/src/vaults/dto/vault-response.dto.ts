@@ -217,3 +217,17 @@ export class DepositVaultResponseDto {
   })
   userTotalDeposits: number;
 }
+
+export class BatchDepositResponseDto {
+  @ApiProperty({
+    description: 'Per-deposit results (in request order)',
+    type: [DepositVaultResponseDto],
+  })
+  results: DepositVaultResponseDto[];
+
+  @ApiProperty({
+    example: 25000.75,
+    description: "User's total deposits across all vaults after batch",
+  })
+  userTotalDeposits: number;
+}

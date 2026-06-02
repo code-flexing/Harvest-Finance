@@ -11,6 +11,7 @@ import { AuthModule } from '../auth/auth.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { CommonModule } from '../common/common.module';
+import { WithdrawalConfirmedHandler } from './events/withdrawal-confirmed.handler';
 
 @Module({
   imports: [
@@ -21,7 +22,7 @@ import { CommonModule } from '../common/common.module';
     CommonModule,
   ],
   controllers: [VaultsController],
-  providers: [VaultsService, DepositEventService],
+  providers: [VaultsService, DepositEventService, WithdrawalConfirmedHandler],
   exports: [VaultsService, DepositEventService],
 })
 export class VaultsModule {}
