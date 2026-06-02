@@ -45,7 +45,7 @@ export function validateEnvironment(
       THROTTLE_TTL: num({ default: 60_000 }),
       THROTTLE_LIMIT: num({ default: 100 }),
       LOG_LEVEL: str({ choices: logLevels, default: 'info' }),
-      LOG_PRETTY: bool({ default: false }),
+      LOG_PRETTY: bool({ default: false, devDefault: true }),
     },
     {
       reporter: ({ errors }) => {
