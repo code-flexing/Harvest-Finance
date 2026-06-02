@@ -20,11 +20,19 @@ import {
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { VaultsService } from './vaults.service';
+import { CommandBus, QueryBus } from '@nestjs/cqrs';
+import { DepositFundsCommand } from './cqrs/commands/deposit-funds.command';
+import { WithdrawFundsCommand } from './cqrs/commands/withdraw-funds.command';
+import { GetVaultBalanceQuery } from './cqrs/queries/get-vault-balance.query';
+import { GetVaultTransactionsQuery } from './cqrs/queries/get-vault-transactions.query';
 import { DepositDto } from './dto/deposit.dto';
+import { BatchDepositDto } from './dto/batch-deposit.dto';
 import {
+  BatchDepositResponseDto,
   DepositVaultResponseDto,
   VaultResponseDto,
 } from './dto/vault-response.dto';
+import { DepositEventResponseDto } from './dto/deposit-event-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('Vaults')
@@ -35,7 +43,28 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class VaultsController {
-  constructor(private readonly vaultsService: VaultsService) {}
+  constructor(
+    private readonly vaultsService: VaultsService,
+    private readonly commandBus: CommandBus,
+    private readonly queryBus: QueryBus,
+  ) {}
+
+  @Post('deposits/batch')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Submit multiple deposits atomically' })
+  @ApiBody({ type: BatchDepositDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Batch deposit processed successfully',
+    type: BatchDepositResponseDto,
+  })
+  async batchDeposit(
+    @Body() dto: BatchDepositDto,
+    @Request() req: any,
+  ): Promise<BatchDepositResponseDto> {
+    return this.vaultsService.batchDepositToVaults(req.user.id, dto);
+  }
 
   @Post(':vaultId/deposit')
   @Throttle({ default: { limit: 20, ttl: 60000 } })
@@ -67,7 +96,9 @@ export class VaultsController {
     @Request() req: any,
   ): Promise<DepositVaultResponseDto> {
     const secureDepositDto = { ...depositDto, userId: req.user.id };
-    return this.vaultsService.depositToVault(vaultId, secureDepositDto);
+    return this.commandBus.execute(
+      new DepositFundsCommand(vaultId, secureDepositDto.userId, secureDepositDto.amount, secureDepositDto.idempotencyKey),
+    );
   }
 
   @Post(':vaultId/withdraw')
@@ -100,7 +131,82 @@ export class VaultsController {
     @Body('amount') amount: number,
     @Request() req: any,
   ): Promise<any> {
-    return this.vaultsService.withdrawFromVault(vaultId, req.user.id, amount);
+    return this.commandBus.execute(new WithdrawFundsCommand(vaultId, req.user.id, amount));
+  }
+
+  @Get(':vaultId/balance')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get vault balance (optionally user-specific)' })
+  async getVaultBalance(
+    @Param('vaultId') vaultId: string,
+    @Request() req: any,
+  ): Promise<any> {
+    const userId = req.user ? req.user.id : undefined;
+    return this.queryBus.execute(new GetVaultBalanceQuery(vaultId, userId));
+  }
+
+  @Get(':vaultId/transactions')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get recent vault transactions' })
+  async getVaultTransactions(
+    @Param('vaultId') vaultId: string,
+    @Query('limit') limit = '50',
+  ): Promise<any> {
+    const n = parseInt(limit, 10) || 50;
+    return this.queryBus.execute(new GetVaultTransactionsQuery(vaultId, n));
+  }
+
+  @Get('deposits/history')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get authenticated user deposit event history' })
+  @ApiResponse({
+    status: 200,
+    description: 'Deposit event history retrieved successfully',
+    type: [DepositEventResponseDto],
+  })
+  async getUserDepositHistory(
+    @Request() req: any,
+    @Query('vaultId') vaultId?: string,
+  ): Promise<DepositEventResponseDto[]> {
+    return this.vaultsService.getUserDepositEventHistory(req.user.id, vaultId);
+  }
+
+  @Get('deposits/:depositId/events')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get append-only event log for a deposit' })
+  @ApiParam({
+    name: 'depositId',
+    description: 'Deposit ID (UUID)',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Deposit events retrieved successfully',
+    type: [DepositEventResponseDto],
+  })
+  async getDepositEventHistory(
+    @Param('depositId') depositId: string,
+  ): Promise<DepositEventResponseDto[]> {
+    return this.vaultsService.getDepositEventHistory(depositId);
+  }
+
+  @Get(':vaultId/deposit-history')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get append-only deposit event history for a vault' })
+  @ApiParam({
+    name: 'vaultId',
+    description: 'Vault ID (UUID)',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Vault deposit event history retrieved successfully',
+    type: [DepositEventResponseDto],
+  })
+  async getVaultDepositHistory(
+    @Param('vaultId') vaultId: string,
+  ): Promise<DepositEventResponseDto[]> {
+    return this.vaultsService.getVaultDepositEventHistory(vaultId);
   }
 
   @Get('my-vaults')
@@ -179,5 +285,180 @@ export class VaultsController {
     @Query('timeRange') timeRange: string = '30d',
   ): Promise<any[]> {
     return this.vaultsService.getApyHistory(vaultId, timeRange);
+  }
+
+  @Post(':vaultId/multi-signature-config')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update multi-signature configuration for a vault' })
+  @ApiParam({
+    name: 'vaultId',
+    description: 'Vault ID (UUID)',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        requiresMultiSignature: { type: 'boolean', example: true },
+        approvalThreshold: { type: 'number', example: 2 },
+      },
+      required: ['requiresMultiSignature', 'approvalThreshold'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Multi-signature configuration updated successfully',
+    type: VaultResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid configuration or validation error',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Only vault owner or admin can update configuration',
+  })
+  @ApiResponse({ status: 404, description: 'Vault not found' })
+  async updateVaultMultiSignatureConfig(
+    @Param('vaultId') vaultId: string,
+    @Body('requiresMultiSignature') requiresMultiSignature: boolean,
+    @Body('approvalThreshold') approvalThreshold: number,
+    @Request() req: any,
+  ): Promise<VaultResponseDto> {
+    return this.vaultsService.updateVaultMultiSignatureConfig(
+      vaultId,
+      req.user.id,
+      requiresMultiSignature,
+      approvalThreshold,
+    );
+  }
+
+  @Post(':vaultId/request-approval')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Request approval from another user for vault operations' })
+  @ApiParam({
+    name: 'vaultId',
+    description: 'Vault ID (UUID)',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        approverUserId: { type: 'string', example: '456e7890-e89b-12d3-a456-426614174111' },
+      },
+      required: ['approverUserId'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Approval request sent successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid approver or validation error',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Only vault owner or admin can request approvals',
+  })
+  @ApiResponse({ status: 404, description: 'Vault not found' })
+  async requestVaultApproval(
+    @Param('vaultId') vaultId: string,
+    @Body('approverUserId') approverUserId: string,
+    @Request() req: any,
+  ): Promise<void> {
+    return this.vaultsService.requestVaultApproval(
+      vaultId,
+      req.user.id,
+      approverUserId,
+    );
+  }
+
+  @Post(':vaultId/approve')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Approve vault operations' })
+  @ApiParam({
+    name: 'vaultId',
+    description: 'Vault ID (UUID)',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Vault operation approved successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'No pending approval request found or invalid state',
+  })
+  @ApiResponse({ status: 404, description: 'Vault not found' })
+  async approveVaultOperation(
+    @Param('vaultId') vaultId: string,
+    @Request() req: any,
+  ): Promise<{ success: boolean; message: string }> {
+    return this.vaultsService.approveVaultOperation(vaultId, req.user.id);
+  }
+
+  @Post(':vaultId/pause')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Pause a vault (freeze operations)' })
+  @ApiParam({
+    name: 'vaultId',
+    description: 'Vault ID (UUID)',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Vault paused successfully',
+    type: VaultResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Vault is already paused',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Only vault owner or admin can pause vault',
+  })
+  @ApiResponse({ status: 404, description: 'Vault not found' })
+  async pauseVault(
+    @Param('vaultId') vaultId: string,
+    @Request() req: any,
+  ): Promise<VaultResponseDto> {
+    return this.vaultsService.pauseVault(vaultId, req.user.id);
+  }
+
+  @Post(':vaultId/resume')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Resume a paused vault' })
+  @ApiParam({
+    name: 'vaultId',
+    description: 'Vault ID (UUID)',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Vault resumed successfully',
+    type: VaultResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Vault is not paused',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Only vault owner or admin can resume vault',
+  })
+  @ApiResponse({ status: 404, description: 'Vault not found' })
+  async resumeVault(
+    @Param('vaultId') vaultId: string,
+    @Request() req: any,
+  ): Promise<VaultResponseDto> {
+    return this.vaultsService.resumeVault(vaultId, req.user.id);
   }
 }

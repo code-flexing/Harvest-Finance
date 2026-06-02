@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+
 import { parseStellarError, STELLAR_ERROR_MAP, DEFAULT_ERROR_MESSAGE } from '../errors/stellar-errors';
 
 describe('parseStellarError', () => {

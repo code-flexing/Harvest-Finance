@@ -8,9 +8,12 @@ import {
   JoinColumn,
   ManyToOne,
   OneToMany,
+  OneToOne,
+  ManyToMany,
 } from 'typeorm';
 import { User } from './user.entity';
 import { Deposit } from './deposit.entity';
+import { VaultApproval } from './vault-approval.entity';
 
 export enum VaultType {
   CROP_PRODUCTION = 'CROP_PRODUCTION',
@@ -125,6 +128,15 @@ export class Vault {
   @Column({ name: 'is_public', default: true })
   isPublic: boolean;
 
+  @Column({ name: 'requires_multi_signature', default: false })
+  requiresMultiSignature: boolean;
+
+  @Column({ name: 'approval_threshold', type: 'int', default: 1 })
+  approvalThreshold: number;
+
+  @Column({ name: 'current_approvals', type: 'int', default: 0 })
+  currentApprovals: number;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
@@ -138,6 +150,9 @@ export class Vault {
   @OneToMany(() => Deposit, (deposit) => deposit.vault)
   deposits: Deposit[];
 
+  @OneToMany(() => VaultApproval, (approval) => approval.vault)
+  approvals: VaultApproval[];
+
   get availableCapacity(): number {
     return Number(this.maxCapacity) - Number(this.totalDeposits);
   }
@@ -149,5 +164,15 @@ export class Vault {
 
   get isFullCapacity(): boolean {
     return Number(this.totalDeposits) >= Number(this.maxCapacity);
+  }
+
+  get requiresApproval(): boolean {
+    return this.requiresMultiSignature && this.currentApprovals < this.approvalThreshold;
+  }
+
+  get approvalStatus(): string {
+    if (!this.requiresMultiSignature) return 'NOT_REQUIRED';
+    if (this.currentApprovals >= this.approvalThreshold) return 'APPROVED';
+    return 'PENDING';
   }
 }

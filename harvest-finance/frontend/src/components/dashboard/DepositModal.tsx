@@ -118,7 +118,7 @@ export const DepositModal: React.FC<DepositModalProps> = ({
     setIsLoading(true);
     setError(null);
 
-    let toastId: React.ReactText | null = null;
+    let toastId: string | number | null = null;
     try {
       if (typeof navigator !== "undefined" && !navigator.onLine) {
         enqueueOfflineAction({

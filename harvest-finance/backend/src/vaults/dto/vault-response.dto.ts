@@ -109,6 +109,30 @@ export class VaultResponseDto {
   isPublic: boolean;
 
   @ApiProperty({
+    example: false,
+    description: 'Whether vault requires multi-signature approval',
+  })
+  requiresMultiSignature: boolean;
+
+  @ApiProperty({
+    example: 2,
+    description: 'Number of approvals required for operations',
+  })
+  approvalThreshold: number;
+
+  @ApiProperty({
+    example: 1,
+    description: 'Number of current approvals',
+  })
+  currentApprovals: number;
+
+  @ApiProperty({
+    example: 'PENDING',
+    description: 'Current approval status (NOT_REQUIRED, PENDING, APPROVED)',
+  })
+  approvalStatus: string;
+
+  @ApiProperty({
     example: '2023-01-01T00:00:00Z',
     description: 'Vault creation date',
   })
@@ -190,6 +214,20 @@ export class DepositVaultResponseDto {
   @ApiProperty({
     example: 25000.75,
     description: "User's total deposits across all vaults",
+  })
+  userTotalDeposits: number;
+}
+
+export class BatchDepositResponseDto {
+  @ApiProperty({
+    description: 'Per-deposit results (in request order)',
+    type: [DepositVaultResponseDto],
+  })
+  results: DepositVaultResponseDto[];
+
+  @ApiProperty({
+    example: 25000.75,
+    description: "User's total deposits across all vaults after batch",
   })
   userTotalDeposits: number;
 }

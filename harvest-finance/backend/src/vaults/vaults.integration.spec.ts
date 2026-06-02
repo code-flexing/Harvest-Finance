@@ -16,6 +16,9 @@ import {
 import { NotificationsService } from '../notifications/notifications.service';
 import { CustomLoggerService } from '../logger/custom-logger.service';
 import { VaultGateway } from '../realtime/vault.gateway';
+import { ContractCacheService } from '../common/cache/contract-cache.service';
+import { InputSanitizerService } from '../common/sanitization/input-sanitizer.service';
+import { DepositEventService } from './deposit-event.service';
 
 const USER_ID = '11111111-1111-1111-1111-111111111111';
 const VAULT_ID = '22222222-2222-2222-2222-222222222222';
@@ -89,6 +92,21 @@ describe('VaultsService — Yield Strategy Integration', () => {
     emitDeposit: jest.fn(),
     emitWithdrawal: jest.fn(),
   };
+  const mockContractCache = {
+    getVaultState: jest.fn((_id: string, loader: () => Promise<unknown>) =>
+      loader(),
+    ),
+  };
+  const mockSanitizer = {
+    validateUUID: jest.fn((id: string) => id),
+  };
+  const mockDepositEventService = {
+    appendEvent: jest.fn().mockResolvedValue(undefined),
+    getDepositHistory: jest.fn().mockResolvedValue([]),
+    getUserDepositHistory: jest.fn().mockResolvedValue([]),
+    getVaultDepositHistory: jest.fn().mockResolvedValue([]),
+    mapEventToResponse: jest.fn((event) => event),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -107,6 +125,9 @@ describe('VaultsService — Yield Strategy Integration', () => {
         { provide: NotificationsService, useValue: mockNotificationsService },
         { provide: CustomLoggerService, useValue: mockLogger },
         { provide: VaultGateway, useValue: mockVaultGateway },
+        { provide: ContractCacheService, useValue: mockContractCache },
+        { provide: InputSanitizerService, useValue: mockSanitizer },
+        { provide: DepositEventService, useValue: mockDepositEventService },
       ],
     }).compile();
 
@@ -174,6 +195,7 @@ describe('VaultsService — Yield Strategy Integration', () => {
       expect(result.deposit.amount).toBe(1000);
       expect(result.userTotalDeposits).toBe(1000);
       expect(mockDataSource.transaction).toHaveBeenCalledTimes(1);
+      expect(mockDepositEventService.appendEvent).toHaveBeenCalledTimes(2);
       expect(mockManager.increment).toHaveBeenCalledWith(
         Vault,
         { id: VAULT_ID },

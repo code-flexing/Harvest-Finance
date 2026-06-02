@@ -104,7 +104,7 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
 
     setIsLoading(true);
     setError(null);
-    let toastId: React.ReactText | null = null;
+    let toastId: string | number | null = null;
     try {
       const i128Amount = toI128(Number(amount));
 

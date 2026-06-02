@@ -65,14 +65,67 @@ Always branch off `main` unless the issue specifies otherwise.
 
 ## Commit Messages
 
-Follow [Conventional Commits](https://www.conventionalcommits.org/):
+This project follows the [Conventional Commits](https://www.conventionalcommits.org/) specification. Every commit message must use the format below so that changelogs can be generated automatically.
+
+### Format
 
 ```
-feat: add analytics dashboard endpoint
-fix: correct vault totalDeposits drift on withdrawal
+<type>[optional scope]: <short description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+- **type** — one of the allowed values listed below (lowercase, required)
+- **scope** — the area of the codebase affected, in parentheses, e.g. `auth`, `vault`, `dto` (optional)
+- **short description** — imperative, present tense, no trailing period, max 72 chars
+- **body** — free-form text explaining *why* the change was made (optional)
+- **footer** — `BREAKING CHANGE: <description>` or issue references such as `Closes #123` (optional)
+
+### Allowed types
+
+| Type | When to use |
+|---|---|
+| `feat` | A new feature visible to users or API consumers |
+| `fix` | A bug fix |
+| `docs` | Documentation changes only |
+| `test` | Adding or updating tests, no production code change |
+| `refactor` | Code restructuring with no feature or bug-fix impact |
+| `chore` | Tooling, dependencies, config, CI — nothing that affects runtime |
+| `perf` | A change that improves performance |
+| `style` | Formatting, whitespace — no logic change |
+| `build` | Build system or external dependency updates |
+| `ci` | CI/CD configuration changes |
+
+### Examples
+
+```
+feat(auth): add Stellar wallet login endpoint
+
+fix(vault): correct totalDeposits drift on withdrawal
+
 docs: update API README with state-sync endpoints
-test: add fuzz tests for VaultLib.toShares
-refactor: extract share math into VaultLib
+
+test(vault): add fuzz tests for VaultLib.toShares
+
+refactor(vault): extract share math into VaultLib
+
+chore: upgrade TypeORM to 0.3.28
+
+feat(api)!: rename /deposits to /farm-vaults/deposits
+
+BREAKING CHANGE: the /deposits route has been removed; update all clients to use /farm-vaults/deposits
+```
+
+### Breaking changes
+
+Append `!` after the type/scope and add a `BREAKING CHANGE:` footer:
+
+```
+feat(api)!: rename deposit response fields
+
+BREAKING CHANGE: `amount_deposited` is now `principal`; update all API clients accordingly
 ```
 
 Reference the issue number in the PR description with `Closes #<issue>`.

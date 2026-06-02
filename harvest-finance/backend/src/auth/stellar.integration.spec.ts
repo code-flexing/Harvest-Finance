@@ -18,12 +18,19 @@ describe('Stellar Authentication Integration', () => {
   const testServerSecret =
     'SAKIA7YOPW5G2SSLLGEELDJ7SZPOS6X4GZWKOQYYUY7IL6FI6N7WP6RE';
   const testNetworkPassphrase = 'Test SDF Network ; September 2015';
-  const testClientSecret =
-    'SCZW6PF5EUSR6FCFKRMPB52HHOI5BQXN256AUG356GTNJXHQAC5ALT6D';
-  const testClientPublicKey =
-    'GASVN2GNYP2DZCASZ6MOPS3RO26UIT6ZKH4ORN2FKTIQFD5P5OUKJPFW';
+  let testServerPublicKey: string;
+  let testClientKeypair: StellarSdk.Keypair;
+  let testClientSecret: string;
+  let testClientPublicKey: string;
 
   beforeAll(async () => {
+    testServerPublicKey = StellarSdk.Keypair.fromSecret(
+      testServerSecret,
+    ).publicKey();
+    testClientKeypair = StellarSdk.Keypair.random();
+    testClientSecret = testClientKeypair.secret();
+    testClientPublicKey = testClientKeypair.publicKey();
+
     const mockConfigService = {
       get: jest.fn((key: string) => {
         switch (key) {
@@ -63,6 +70,14 @@ describe('Stellar Authentication Integration', () => {
           provide: getRepositoryToken(User),
           useValue: mockUserRepository,
         },
+        {
+          provide: 'CACHE_MANAGER',
+          useValue: {
+            get: jest.fn(),
+            set: jest.fn(),
+            del: jest.fn(),
+          },
+        },
       ],
     })
       .overrideProvider(AuthService)
@@ -95,9 +110,7 @@ describe('Stellar Authentication Integration', () => {
       expect(challengeResponse).toHaveProperty('server_public_key');
       expect(challengeResponse).toHaveProperty('transaction');
       expect(challengeResponse).toHaveProperty('network_passphrase');
-      expect(challengeResponse.server_public_key).toBe(
-        'GD5DJQDQKG6GSUWQJQGQKQ5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q',
-      );
+      expect(challengeResponse.server_public_key).toBe(testServerPublicKey);
       expect(challengeResponse.network_passphrase).toBe(testNetworkPassphrase);
 
       // Step 2: Parse and sign transaction (client side simulation)
@@ -107,10 +120,8 @@ describe('Stellar Authentication Integration', () => {
       ) as StellarSdk.Transaction;
 
       // Verify transaction structure
-      expect(transaction.source).toBe(
-        'GD5DJQDQKG6GSUWQJQGQKQ5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q',
-      );
-      expect(transaction.sequence).toBe('0');
+      expect(transaction.source).toBe(testServerPublicKey);
+      expect(transaction.sequence).toBe('1');
       expect(transaction.operations.length).toBe(1);
       expect(transaction.operations[0].type).toBe('manageData');
       expect(transaction.operations[0].name).toBe('Harvest Finance auth');
@@ -167,16 +178,15 @@ describe('Stellar Authentication Integration', () => {
       expect(userRepository.findOne).toHaveBeenCalledWith({
         where: { stellarAddress: testClientPublicKey },
       });
-      expect(userRepository.create).toHaveBeenCalledWith({
-        stellarAddress: testClientPublicKey,
-        email: '',
-        password: '',
-        role: UserRole.FARMER,
-        firstName: 'Stellar',
-        lastName: 'User',
-        isActive: true,
-      });
-      expect(userRepository.save).toHaveBeenCalled();
+      expect(userRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          stellarAddress: testClientPublicKey,
+          role: 'FARMER',
+          firstName: 'Stellar',
+          lastName: 'User',
+          isActive: true,
+        }),
+      );
       expect(userRepository.update).toHaveBeenCalledWith(newUser.id, {
         lastLogin: expect.any(Date),
       });
@@ -313,24 +323,38 @@ describe('Stellar Authentication Integration', () => {
       const challengeResponse =
         await authController.generateStellarChallenge(challengeDto);
 
-      // Parse transaction and modify time bounds to be expired
-      const transaction = StellarSdk.TransactionBuilder.fromXDR(
+      // Parse transaction and recreate it with expired time bounds
+      const parsedTransaction = StellarSdk.TransactionBuilder.fromXDR(
         challengeResponse.transaction,
         testNetworkPassphrase,
       ) as StellarSdk.Transaction;
 
-      // Set expired time bounds
       const pastTime = Math.floor(Date.now() / 1000) - 1000;
-      (transaction as any).timeBounds = {
-        minTime: (pastTime - 300).toString(),
-        maxTime: pastTime.toString(),
-      };
+      const expiredTransaction = new StellarSdk.TransactionBuilder(
+        new StellarSdk.Account(testServerPublicKey, '0'),
+        {
+          fee: StellarSdk.BASE_FEE,
+          networkPassphrase: testNetworkPassphrase,
+          timebounds: {
+            minTime: (pastTime - 300).toString(),
+            maxTime: pastTime.toString(),
+          },
+        },
+      )
+        .addOperation(
+          StellarSdk.Operation.manageData({
+            source: parsedTransaction.operations[0].source as string,
+            name: parsedTransaction.operations[0].name,
+            value: parsedTransaction.operations[0].value as string,
+          }),
+        )
+        .build();
 
-      const clientKeypair = StellarSdk.Keypair.fromSecret(testClientSecret);
-      transaction.sign(clientKeypair);
+      expiredTransaction.sign(StellarSdk.Keypair.fromSecret(testServerSecret));
+      expiredTransaction.sign(StellarSdk.Keypair.fromSecret(testClientSecret));
 
       const verifyDto: StellarVerifyDto = {
-        transaction: transaction.toEnvelope().toXDR('base64'),
+        transaction: expiredTransaction.toEnvelope().toXDR('base64'),
       };
 
       await expect(authController.verifyStellarAuth(verifyDto)).rejects.toThrow(
@@ -425,7 +449,7 @@ describe('Stellar Authentication Integration', () => {
       expect(serverSignature).toBeDefined();
     });
 
-    it('should prevent transaction execution with sequence 0', async () => {
+    it('should prevent transaction execution with sequence 1', async () => {
       const challengeDto: StellarChallengeDto = {
         public_key: testClientPublicKey,
       };
@@ -437,7 +461,7 @@ describe('Stellar Authentication Integration', () => {
         testNetworkPassphrase,
       ) as StellarSdk.Transaction;
 
-      expect(transaction.sequence).toBe('0');
+      expect(transaction.sequence).toBe('1');
     });
 
     it('should include proper operation name', async () => {

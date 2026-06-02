@@ -4,6 +4,8 @@ import * as StellarSdk from '@stellar/stellar-sdk';
 import { StellarService } from '../services/stellar.service';
 import { SecretsService } from '../../common/secrets/secrets.service';
 import { BadRequestException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { CustomLoggerService } from '../../logger/custom-logger.service';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -72,6 +74,11 @@ describe('StellarService — Testnet Integration', () => {
               Promise.resolve(platformKeypair.secret()),
           },
         },
+        {
+          provide: CustomLoggerService,
+          useValue: { log: jest.fn(), error: jest.fn(), warn: jest.fn() },
+        },
+        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
       ],
     }).compile();
 

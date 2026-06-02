@@ -3,6 +3,7 @@ export { CreditScore } from './credit-score.entity';
 export type { CreditScoreHistoryEntry } from './credit-score.entity';
 export * from './crop-cycle.entity';
 export { Deposit, DepositStatus } from './deposit.entity';
+export { DepositEvent, DepositEventType } from './deposit-event.entity';
 export * from './farm-vault.entity';
 export {
   InsurancePlan,

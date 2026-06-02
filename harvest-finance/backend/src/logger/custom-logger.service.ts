@@ -117,10 +117,15 @@ function createPinoLogger(config?: ConfigService): PinoLogger {
   const level =
     config?.get<string>('LOG_LEVEL') ?? process.env.LOG_LEVEL ?? 'info';
   const isProduction = (process.env.NODE_ENV ?? 'development') === 'production';
+  const prettyLogs =
+    config?.get<boolean>('LOG_PRETTY') ??
+    ['true', '1', 'yes'].includes(
+      (process.env.LOG_PRETTY ?? (!isProduction).toString()).toLowerCase(),
+    );
   const logDirectory = path.join(process.cwd(), 'logs');
 
   const targets: TransportTargetOptions[] = [
-    isProduction
+    !prettyLogs
       ? {
           target: 'pino/file',
           options: { destination: 1 },
@@ -150,5 +155,36 @@ function createPinoLogger(config?: ConfigService): PinoLogger {
   ];
 
   const transport = pino.transport({ targets }) as DestinationStream;
-  return pino({ level, base: { pid: process.pid } }, transport);
+  return pino(
+    {
+      level,
+      base: { pid: process.pid },
+      redact: {
+        paths: [
+          'password',
+          'refreshToken',
+          'refresh_token',
+          'access_token',
+          'authorization',
+          'headers.authorization',
+          'req.headers.authorization',
+          'token',
+          'secret',
+          'body.password',
+          'body.refreshToken',
+          'body.refresh_token',
+          'body.access_token',
+          'body.token',
+          'body.secret',
+          'user.password',
+          'user.refreshToken',
+          'user.refresh_token',
+          'user.token',
+          'user.secret',
+        ],
+        censor: '[REDACTED]',
+      },
+    },
+    transport,
+  );
 }

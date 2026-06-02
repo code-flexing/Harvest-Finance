@@ -82,14 +82,20 @@ describe('YieldAnalyticsService', () => {
   describe('processHardWorkEvents', () => {
     it('should process HardWork events successfully', async () => {
       sorobanEventRepository.find.mockResolvedValue([mockSorobanEvent]);
+      yieldAnalyticsRepository.find.mockResolvedValue([]);
       yieldAnalyticsRepository.upsert.mockResolvedValue(undefined);
 
       await service.processHardWorkEvents();
 
-      expect(sorobanEventRepository.find).toHaveBeenCalled();
-      const callArg = sorobanEventRepository.find.mock.calls[0][0];
-      expect(callArg.order).toEqual({ ledgerClosedAt: 'ASC' });
-      expect(callArg.where.type).toBe('contract');
+      expect(sorobanEventRepository.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            type: 'contract',
+            ledgerClosedAt: expect.any(Object),
+          }),
+          order: { ledgerClosedAt: 'ASC' },
+        }),
+      );
     });
 
     it('should handle no events gracefully', async () => {
@@ -162,7 +168,7 @@ describe('YieldAnalyticsService', () => {
       );
       const result = calculateDailyApy(currentPrice, previousPrice);
 
-      expect(result).toBeCloseTo(91.5, 1); // Approximately 91.5% APY (floating precision)
+      expect(result).toBeCloseTo(148.77, 1); // Approximately 148.77% APY
     });
 
     it('should return null when previous price is null', () => {

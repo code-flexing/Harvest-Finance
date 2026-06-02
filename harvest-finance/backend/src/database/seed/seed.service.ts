@@ -29,7 +29,7 @@ export class SeedService implements OnModuleInit {
   /**
    * Seed the database with test data
    *
-   * Creates sample users, orders, transactions, verifications, and credit scores
+   * Creates realistic users, vaults, deposits, and vault deposit balances.
    */
   async seed(): Promise<void> {
     this.logger.log('Starting database seeding...');

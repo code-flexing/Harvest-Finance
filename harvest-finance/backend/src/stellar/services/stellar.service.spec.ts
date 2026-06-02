@@ -9,8 +9,7 @@ import {
   InternalServerErrorException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { CircuitBreaker } from '../utils/circuit-breaker';
-import { isRetryableStellarError } from '../utils/stellar-retry';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 describe('StellarService - Escrow Creation', () => {
   let service: StellarService;
@@ -46,7 +45,9 @@ describe('StellarService - Escrow Creation', () => {
               };
               return config[key] ?? defaultValue;
             }),
-            getOrThrow: jest.fn().mockReturnValue(platformKeypair.publicKey()),
+            getOrThrow: jest
+              .fn()
+              .mockReturnValue(platformKeypair.publicKey()),
           },
         },
         {
@@ -64,6 +65,7 @@ describe('StellarService - Escrow Creation', () => {
             debug: jest.fn(),
           },
         },
+        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
       ],
     }).compile();
 

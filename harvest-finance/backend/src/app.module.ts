@@ -9,6 +9,7 @@ import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { validateEnvironment } from './common/config/env.validation';
 import { buildThrottlerOptions } from './common/config/throttler.config';
 import { CommonModule } from './common/common.module';
 import { RequestValidationMiddleware } from './common/middleware/request-validation.middleware';
@@ -37,10 +38,12 @@ import { AdminModule } from './admin/admin.module';
 import { InsuranceModule } from './insurance/insurance.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { RewardsModule } from './rewards/rewards.module';
+import { ObservabilityModule } from './observability/observability.module';
 import {
   Achievement,
   CreditScore,
   Deposit,
+  DepositEvent,
   FarmVault,
   Notification,
   Order,
@@ -76,10 +79,14 @@ import { AddInsuranceNotificationType1700000000010 } from './database/migrations
 import { CreateSorobanEvents1700000000011 } from './database/migrations/1700000000011-CreateSorobanEvents';
 import { CreateYieldAnalytics1700000000012 } from './database/migrations/1700000000012-CreateYieldAnalytics';
 import { AddSorobanEventQueryIndexes1700000000013 } from './database/migrations/1700000000013-AddSorobanEventQueryIndexes';
+import { CreateDepositEvents1700000000016 } from './database/migrations/1700000000016-CreateDepositEvents';
+import { DomainEventsModule } from './domain-events';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ isGlobal: true, validate: validateEnvironment }),
+    DomainEventsModule,
+    ObservabilityModule,
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -103,6 +110,7 @@ import { AddSorobanEventQueryIndexes1700000000013 } from './database/migrations/
           Vault,
           VaultDeposit,
           Deposit,
+          DepositEvent,
           Achievement,
           Reward,
           Notification,
@@ -126,6 +134,7 @@ import { AddSorobanEventQueryIndexes1700000000013 } from './database/migrations/
           CreateSorobanEvents1700000000011,
           CreateYieldAnalytics1700000000012,
           AddSorobanEventQueryIndexes1700000000013,
+          CreateDepositEvents1700000000016,
         ],
         synchronize: false,
         migrationsRun: false,
