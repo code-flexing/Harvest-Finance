@@ -9,6 +9,7 @@ import { Repository, DataSource } from 'typeorm';
 import { Vault, VaultStatus } from '../database/entities/vault.entity';
 import { Deposit, DepositStatus } from '../database/entities/deposit.entity';
 import { DepositEventType } from '../database/entities/deposit-event.entity';
+import { ExternalPaymentEventType } from './dto/external-payment-notification.dto';
 import {
   Withdrawal,
   WithdrawalStatus,
@@ -453,6 +454,32 @@ export class VaultsService {
   }
 
   private async confirmDeposit(depositId: string): Promise<Deposit> {
+    const { deposit } = await this.applyExternalPaymentNotification({
+      depositId,
+      eventType: ExternalPaymentEventType.PAYMENT_CONFIRMED,
+      transactionHash: `mock_tx_${Date.now()}`,
+      stellarTransactionId: `mock_stellar_${Date.now()}`,
+      externalEventId: `internal_confirm_${depositId}`,
+    });
+    return deposit;
+  }
+
+  /**
+   * Applies payment status updates from external webhook providers.
+   */
+  async applyExternalPaymentNotification(params: {
+    depositId: string;
+    eventType: ExternalPaymentEventType;
+    transactionHash: string;
+    stellarTransactionId?: string | null;
+    externalEventId: string;
+    occurredAt?: Date;
+  }): Promise<{
+    deposit: Deposit;
+    status: DepositStatus;
+    duplicate: boolean;
+  }> {
+    const depositId = this.sanitizer.validateUUID(params.depositId);
     const deposit = await this.depositRepository.findOne({
       where: { id: depositId },
     });
@@ -461,49 +488,108 @@ export class VaultsService {
       throw new NotFoundException('Deposit not found');
     }
 
-    const stellarTransactionId: string | null = `mock_stellar_${Date.now()}`;
-    const transactionHash = `mock_tx_${Date.now()}`;
-    const confirmedAt = new Date();
+    if (params.eventType === ExternalPaymentEventType.PAYMENT_CONFIRMED) {
+      if (deposit.status === DepositStatus.CONFIRMED) {
+        return {
+          deposit,
+          status: deposit.status,
+          duplicate: true,
+        };
+      }
+
+      const confirmedAt = params.occurredAt ?? new Date();
+      const stellarTransactionId = params.stellarTransactionId ?? null;
+
+      await this.depositRepository.update(depositId, {
+        status: DepositStatus.CONFIRMED,
+        confirmedAt,
+        transactionHash: params.transactionHash,
+        ...(stellarTransactionId != null ? { stellarTransactionId } : {}),
+      });
+
+      await this.depositEventService.appendEvent({
+        depositId,
+        userId: deposit.userId,
+        vaultId: deposit.vaultId,
+        eventType: DepositEventType.CONFIRMED,
+        amount: Number(deposit.amount),
+        transactionHash: params.transactionHash,
+        stellarTransactionId,
+        idempotencyKey: deposit.idempotencyKey,
+        payload: {
+          status: DepositStatus.CONFIRMED,
+          confirmedAt: confirmedAt.toISOString(),
+          externalEventId: params.externalEventId,
+        },
+      });
+
+      const updatedDeposit = await this.depositRepository.findOne({
+        where: { id: depositId },
+      });
+
+      if (!updatedDeposit) {
+        throw new NotFoundException('Deposit not found after confirmation');
+      }
+
+      await this.notificationsService.create(
+        NotificationHelper.depositConfirmed({
+          userId: updatedDeposit.userId,
+          amount: updatedDeposit.amount,
+          vaultId: updatedDeposit.vaultId,
+        }),
+      );
+
+      return {
+        deposit: updatedDeposit,
+        status: DepositStatus.CONFIRMED,
+        duplicate: false,
+      };
+    }
+
+    if (deposit.status === DepositStatus.FAILED) {
+      return {
+        deposit,
+        status: deposit.status,
+        duplicate: true,
+      };
+    }
 
     await this.depositRepository.update(depositId, {
-      status: DepositStatus.CONFIRMED,
-      confirmedAt,
-      transactionHash,
-      ...(stellarTransactionId != null ? { stellarTransactionId } : {}),
+      status: DepositStatus.FAILED,
+      transactionHash: params.transactionHash,
+      ...(params.stellarTransactionId != null
+        ? { stellarTransactionId: params.stellarTransactionId }
+        : {}),
     });
 
     await this.depositEventService.appendEvent({
       depositId,
       userId: deposit.userId,
       vaultId: deposit.vaultId,
-      eventType: DepositEventType.CONFIRMED,
+      eventType: DepositEventType.FAILED,
       amount: Number(deposit.amount),
-      transactionHash,
-      stellarTransactionId,
+      transactionHash: params.transactionHash,
+      stellarTransactionId: params.stellarTransactionId ?? null,
       idempotencyKey: deposit.idempotencyKey,
       payload: {
-        status: DepositStatus.CONFIRMED,
-        confirmedAt: confirmedAt.toISOString(),
+        status: DepositStatus.FAILED,
+        externalEventId: params.externalEventId,
       },
     });
 
-    const updatedDeposit = await this.depositRepository.findOne({
+    const failedDeposit = await this.depositRepository.findOne({
       where: { id: depositId },
     });
 
-    if (!updatedDeposit) {
-      throw new NotFoundException('Deposit not found after confirmation');
+    if (!failedDeposit) {
+      throw new NotFoundException('Deposit not found after failure update');
     }
 
-    await this.notificationsService.create(
-      NotificationHelper.depositConfirmed({
-        userId: updatedDeposit.userId,
-        amount: updatedDeposit.amount,
-        vaultId: updatedDeposit.vaultId,
-      }),
-    );
-
-    return updatedDeposit;
+    return {
+      deposit: failedDeposit,
+      status: DepositStatus.FAILED,
+      duplicate: false,
+    };
   }
 
   async getDepositEventHistory(

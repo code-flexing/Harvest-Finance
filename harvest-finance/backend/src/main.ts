@@ -18,6 +18,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
+    rawBody: true,
   });
   const customLogger = app.get(CustomLoggerService);
   app.useLogger(customLogger);
@@ -113,6 +114,10 @@ async function bootstrap() {
       'Cross-chain yield aggregation across registered chain adapters',
     )
     .addTag('health', 'Health check endpoints')
+    .addTag(
+      'Webhooks',
+      'HMAC-signed endpoints for external payment and chain event notifications',
+    )
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document, {
