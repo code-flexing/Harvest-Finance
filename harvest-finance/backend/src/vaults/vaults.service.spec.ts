@@ -81,6 +81,17 @@ describe('VaultsService', () => {
     mapEventToResponse: jest.fn((event) => event),
   };
 
+  const mockContractCacheService = {
+    getVaultState: jest.fn(async (id: string, cb: () => Promise<any>) => {
+      // call the provided callback to simulate cache miss and return its result
+      return await cb();
+    }),
+  };
+
+  const mockSanitizer = {
+    validateUUID: jest.fn((id: string) => id),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [

@@ -1,4 +1,4 @@
-import { CustomLoggerService } from './custom-logger.service';
+import { CustomLoggerService } from '../logger/custom-logger.service';
 
 type Captured = { level: string; obj: Record<string, unknown>; msg: string };
 

@@ -33,6 +33,7 @@
     "@aws-sdk/client-secrets-manager": "^3.1037.0",
     "@hookform/resolvers": "^5.2.2",
     "@nestjs/apollo": "^13.4.2",
+    "@nestjs/cqrs": "^11.0.0",
     "@nestjs/cache-manager": "^3.1.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.3",

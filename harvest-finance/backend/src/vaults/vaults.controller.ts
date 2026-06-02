@@ -20,6 +20,11 @@ import {
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { VaultsService } from './vaults.service';
+import { CommandBus, QueryBus } from '@nestjs/cqrs';
+import { DepositFundsCommand } from './cqrs/commands/deposit-funds.command';
+import { WithdrawFundsCommand } from './cqrs/commands/withdraw-funds.command';
+import { GetVaultBalanceQuery } from './cqrs/queries/get-vault-balance.query';
+import { GetVaultTransactionsQuery } from './cqrs/queries/get-vault-transactions.query';
 import { DepositDto } from './dto/deposit.dto';
 import { BatchDepositDto } from './dto/batch-deposit.dto';
 import {
@@ -38,7 +43,11 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class VaultsController {
-  constructor(private readonly vaultsService: VaultsService) {}
+  constructor(
+    private readonly vaultsService: VaultsService,
+    private readonly commandBus: CommandBus,
+    private readonly queryBus: QueryBus,
+  ) {}
 
   @Post('deposits/batch')
   @Throttle({ default: { limit: 10, ttl: 60000 } })
@@ -87,7 +96,9 @@ export class VaultsController {
     @Request() req: any,
   ): Promise<DepositVaultResponseDto> {
     const secureDepositDto = { ...depositDto, userId: req.user.id };
-    return this.vaultsService.depositToVault(vaultId, secureDepositDto);
+    return this.commandBus.execute(
+      new DepositFundsCommand(vaultId, secureDepositDto.userId, secureDepositDto.amount, secureDepositDto.idempotencyKey),
+    );
   }
 
   @Post(':vaultId/withdraw')
@@ -120,7 +131,29 @@ export class VaultsController {
     @Body('amount') amount: number,
     @Request() req: any,
   ): Promise<any> {
-    return this.vaultsService.withdrawFromVault(vaultId, req.user.id, amount);
+    return this.commandBus.execute(new WithdrawFundsCommand(vaultId, req.user.id, amount));
+  }
+
+  @Get(':vaultId/balance')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get vault balance (optionally user-specific)' })
+  async getVaultBalance(
+    @Param('vaultId') vaultId: string,
+    @Request() req: any,
+  ): Promise<any> {
+    const userId = req.user ? req.user.id : undefined;
+    return this.queryBus.execute(new GetVaultBalanceQuery(vaultId, userId));
+  }
+
+  @Get(':vaultId/transactions')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get recent vault transactions' })
+  async getVaultTransactions(
+    @Param('vaultId') vaultId: string,
+    @Query('limit') limit = '50',
+  ): Promise<any> {
+    const n = parseInt(limit, 10) || 50;
+    return this.queryBus.execute(new GetVaultTransactionsQuery(vaultId, n));
   }
 
   @Get('deposits/history')
