@@ -35,6 +35,7 @@ export enum UserRole {
 @Index('idx_users_email', ['email'], { unique: true })
 @Index('idx_users_role', ['role'])
 @Index('idx_users_stellar_address', ['stellarAddress'])
+@Index('idx_users_solana_address', ['solanaAddress'])
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -54,6 +55,9 @@ export class User {
 
   @Column({ name: 'stellar_address', nullable: true })
   stellarAddress: string | null;
+
+  @Column({ name: 'solana_address', nullable: true })
+  solanaAddress: string | null;
 
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
