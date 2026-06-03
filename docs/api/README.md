@@ -117,6 +117,47 @@ Returns indexer status: enabled, last ledger, total events.
 
 ---
 
+## Webhooks
+
+External systems push events to these endpoints. Each request must include an HMAC-SHA256 signature of the **raw JSON body** in the `x-webhook-signature` header (`sha256=<hex>`).
+
+### POST /webhooks/payments
+Payment provider confirmation (requires `WEBHOOK_PAYMENTS_HMAC_SECRET` on the server).
+
+```json
+{
+  "eventId": "evt_unique_123",
+  "eventType": "payment.confirmed",
+  "depositId": "uuid",
+  "transactionHash": "abc123",
+  "stellarTransactionId": "optional-stellar-tx-id",
+  "occurredAt": "2026-06-02T10:00:00.000Z"
+}
+```
+
+`eventType` may also be `payment.failed`.
+
+**Response:** `{ "accepted": true, "eventId": "...", "duplicate": false }`
+
+### POST /webhooks/chain-events
+Chain indexer event ingestion (requires `WEBHOOK_CHAIN_EVENTS_HMAC_SECRET` on the server).
+
+```json
+{
+  "eventId": "chain_evt_123",
+  "type": "contract",
+  "contractId": "CABC...",
+  "ledger": 12345,
+  "ledgerClosedAt": "2026-06-02T10:00:00.000Z",
+  "transactionHash": "tx_hash",
+  "pagingToken": "paging_token",
+  "topics": [],
+  "value": {}
+}
+```
+
+---
+
 ## Health
 
 ### GET /health

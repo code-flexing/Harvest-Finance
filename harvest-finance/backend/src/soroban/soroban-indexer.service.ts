@@ -281,6 +281,42 @@ export class SorobanIndexerService implements OnModuleInit {
   }
 
   /**
+   * Ingests a chain event pushed by an external webhook provider.
+   * Uses the same idempotent upsert path as the background indexer.
+   */
+  async ingestExternalEvent(event: {
+    eventId: string;
+    type: SorobanEventType;
+    contractId?: string;
+    ledger: number;
+    ledgerClosedAt: string;
+    transactionHash?: string;
+    pagingToken: string;
+    topics?: string[];
+    value?: unknown;
+    inSuccessfulContractCall?: boolean;
+  }): Promise<{ stored: boolean }> {
+    const entity = new SorobanEvent();
+    entity.eventId = event.eventId;
+    entity.type = event.type;
+    entity.contractId = event.contractId ?? null;
+    entity.ledger = event.ledger;
+    entity.ledgerClosedAt = new Date(event.ledgerClosedAt);
+    entity.transactionHash = event.transactionHash ?? null;
+    entity.pagingToken = event.pagingToken;
+    entity.topics = event.topics ?? [];
+    entity.value = event.value ?? null;
+    entity.inSuccessfulContractCall = event.inSuccessfulContractCall ?? true;
+
+    const stored = await this.persist([entity]);
+    if (stored > 0 && entity.ledger > (this.lastIndexedLedger ?? 0)) {
+      this.lastIndexedLedger = entity.ledger;
+    }
+
+    return { stored: stored > 0 };
+  }
+
+  /**
    * Get the latest ledger from the Soroban RPC
    */
   async getLatestLedger(): Promise<number> {
