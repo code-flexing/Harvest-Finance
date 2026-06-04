@@ -63,24 +63,32 @@ export class AuthController {
    * Uses long tier: Registration is an infrequent operation, so a longer 
    * window prevents spam while allowing normal user onboarding.
    */
-  @Post('register')
-  @Throttle({ long: { limit: 10, ttl: 60000 } })
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Register a new user' })
-  @ApiBody({ type: RegisterDto })
-  @ApiResponse({
-    status: 201,
-    description: 'User registered successfully',
-    type: AuthResponseDto,
-  })
-  @ApiResponse({
-    status: 409,
-    description: 'User with this email already exists',
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Validation error',
-  })
+   @Post('register')
+   @Throttle({ long: { limit: 10, ttl: 60000 } })
+   @HttpCode(HttpStatus.CREATED)
+   @ApiOperation({ summary: 'Register a new user', description: 'Creates a new user account with the provided email and password. Returns the user details and JWT tokens upon successful registration.' })
+   @ApiBody({ type: RegisterDto })
+   @ApiResponse({
+     status: 201,
+     description: 'User registered successfully',
+     type: AuthResponseDto,
+   })
+   @ApiResponse({
+     status: 409,
+     description: 'User with this email already exists',
+   })
+   @ApiResponse({
+     status: 400,
+     description: 'Validation error - invalid input data',
+   })
+   @ApiResponse({
+     status: 429,
+     description: 'Too many requests - rate limit exceeded',
+   })
+   @ApiResponse({
+     status: 500,
+     description: 'Internal server error',
+   })
   async register(@Body() registerDto: RegisterDto): Promise<AuthResponseDto> {
     return this.authService.register(registerDto);
   }
@@ -91,20 +99,32 @@ export class AuthController {
    * Uses stricter long tier limits: Login is a high-value target for 
    * brute-force attacks and requires tighter throttling.
    */
-  @Post('login')
-  @Throttle({ long: { limit: 5, ttl: 60000 } })
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Login user' })
-  @ApiBody({ type: LoginDto })
-  @ApiResponse({
-    status: 200,
-    description: 'User logged in successfully',
-    type: AuthResponseDto,
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Invalid credentials',
-  })
+   @Post('login')
+   @Throttle({ long: { limit: 5, ttl: 60000 } })
+   @HttpCode(HttpStatus.OK)
+   @ApiOperation({ summary: 'Login user', description: 'Authenticates a user with email and password, returning JWT access and refresh tokens upon successful validation.' })
+   @ApiBody({ type: LoginDto })
+   @ApiResponse({
+     status: 200,
+     description: 'User logged in successfully',
+     type: AuthResponseDto,
+   })
+   @ApiResponse({
+     status: 401,
+     description: 'Invalid credentials',
+   })
+   @ApiResponse({
+     status: 400,
+     description: 'Validation error - invalid input data',
+   })
+   @ApiResponse({
+     status: 429,
+     description: 'Too many requests - rate limit exceeded',
+   })
+   @ApiResponse({
+     status: 500,
+     description: 'Internal server error',
+   })
   async login(@Body() loginDto: LoginDto): Promise<AuthResponseDto> {
     return this.authService.login(loginDto);
   }
@@ -115,23 +135,31 @@ export class AuthController {
    * Uses default (medium) tier: Token refresh is a standard operation
    * that balances usability with spam prevention.
    */
-  @Post('refresh')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Refresh access token' })
-  @ApiBody({ type: RefreshTokenDto })
-  @ApiResponse({
-    status: 200,
-    description: 'Token refreshed successfully',
-    type: TokenResponseDto,
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Invalid or expired refresh token',
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Validation error — refresh_token field is missing or malformed',
-  })
+   @Post('refresh')
+   @HttpCode(HttpStatus.OK)
+   @ApiOperation({ summary: 'Refresh access token', description: 'Generates a new access token using the provided refresh token. Returns a new access and refresh token pair upon successful validation.' })
+   @ApiBody({ type: RefreshTokenDto })
+   @ApiResponse({
+     status: 200,
+     description: 'Token refreshed successfully',
+     type: TokenResponseDto,
+   })
+   @ApiResponse({
+     status: 401,
+     description: 'Invalid or expired refresh token',
+   })
+   @ApiResponse({
+     status: 400,
+     description: 'Validation error - refresh_token field is missing or malformed',
+   })
+   @ApiResponse({
+     status: 429,
+     description: 'Too many requests - rate limit exceeded',
+   })
+   @ApiResponse({
+     status: 500,
+     description: 'Internal server error',
+   })
   async refresh(
     @Body() refreshTokenDto: RefreshTokenDto,
   ): Promise<TokenResponseDto> {
@@ -141,16 +169,28 @@ export class AuthController {
   /**
    * Logout user
    */
-  @Post('logout')
-  @UseGuards(JwtAuthGuard)
-  @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Logout user' })
-  @ApiResponse({
-    status: 200,
-    description: 'Logged out successfully',
-    type: LogoutResponseDto,
-  })
+   @Post('logout')
+   @UseGuards(JwtAuthGuard)
+   @HttpCode(HttpStatus.OK)
+   @ApiBearerAuth()
+   @ApiOperation({ summary: 'Logout user', description: 'Invalidates the user's refresh token, effectively logging them out. Requires a valid JWT access token in the Authorization header.' })
+   @ApiResponse({
+     status: 200,
+     description: 'Logged out successfully',
+     type: LogoutResponseDto,
+   })
+   @ApiResponse({
+     status: 401,
+     description: 'Unauthorized - invalid or missing JWT token',
+   })
+   @ApiResponse({
+     status: 429,
+     description: 'Too many requests - rate limit exceeded',
+   })
+   @ApiResponse({
+     status: 500,
+     description: 'Internal server error',
+   })
   async logout(@Req() req: Request): Promise<LogoutResponseDto> {
     const token = (req as any).headers.authorization?.replace('Bearer ', '');
     return this.authService.logout(token);
@@ -163,20 +203,28 @@ export class AuthController {
    * throttler because password-reset is a high-value target for abuse and
    * benefits from a stricter, per-user/IP window with a clear error message.
    */
-  @Post('forgot-password')
-  @UseGuards(RateLimitGuard)
-  @RateLimit({
-    limit: 5,
-    ttl: 3600,
-    message: 'Too many password reset requests. Please try again in 1 hour.',
-  })
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Request password reset' })
-  @ApiBody({ type: ForgotPasswordDto })
-  @ApiResponse({
-    status: 200,
-    description: 'Password reset link sent (if email exists)',
-  })
+   @Post('forgot-password')
+   @UseGuards(RateLimitGuard)
+   @RateLimit({
+     limit: 5,
+     ttl: 3600,
+     message: 'Too many password reset requests. Please try again in 1 hour.',
+   })
+   @HttpCode(HttpStatus.OK)
+   @ApiOperation({ summary: 'Request password reset', description: 'Sends a password reset link to the provided email address if the account exists. Does not reveal whether the email is registered for security reasons.' })
+   @ApiBody({ type: ForgotPasswordDto })
+   @ApiResponse({
+     status: 200,
+     description: 'Password reset link sent (if email exists)',
+   })
+   @ApiResponse({
+     status: 429,
+     description: 'Too many requests - rate limit exceeded',
+   })
+   @ApiResponse({
+     status: 500,
+     description: 'Internal server error',
+   })
   async forgotPassword(
     @Body() forgotPasswordDto: ForgotPasswordDto,
   ): Promise<{ success: boolean; message: string }> {
@@ -189,24 +237,32 @@ export class AuthController {
    * Uses `@RateLimit` to strictly cap token-consumption attempts and prevent
    * brute-force attacks against short-lived reset tokens.
    */
-  @Post('reset-password')
-  @UseGuards(RateLimitGuard)
-  @RateLimit({
-    limit: 5,
-    ttl: 3600,
-    message: 'Too many password reset attempts. Please try again in 1 hour.',
-  })
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Reset password with token' })
-  @ApiBody({ type: ResetPasswordDto })
-  @ApiResponse({
-    status: 200,
-    description: 'Password reset successfully',
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Invalid or expired reset token',
-  })
+   @Post('reset-password')
+   @UseGuards(RateLimitGuard)
+   @RateLimit({
+     limit: 5,
+     ttl: 3600,
+     message: 'Too many password reset attempts. Please try again in 1 hour.',
+   })
+   @HttpCode(HttpStatus.OK)
+   @ApiOperation({ summary: 'Reset password with token', description: 'Resets the user\'s password using the provided reset token and new password. Invalidates the reset token after successful use.' })
+   @ApiBody({ type: ResetPasswordDto })
+   @ApiResponse({
+     status: 200,
+     description: 'Password reset successfully',
+   })
+   @ApiResponse({
+     status: 400,
+     description: 'Invalid or expired reset token',
+   })
+   @ApiResponse({
+     status: 429,
+     description: 'Too many requests - rate limit exceeded',
+   })
+   @ApiResponse({
+     status: 500,
+     description: 'Internal server error',
+   })
   async resetPassword(
     @Body() resetPasswordDto: ResetPasswordDto,
   ): Promise<{ success: boolean; message: string }> {
@@ -219,20 +275,28 @@ export class AuthController {
    * Uses default tier: Moderate limits for standard operations to
    * prevent challenge spam while supporting regular login flows.
    */
-  @Post('stellar/challenge')
-  @Throttle({ default: { limit: 10, ttl: 60000 } })
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Generate Stellar authentication challenge' })
-  @ApiBody({ type: StellarChallengeDto })
-  @ApiResponse({
-    status: 200,
-    description: 'Challenge generated successfully',
-    type: StellarChallengeResponseDto,
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Invalid Stellar public key',
-  })
+   @Post('stellar/challenge')
+   @Throttle({ default: { limit: 10, ttl: 60000 } })
+   @HttpCode(HttpStatus.OK)
+   @ApiOperation({ summary: 'Generate Stellar authentication challenge', description: 'Generates a cryptographic challenge for Stellar-based authentication. The user must sign this challenge with their Stellar private key to prove ownership of their Stellar address.' })
+   @ApiBody({ type: StellarChallengeDto })
+   @ApiResponse({
+     status: 200,
+     description: 'Challenge generated successfully',
+     type: StellarChallengeResponseDto,
+   })
+   @ApiResponse({
+     status: 400,
+     description: 'Invalid Stellar public key',
+   })
+   @ApiResponse({
+     status: 429,
+     description: 'Too many requests - rate limit exceeded',
+   })
+   @ApiResponse({
+     status: 500,
+     description: 'Internal server error',
+   })
   async generateStellarChallenge(
     @Body() challengeDto: StellarChallengeDto,
   ): Promise<StellarChallengeResponseDto> {
