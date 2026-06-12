@@ -131,7 +131,45 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT') || 5000;
-  await app.listen(port);
+
+  const server = await app.listen(port);
   console.log(`Application is running on: http://localhost:${port}`);
+
+  // Graceful shutdown handler for WebSocket connections
+  const gracefulShutdown = async (signal: string) => {
+    console.log(`Received ${signal}, closing WebSocket connections gracefully...`);
+
+    try {
+      // Get Socket.io server instance from the app
+      const httpServer = app.getHttpServer();
+
+      // Close Socket.io connections
+      const ioAdapter = app.get(IoAdapter);
+      if (ioAdapter && ioAdapter.socketServer) {
+        ioAdapter.socketServer.close();
+      }
+
+      // Close HTTP server
+      await new Promise<void>((resolve, reject) => {
+        httpServer.close((err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+
+      // Close NestJS app
+      await app.close();
+
+      console.log('Graceful shutdown completed');
+      process.exit(0);
+    } catch (error) {
+      console.error('Error during graceful shutdown:', error);
+      process.exit(1);
+    }
+  };
+
+  // Register shutdown signal handlers
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 }
 bootstrap();
