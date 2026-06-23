@@ -23,6 +23,7 @@ import {
 } from './dto/vault-response.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationHelper } from '../notifications/notification.helper';
+import { NotificationType } from '../database/entities/notification.entity';
 import { CustomLoggerService } from '../logger/custom-logger.service';
 import { VaultGateway } from '../realtime/vault.gateway';
 import { ContractCacheService } from '../common/cache/contract-cache.service';
@@ -592,6 +593,104 @@ export class VaultsService {
     };
   }
 
+  /**
+   * Applies payment status updates for withdrawals from external webhook providers.
+   */
+  async applyExternalWithdrawalNotification(params: {
+    withdrawalId: string;
+    eventType: ExternalPaymentEventType;
+    transactionHash: string;
+    stellarTransactionId?: string | null;
+    externalEventId: string;
+    occurredAt?: Date;
+  }): Promise<{
+    withdrawal: Withdrawal;
+    status: WithdrawalStatus;
+    duplicate: boolean;
+  }> {
+    const withdrawalId = this.sanitizer.validateUUID(params.withdrawalId);
+    const withdrawal = await this.withdrawalRepository.findOne({
+      where: { id: withdrawalId },
+      relations: ['vault'],
+    });
+
+    if (!withdrawal) {
+      throw new NotFoundException('Withdrawal not found');
+    }
+
+    if (params.eventType === ExternalPaymentEventType.PAYMENT_CONFIRMED) {
+      if (withdrawal.status === WithdrawalStatus.CONFIRMED) {
+        return {
+          withdrawal,
+          status: withdrawal.status,
+          duplicate: true,
+        };
+      }
+
+      const confirmedAt = params.occurredAt ?? new Date();
+
+      await this.withdrawalRepository.update(withdrawalId, {
+        status: WithdrawalStatus.CONFIRMED,
+        confirmedAt,
+        transactionHash: params.transactionHash,
+      });
+
+      const updatedWithdrawal = await this.withdrawalRepository.findOne({
+        where: { id: withdrawalId },
+        relations: ['vault'],
+      });
+
+      if (!updatedWithdrawal) {
+        throw new NotFoundException('Withdrawal not found after confirmation');
+      }
+
+      // Emit an async event for post-confirmation work (notifications, realtime, downstream domain events).
+      this.eventEmitter.emit(
+        DomainEventNames.WITHDRAWAL_CONFIRMED,
+        new WithdrawalConfirmedEvent(
+          updatedWithdrawal.id,
+          updatedWithdrawal.userId,
+          updatedWithdrawal.vaultId,
+          Number(updatedWithdrawal.amount),
+          updatedWithdrawal.vault.vaultName,
+          Number(updatedWithdrawal.vault.totalDeposits),
+          updatedWithdrawal.transactionHash,
+          updatedWithdrawal.confirmedAt ?? new Date(),
+        ),
+      );
+
+      return {
+        withdrawal: updatedWithdrawal,
+        status: WithdrawalStatus.CONFIRMED,
+        duplicate: false,
+      };
+    }
+
+    if (withdrawal.status === WithdrawalStatus.FAILED) {
+      return {
+        withdrawal,
+        status: withdrawal.status,
+        duplicate: true,
+      };
+    }
+
+    await this.withdrawalRepository.update(withdrawalId, {
+      status: WithdrawalStatus.FAILED,
+      transactionHash: params.transactionHash,
+    });
+
+    const failedWithdrawal = await this.withdrawalRepository.findOne({
+      where: { id: withdrawalId },
+      relations: ['vault'],
+    });
+
+    return {
+      withdrawal: failedWithdrawal!,
+      status: WithdrawalStatus.FAILED,
+      duplicate: false,
+    };
+  }
+
   async getDepositEventHistory(
     depositId: string,
   ): Promise<DepositEventResponseDto[]> {
@@ -805,37 +904,8 @@ export class VaultsService {
       return { withdrawal: savedWithdrawal, vault: updatedVault };
     });
 
-    await this.withdrawalRepository.update(result.withdrawal.id, {
-      status: WithdrawalStatus.CONFIRMED,
-      confirmedAt: new Date(),
-      transactionHash: `mock_withdraw_tx_${Date.now()}`,
-    });
-
-    const confirmedWithdrawal = await this.withdrawalRepository.findOne({
-      where: { id: result.withdrawal.id },
-    });
-
-    if (!confirmedWithdrawal) {
-      throw new NotFoundException('Withdrawal not found after confirmation');
-    }
-
-    // Emit an async event for post-confirmation work (notifications, realtime, downstream domain events).
-    this.eventEmitter.emit(
-      DomainEventNames.WITHDRAWAL_CONFIRMED,
-      new WithdrawalConfirmedEvent(
-        confirmedWithdrawal.id,
-        userId,
-        vaultId,
-        amount,
-        vault.vaultName,
-        result.vault ? Number(result.vault.totalDeposits) : 0,
-        confirmedWithdrawal.transactionHash,
-        confirmedWithdrawal.confirmedAt ?? new Date(),
-      ),
-    );
-
     return {
-      withdrawal: confirmedWithdrawal,
+      withdrawal: result.withdrawal,
       vault: result.vault
         ? this.mapVaultToResponse(result.vault)
         : this.mapVaultToResponse(vault),

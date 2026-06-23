@@ -2,10 +2,10 @@ import { CommandHandler, EventBus, ICommandHandler } from '@nestjs/cqrs';
 import { DepositFundsCommand } from '../deposit-funds.command';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { Deposit, DepositStatus } from '../../../database/entities/deposit.entity';
-import { Vault, VaultStatus } from '../../../database/entities/vault.entity';
-import { NotificationsService } from '../../../notifications/notifications.service';
-import { NotificationType } from '../../../database/entities/notification.entity';
+import { Deposit, DepositStatus } from '../../../../database/entities/deposit.entity';
+import { Vault, VaultStatus } from '../../../../database/entities/vault.entity';
+import { NotificationsService } from '../../../../notifications/notifications.service';
+import { NotificationType } from '../../../../database/entities/notification.entity';
 import { VaultCreditedEvent } from '../../events/vault-credited.event';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 
