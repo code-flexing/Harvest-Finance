@@ -231,3 +231,23 @@ export class BatchDepositResponseDto {
   })
   userTotalDeposits: number;
 }
+
+export class PaginatedVaultsResponseDto {
+  @ApiProperty({
+    description: 'Array of vault items',
+    type: [VaultResponseDto],
+  })
+  data: VaultResponseDto[];
+
+  @ApiProperty({
+    example: 150,
+    description: 'Total number of vaults available',
+  })
+  total: number;
+
+  @ApiProperty({
+    example: true,
+    description: 'Whether there are more items to fetch',
+  })
+  hasMore: boolean;
+}

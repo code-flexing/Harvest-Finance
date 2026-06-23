@@ -83,6 +83,7 @@ describe('VaultsService — Yield Strategy Integration', () => {
     find: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
+    count: jest.fn(),
   };
 
   const mockEventEmitter = {
@@ -644,10 +645,13 @@ describe('VaultsService — Yield Strategy Integration', () => {
     it('should return all public vaults ordered by creation date', async () => {
       const vaults = [buildVault({ id: VAULT_ID, isPublic: true })];
       mockVaultRepository.find.mockResolvedValue(vaults);
+      mockVaultRepository.count.mockResolvedValue(1);
 
-      const result = await service.getPublicVaults();
+      const result = await service.getPublicVaults({});
 
-      expect(result).toHaveLength(1);
+      expect(result.data).toHaveLength(1);
+      expect(result.total).toBe(1);
+      expect(result.hasMore).toBe(false);
       expect(mockVaultRepository.find).toHaveBeenCalledWith(
         expect.objectContaining({ where: { isPublic: true } }),
       );
@@ -655,10 +659,12 @@ describe('VaultsService — Yield Strategy Integration', () => {
 
     it('should return empty array when no public vaults exist', async () => {
       mockVaultRepository.find.mockResolvedValue([]);
+      mockVaultRepository.count.mockResolvedValue(0);
 
-      const result = await service.getPublicVaults();
+      const result = await service.getPublicVaults({});
 
-      expect(result).toEqual([]);
+      expect(result.data).toEqual([]);
+      expect(result.total).toBe(0);
     });
   });
 
