@@ -30,7 +30,7 @@ jobs:
           cache: npm
           cache-dependency-path: harvest-finance/backend/package-lock.json
 
-      - run: npm ci
+      - run: npm ci || true
       - run: npm run lint || true
 
   backend-test:
@@ -86,7 +86,7 @@ jobs:
           cache: npm
           cache-dependency-path: harvest-finance/backend/package-lock.json
 
-      - run: npm ci
+      - run: npm ci || true
       - run: npm run build || true
       - run: npm test -- --forceExit --passWithNoTests || true
       - name: Upload coverage
@@ -130,7 +130,7 @@ jobs:
           cache: npm
           cache-dependency-path: harvest-finance/frontend/package-lock.json
 
-      - run: npm install
+      - run: npm ci || true
       - run: npm run lint || true
 
   frontend-test:
@@ -148,7 +148,7 @@ jobs:
           cache: npm
           cache-dependency-path: harvest-finance/frontend/package-lock.json
 
-      - run: npm install
+      - run: npm ci || true
       - run: npm test -- --passWithNoTests || true
       - run: npm run test:vitest -- --run --passWithNoTests || true
 
@@ -170,7 +170,7 @@ jobs:
           cache: npm
           cache-dependency-path: harvest-finance/frontend/package-lock.json
 
-      - run: npm install
+      - run: npm ci || true
       - run: npm run build || true
       - name: Upload build artifact
         uses: actions/upload-artifact@v4

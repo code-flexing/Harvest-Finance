@@ -32,7 +32,9 @@ import {
   BatchDepositResponseDto,
   DepositVaultResponseDto,
   VaultResponseDto,
+  PaginatedVaultsResponseDto,
 } from './dto/vault-response.dto';
+import { PaginationQueryDto } from './dto/pagination-query.dto';
 import { DepositEventResponseDto } from './dto/deposit-event-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -291,10 +293,12 @@ export class VaultsController {
   @ApiResponse({
     status: 200,
     description: 'Public vaults retrieved successfully',
-    type: [VaultResponseDto],
+    type: PaginatedVaultsResponseDto,
   })
-  async getPublicVaults(): Promise<VaultResponseDto[]> {
-    return this.vaultsService.getPublicVaults();
+  async getPublicVaults(
+    @Query() query: PaginationQueryDto,
+  ): Promise<PaginatedVaultsResponseDto> {
+    return this.vaultsService.getPublicVaults(query);
   }
 
   @Get('metadata')

@@ -16,6 +16,7 @@ import { WEBHOOK_SIGNATURE_HEADER } from './constants';
 import { WebhookHmac } from './decorators/webhook-hmac.decorator';
 import { ChainEventWebhookDto } from './dto/chain-event-webhook.dto';
 import { PaymentWebhookDto } from './dto/payment-webhook.dto';
+import { WithdrawalWebhookDto } from './dto/withdrawal-webhook.dto';
 import { WebhookAcceptedResponseDto } from './dto/webhook-response.dto';
 import { WebhooksService } from './webhooks.service';
 
@@ -49,6 +50,29 @@ export class WebhooksController {
     @Body() body: PaymentWebhookDto,
   ): Promise<WebhookAcceptedResponseDto> {
     return this.webhooksService.handlePaymentWebhook(body);
+  }
+
+  @Post('withdrawals')
+  @WebhookHmac('withdrawals')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Receive external withdrawal confirmation webhooks',
+    description:
+      'Processes withdrawal confirmations from external providers (e.g., Stellar indexer). ' +
+      'Requires an HMAC-SHA256 signature of the raw JSON body in the ' +
+      `${WEBHOOK_SIGNATURE_HEADER} header (format: sha256=<hex>).`,
+  })
+  @ApiHeader({
+    name: WEBHOOK_SIGNATURE_HEADER,
+    required: true,
+    description: 'HMAC-SHA256 signature of the raw request body',
+  })
+  @ApiResponse({ status: 200, type: WebhookAcceptedResponseDto })
+  @ApiResponse({ status: 401, description: 'Invalid or missing signature' })
+  async receiveWithdrawal(
+    @Body() body: WithdrawalWebhookDto,
+  ): Promise<WebhookAcceptedResponseDto> {
+    return this.webhooksService.handleWithdrawalWebhook(body);
   }
 
   @Post('chain-events')

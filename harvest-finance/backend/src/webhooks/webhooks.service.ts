@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { VaultsService } from '../vaults/vaults.service';
 import { SorobanIndexerService } from '../soroban/soroban-indexer.service';
 import { PaymentWebhookDto } from './dto/payment-webhook.dto';
+import { WithdrawalWebhookDto } from './dto/withdrawal-webhook.dto';
 import { ChainEventWebhookDto } from './dto/chain-event-webhook.dto';
 import { WebhookAcceptedResponseDto } from './dto/webhook-response.dto';
 
@@ -17,6 +18,25 @@ export class WebhooksService {
   ): Promise<WebhookAcceptedResponseDto> {
     const result = await this.vaultsService.applyExternalPaymentNotification({
       depositId: dto.depositId,
+      eventType: dto.eventType,
+      transactionHash: dto.transactionHash,
+      stellarTransactionId: dto.stellarTransactionId ?? null,
+      externalEventId: dto.eventId,
+      occurredAt: dto.occurredAt ? new Date(dto.occurredAt) : undefined,
+    });
+
+    return {
+      accepted: true,
+      eventId: dto.eventId,
+      duplicate: result.duplicate,
+    };
+  }
+
+  async handleWithdrawalWebhook(
+    dto: WithdrawalWebhookDto,
+  ): Promise<WebhookAcceptedResponseDto> {
+    const result = await this.vaultsService.applyExternalWithdrawalNotification({
+      withdrawalId: dto.withdrawalId,
       eventType: dto.eventType,
       transactionHash: dto.transactionHash,
       stellarTransactionId: dto.stellarTransactionId ?? null,
