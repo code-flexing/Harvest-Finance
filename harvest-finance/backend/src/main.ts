@@ -4,7 +4,7 @@ import {
   VersioningType,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { NestFactory } from '@nestjs/core';
+import { NestFactory, HttpAdapterHost } from '@nestjs/core';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
@@ -23,9 +23,11 @@ async function bootstrap() {
   const customLogger = app.get(CustomLoggerService);
   app.useLogger(customLogger);
 
+  const httpAdapterHost = app.get(HttpAdapterHost);
+
   // Register the global filters, including the new Soroban filter
   app.useGlobalFilters(
-    new HttpExceptionFilter(customLogger),
+    new HttpExceptionFilter(customLogger, httpAdapterHost),
     new ThrottlerExceptionFilter(),
     new SorobanExceptionFilter(),
   );
@@ -43,7 +45,8 @@ async function bootstrap() {
 
   app.useGlobalInterceptors(new ResponseInterceptor());
 
-  app.useWebSocketAdapter(new IoAdapter(app));
+  const ioAdapter = new IoAdapter(app);
+  app.useWebSocketAdapter(ioAdapter);
 
   const config = new DocumentBuilder()
     .setTitle('Harvest Finance API')
@@ -144,9 +147,8 @@ async function bootstrap() {
       const httpServer = app.getHttpServer();
 
       // Close Socket.io connections
-      const ioAdapter = app.get(IoAdapter);
-      if (ioAdapter && ioAdapter.socketServer) {
-        ioAdapter.socketServer.close();
+      if (ioAdapter && (ioAdapter as any).server) {
+        (ioAdapter as any).server.close();
       }
 
       // Close HTTP server
