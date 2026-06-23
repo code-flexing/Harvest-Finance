@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "next lint",
     "test": "jest --testPathIgnorePatterns=src/lib/__tests__/milestones.test.ts",
     "test:watch": "jest --watch --testPathIgnorePatterns=src/lib/__tests__/milestones.test.ts",
     "test:vitest": "vitest run src/lib/__tests__/milestones.test.ts"
