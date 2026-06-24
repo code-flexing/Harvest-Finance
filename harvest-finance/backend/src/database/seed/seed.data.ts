@@ -9,17 +9,19 @@ import {
   VaultType,
 } from '../entities/vault.entity';
 import { VaultDeposit } from '../entities/vault-deposit.entity';
+import { Withdrawal, WithdrawalStatus } from '../entities/withdrawal.entity';
 
 const DEFAULT_PASSWORD = 'password123';
-const SEED_USER_COUNT = 18;
-const SEED_VAULT_COUNT = 10;
-const SEED_DEPOSIT_COUNT = 48;
+const SEED_USER_COUNT = 20;
+const SEED_VAULT_COUNT = 14;
+const SEED_DEPOSIT_COUNT = 56;
 
 interface SeedResult {
   users: User[];
   vaults: Vault[];
   deposits: Deposit[];
   vaultDeposits: VaultDeposit[];
+  withdrawals: Withdrawal[];
 }
 
 const cropThemes = [
@@ -50,6 +52,7 @@ export async function generateSeedData(
   const vaultRepository = dataSource.getRepository(Vault);
   const depositRepository = dataSource.getRepository(Deposit);
   const vaultDepositRepository = dataSource.getRepository(VaultDeposit);
+  const withdrawalRepository = dataSource.getRepository(Withdrawal);
   const hashedPassword = await bcrypt.hash(DEFAULT_PASSWORD, 10);
 
   const users = await userRepository.save(createUsers(hashedPassword));
@@ -60,12 +63,16 @@ export async function generateSeedData(
   const vaultDeposits = await vaultDepositRepository.save(
     createVaultDepositBalances(users, vaults, deposits),
   );
+  const withdrawals = await withdrawalRepository.save(
+    createWithdrawals(users, vaults),
+  );
 
   console.log('Seed data created successfully.');
   console.log(`   - Users: ${users.length}`);
-  console.log(`   - Vaults: ${vaults.length}`);
-  console.log(`   - Deposits: ${deposits.length}`);
+  console.log(`   - Vaults: ${vaults.length} (covers all VaultStatus values)`);
+  console.log(`   - Deposits: ${deposits.length} (covers all DepositStatus values)`);
   console.log(`   - Vault balances: ${vaultDeposits.length}`);
+  console.log(`   - Withdrawals: ${withdrawals.length}`);
   console.log(`   - Default password: ${DEFAULT_PASSWORD}`);
 
   return {
@@ -73,11 +80,14 @@ export async function generateSeedData(
     vaults,
     deposits,
     vaultDeposits,
+    withdrawals,
   };
 }
 
 export async function clearSeedData(dataSource: DataSource): Promise<void> {
   await dataSource.query('DELETE FROM vault_deposits');
+  await dataSource.query('DELETE FROM withdrawals');
+  await dataSource.query('DELETE FROM deposit_events');
   await dataSource.query('DELETE FROM deposits');
   await dataSource.query('DELETE FROM vaults');
   await dataSource.query('DELETE FROM credit_scores');
@@ -91,14 +101,25 @@ export async function clearSeedData(dataSource: DataSource): Promise<void> {
 }
 
 function createUsers(hashedPassword: string): Partial<User>[] {
-  const roles = [
-    ...Array<UserRole>(10).fill(UserRole.FARMER),
-    ...Array<UserRole>(5).fill(UserRole.BUYER),
-    ...Array<UserRole>(2).fill(UserRole.INSPECTOR),
+  // Guarantee at least one of every role so seed data covers all UserRole values.
+  const guaranteedRoles: UserRole[] = [
+    UserRole.FARMER,
+    UserRole.BUYER,
+    UserRole.INSPECTOR,
     UserRole.ADMIN,
   ];
+  const remainingCount = SEED_USER_COUNT - guaranteedRoles.length;
+  const fillerRoles: UserRole[] = [
+    ...Array<UserRole>(10).fill(UserRole.FARMER),
+    ...Array<UserRole>(4).fill(UserRole.BUYER),
+    ...Array<UserRole>(2).fill(UserRole.INSPECTOR),
+  ];
+  const roles = faker.helpers.shuffle([
+    ...guaranteedRoles,
+    ...faker.helpers.shuffle(fillerRoles).slice(0, remainingCount),
+  ]);
 
-  return faker.helpers.shuffle(roles).slice(0, SEED_USER_COUNT).map((role) => {
+  return roles.map((role) => {
     const firstName = faker.person.firstName();
     const lastName = faker.person.lastName();
 
@@ -119,7 +140,21 @@ function createUsers(hashedPassword: string): Partial<User>[] {
 }
 
 function createVaults(farmers: User[]): Partial<Vault>[] {
-  return Array.from({ length: SEED_VAULT_COUNT }, () => {
+  // Guarantee one vault for each VaultStatus so seed data covers all status values.
+  const guaranteedStatuses: VaultStatus[] = [
+    VaultStatus.ACTIVE,
+    VaultStatus.INACTIVE,
+    VaultStatus.FROZEN,
+    VaultStatus.FULL_CAPACITY,
+  ];
+  const remainingCount = SEED_VAULT_COUNT - guaranteedStatuses.length;
+  const randomStatuses: VaultStatus[] = Array.from(
+    { length: remainingCount },
+    () => VaultStatus.ACTIVE,
+  );
+  const statuses = faker.helpers.shuffle([...guaranteedStatuses, ...randomStatuses]);
+
+  return statuses.map((status) => {
     const owner = faker.helpers.arrayElement(farmers);
     const type = faker.helpers.enumValue(VaultType);
     const crop = faker.helpers.arrayElement(cropThemes);
@@ -131,16 +166,19 @@ function createVaults(farmers: User[]): Partial<Vault>[] {
     const requiresMultiSignature = faker.datatype.boolean({
       probability: 0.25,
     });
+    // For FULL_CAPACITY vaults, set totalDeposits == maxCapacity
+    const totalDeposits =
+      status === VaultStatus.FULL_CAPACITY ? maxCapacity : 0;
 
     return {
       ownerId: owner.id,
       type,
-      status: VaultStatus.ACTIVE,
+      status,
       vaultName: `${crop} ${vaultTypeLabels[type]} Vault`,
       description: faker.lorem.sentence({ min: 10, max: 18 }),
       symbol: `HV${crop.slice(0, 3).toUpperCase()}`,
       assetPair: faker.helpers.arrayElement(['XLM/USDC', 'XLM/HVF', 'USDC/HVF']),
-      totalDeposits: 0,
+      totalDeposits,
       maxCapacity,
       interestRate: faker.number.float({
         min: 4.5,
@@ -255,6 +293,46 @@ function createVaultDepositBalances(
     ...balance,
     balance: Number(Number(balance.balance).toFixed(2)),
   }));
+}
+
+function createWithdrawals(users: User[], vaults: Vault[]): Partial<Withdrawal>[] {
+  const SEED_WITHDRAWAL_COUNT = 16;
+  // Guarantee at least one withdrawal per WithdrawalStatus.
+  const guaranteedStatuses: WithdrawalStatus[] = [
+    WithdrawalStatus.PENDING,
+    WithdrawalStatus.CONFIRMED,
+    WithdrawalStatus.FAILED,
+  ];
+  const remainingCount = SEED_WITHDRAWAL_COUNT - guaranteedStatuses.length;
+  const fillerStatuses = faker.helpers.multiple(
+    () =>
+      faker.helpers.weightedArrayElement([
+        { weight: 7, value: WithdrawalStatus.CONFIRMED },
+        { weight: 2, value: WithdrawalStatus.PENDING },
+        { weight: 1, value: WithdrawalStatus.FAILED },
+      ]),
+    { count: remainingCount },
+  );
+  const statuses = faker.helpers.shuffle([...guaranteedStatuses, ...fillerStatuses]);
+
+  return statuses.map((status) => {
+    const createdAt = faker.date.recent({ days: 90 });
+    const confirmedAt =
+      status === WithdrawalStatus.CONFIRMED
+        ? faker.date.between({ from: createdAt, to: new Date() })
+        : null;
+    return {
+      userId: faker.helpers.arrayElement(users).id,
+      vaultId: faker.helpers.arrayElement(vaults).id,
+      status,
+      amount: faker.number.float({ min: 50, max: 8_000, fractionDigits: 2 }),
+      transactionHash:
+        status === WithdrawalStatus.PENDING ? null : createTxHash(),
+      confirmedAt,
+      createdAt,
+      updatedAt: confirmedAt ?? createdAt,
+    };
+  });
 }
 
 function createStellarAddress(): string {
