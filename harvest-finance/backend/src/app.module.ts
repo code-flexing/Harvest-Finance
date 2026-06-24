@@ -40,6 +40,8 @@ import { InsuranceModule } from './insurance/insurance.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { RewardsModule } from './rewards/rewards.module';
 import { ObservabilityModule } from './observability/observability.module';
+import { AppConfigModule } from './config/config.module'; 
+
 import {
   Achievement,
   CreditScore,
@@ -90,6 +92,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnvironment }),
     DomainEventsModule,
     ObservabilityModule,
+    AppConfigModule,
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
