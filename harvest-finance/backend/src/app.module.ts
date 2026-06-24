@@ -82,6 +82,7 @@ import { CreateYieldAnalytics1700000000012 } from './database/migrations/1700000
 import { AddSorobanEventQueryIndexes1700000000013 } from './database/migrations/1700000000013-AddSorobanEventQueryIndexes';
 import { CreateDepositEvents1700000000016 } from './database/migrations/1700000000016-CreateDepositEvents';
 import { DomainEventsModule } from './domain-events';
+import { DomainEventHandlersModule } from './common/events';
 import { WebhooksModule } from './webhooks/webhooks.module';
 
 @Module({
@@ -176,6 +177,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     AnalyticsModule,
     StateSyncModule,
     WebhooksModule,
+    DomainEventHandlersModule,
   ],
   controllers: [AppController],
   providers: [
