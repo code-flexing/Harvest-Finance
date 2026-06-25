@@ -8,6 +8,10 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { VaultsService } from './vaults.service';
+import { ExternalPaymentEventType } from './dto/external-payment-notification.dto';
+import { PaymentReceivedEvent, DepositCompletedEvent, WithdrawalConfirmedEvent, DomainEventNames } from '../domain-events';
+import { User } from '../database/entities/user.entity';
+import { WithdrawalConfirmedHandler } from './events/withdrawal-confirmed.handler';
 import {
   Vault,
   VaultStatus,
@@ -76,6 +80,7 @@ describe('VaultsService — Yield Strategy Integration', () => {
     transaction: jest.fn((cb: (em: typeof mockManager) => unknown) =>
       cb(mockManager),
     ),
+    getRepository: jest.fn(),
   };
 
   const mockVaultRepository = {
@@ -187,7 +192,7 @@ describe('VaultsService — Yield Strategy Integration', () => {
       getRawOne: jest.fn().mockResolvedValue({ total }),
     });
 
-    it('should route funds from user into vault and confirm deposit atomically', async () => {
+    it('should route funds from user into vault and return pending deposit', async () => {
       const vault = buildVault();
       const updatedVault = buildVault({
         totalDeposits: 1000,
@@ -200,10 +205,6 @@ describe('VaultsService — Yield Strategy Integration', () => {
       mockManager.save.mockResolvedValue(pendingDeposit);
       mockManager.increment.mockResolvedValue(undefined);
       mockManager.findOne.mockResolvedValue(updatedVault);
-      mockDepositRepository.findOne
-        .mockResolvedValueOnce(pendingDeposit)
-        .mockResolvedValueOnce(confirmedDeposit);
-      mockDepositRepository.update.mockResolvedValue(undefined);
       mockDepositRepository.createQueryBuilder.mockReturnValue(buildQB('1000'));
 
       const result = await service.depositToVault(VAULT_ID, {
@@ -211,11 +212,11 @@ describe('VaultsService — Yield Strategy Integration', () => {
         amount: 1000,
       });
 
-      expect(result.deposit.status).toBe(DepositStatus.CONFIRMED);
+      expect(result.deposit.status).toBe(DepositStatus.PENDING);
       expect(result.deposit.amount).toBe(1000);
       expect(result.userTotalDeposits).toBe(1000);
       expect(mockDataSource.transaction).toHaveBeenCalledTimes(1);
-      expect(mockDepositEventService.appendEvent).toHaveBeenCalledTimes(2);
+      expect(mockDepositEventService.appendEvent).toHaveBeenCalledTimes(1);
       expect(mockManager.increment).toHaveBeenCalledWith(
         Vault,
         { id: VAULT_ID },
@@ -224,25 +225,33 @@ describe('VaultsService — Yield Strategy Integration', () => {
       );
     });
 
-    it('should emit real-time deposit event to strategy subscribers', async () => {
-      const vault = buildVault();
-      const updatedVault = buildVault({ totalDeposits: 500 });
-
+    it('should emit real-time deposit event on PaymentReceivedEvent', async () => {
+      const vault = buildVault({ totalDeposits: 500 });
       mockVaultRepository.findOne.mockResolvedValue(vault);
-      mockDepositRepository.create.mockReturnValue({
-        ...pendingDeposit,
-        amount: 500,
+      
+      const mockUser = { id: USER_ID, stellarAddress: 'GUSER' };
+      mockDataSource.getRepository.mockReturnValue({
+        findOne: jest.fn().mockResolvedValue(mockUser),
       });
-      mockManager.save.mockResolvedValue({ ...pendingDeposit, amount: 500 });
-      mockManager.increment.mockResolvedValue(undefined);
-      mockManager.findOne.mockResolvedValue(updatedVault);
+
       mockDepositRepository.findOne
         .mockResolvedValueOnce({ ...pendingDeposit, amount: 500 })
+        .mockResolvedValueOnce({ ...pendingDeposit, amount: 500 })
         .mockResolvedValueOnce({ ...confirmedDeposit, amount: 500 });
+
       mockDepositRepository.update.mockResolvedValue(undefined);
       mockDepositRepository.createQueryBuilder.mockReturnValue(buildQB('500'));
 
-      await service.depositToVault(VAULT_ID, { userId: USER_ID, amount: 500 });
+      const event = new PaymentReceivedEvent(
+        'mock_tx_123',
+        'GUSER',
+        'GPLATFORM',
+        500,
+        'XLM',
+        undefined,
+      );
+
+      await service.handlePaymentReceived(event);
 
       expect(mockVaultGateway.emitDeposit).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -323,20 +332,20 @@ describe('VaultsService — Yield Strategy Integration', () => {
 
     it('should notify user after deposit confirmed', async () => {
       const vault = buildVault();
-      const updatedVault = buildVault({ totalDeposits: 1000 });
-
       mockVaultRepository.findOne.mockResolvedValue(vault);
-      mockDepositRepository.create.mockReturnValue(pendingDeposit);
-      mockManager.save.mockResolvedValue(pendingDeposit);
-      mockManager.increment.mockResolvedValue(undefined);
-      mockManager.findOne.mockResolvedValue(updatedVault);
       mockDepositRepository.findOne
         .mockResolvedValueOnce(pendingDeposit)
         .mockResolvedValueOnce(confirmedDeposit);
       mockDepositRepository.update.mockResolvedValue(undefined);
       mockDepositRepository.createQueryBuilder.mockReturnValue(buildQB('1000'));
 
-      await service.depositToVault(VAULT_ID, { userId: USER_ID, amount: 1000 });
+      await service.applyExternalPaymentNotification({
+        depositId: DEPOSIT_ID,
+        eventType: ExternalPaymentEventType.PAYMENT_CONFIRMED,
+        transactionHash: 'mock_tx_123',
+        stellarTransactionId: 'stellar_tx_123',
+        externalEventId: 'ext_event_123',
+      });
 
       expect(mockNotificationsService.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -416,6 +425,7 @@ describe('VaultsService — Yield Strategy Integration', () => {
       vaultId: VAULT_ID,
       amount: 500,
       status: WithdrawalStatus.PENDING,
+      vault: buildVault(),
     };
 
     const confirmedWithdrawal = {
@@ -432,7 +442,7 @@ describe('VaultsService — Yield Strategy Integration', () => {
       getRawOne: jest.fn().mockResolvedValue({ total }),
     });
 
-    it('should route funds out of vault and confirm withdrawal atomically', async () => {
+    it('should route funds out of vault and return pending withdrawal', async () => {
       const vault = buildVault({ totalDeposits: 5000 });
       const updatedVault = buildVault({ totalDeposits: 4500 });
 
@@ -442,12 +452,10 @@ describe('VaultsService — Yield Strategy Integration', () => {
       mockManager.save.mockResolvedValue(pendingWithdrawal);
       mockManager.decrement.mockResolvedValue(undefined);
       mockManager.findOne.mockResolvedValue(updatedVault);
-      mockWithdrawalRepository.update.mockResolvedValue(undefined);
-      mockWithdrawalRepository.findOne.mockResolvedValue(confirmedWithdrawal);
 
       const result = await service.withdrawFromVault(VAULT_ID, USER_ID, 500);
 
-      expect(result.withdrawal.status).toBe(WithdrawalStatus.CONFIRMED);
+      expect(result.withdrawal.status).toBe(WithdrawalStatus.PENDING);
       expect(result.withdrawal.amount).toBe(500);
       expect(mockDataSource.transaction).toHaveBeenCalledTimes(1);
       expect(mockManager.decrement).toHaveBeenCalledWith(
@@ -458,27 +466,22 @@ describe('VaultsService — Yield Strategy Integration', () => {
       );
     });
 
-    it('should emit real-time withdrawal event to strategy subscribers', async () => {
-      const vault = buildVault({ totalDeposits: 5000 });
-      const updatedVault = buildVault({ totalDeposits: 4500 });
-
-      mockVaultRepository.findOne.mockResolvedValue(vault);
-      mockDepositRepository.createQueryBuilder.mockReturnValue(buildQB('5000'));
-      mockWithdrawalRepository.create.mockReturnValue(pendingWithdrawal);
-      mockManager.save.mockResolvedValue(pendingWithdrawal);
-      mockManager.decrement.mockResolvedValue(undefined);
-      mockManager.findOne.mockResolvedValue(updatedVault);
+    it('should emit withdrawal confirmed event on successful external confirmation', async () => {
+      mockWithdrawalRepository.findOne
+        .mockResolvedValueOnce(pendingWithdrawal)
+        .mockResolvedValueOnce(confirmedWithdrawal);
       mockWithdrawalRepository.update.mockResolvedValue(undefined);
-      mockWithdrawalRepository.findOne.mockResolvedValue(confirmedWithdrawal);
 
-      await service.withdrawFromVault(VAULT_ID, USER_ID, 500);
+      await service.applyExternalWithdrawalNotification({
+        withdrawalId: WITHDRAWAL_ID,
+        eventType: ExternalPaymentEventType.PAYMENT_CONFIRMED,
+        transactionHash: 'mock_withdraw_tx_123',
+        externalEventId: 'ext_event_123',
+      });
 
-      expect(mockVaultGateway.emitWithdrawal).toHaveBeenCalledWith(
-        expect.objectContaining({
-          vaultId: VAULT_ID,
-          amount: 500,
-          userId: USER_ID,
-        }),
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        DomainEventNames.WITHDRAWAL_CONFIRMED,
+        expect.any(WithdrawalConfirmedEvent),
       );
     });
 
@@ -514,19 +517,25 @@ describe('VaultsService — Yield Strategy Integration', () => {
     });
 
     it('should notify user after withdrawal is confirmed', async () => {
-      const vault = buildVault({ totalDeposits: 5000 });
-      const updatedVault = buildVault({ totalDeposits: 4500 });
+      const handler = new WithdrawalConfirmedHandler(
+        mockNotificationsService as any,
+        mockLogger as any,
+        mockVaultGateway as any,
+        mockEventEmitter as any,
+      );
 
-      mockVaultRepository.findOne.mockResolvedValue(vault);
-      mockDepositRepository.createQueryBuilder.mockReturnValue(buildQB('5000'));
-      mockWithdrawalRepository.create.mockReturnValue(pendingWithdrawal);
-      mockManager.save.mockResolvedValue(pendingWithdrawal);
-      mockManager.decrement.mockResolvedValue(undefined);
-      mockManager.findOne.mockResolvedValue(updatedVault);
-      mockWithdrawalRepository.update.mockResolvedValue(undefined);
-      mockWithdrawalRepository.findOne.mockResolvedValue(confirmedWithdrawal);
+      const event = new WithdrawalConfirmedEvent(
+        WITHDRAWAL_ID,
+        USER_ID,
+        VAULT_ID,
+        500,
+        'Harvest Yield Vault',
+        4500,
+        'mock_withdraw_tx_123',
+        new Date(),
+      );
 
-      await service.withdrawFromVault(VAULT_ID, USER_ID, 500);
+      await handler.handle(event);
 
       expect(mockNotificationsService.create).toHaveBeenCalledWith(
         expect.objectContaining({
