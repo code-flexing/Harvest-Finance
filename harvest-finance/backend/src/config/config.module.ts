@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/config';
+import { Module } from '@nestjs/common';
 import { ConfigModule as NestConfigModule } from '@nestjs/config';
 import { envValidationSchema } from './env.validation';
 import databaseConfig from './database.config';

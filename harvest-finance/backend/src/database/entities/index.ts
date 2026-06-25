@@ -24,6 +24,7 @@ export {
   TransactionType,
 } from './transaction.entity';
 export { User, UserRole } from './user.entity';
+export { UserOAuthLink } from './user-oauth-link.entity';
 export { Vault, VaultStatus, VaultType } from './vault.entity';
 export { VaultDeposit } from './vault-deposit.entity';
 export { Verification, VerificationStatus } from './verification.entity';

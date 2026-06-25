@@ -10,6 +10,8 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { CircuitBreaker } from '../utils/circuit-breaker';
+import { isRetryableStellarError } from '../utils/stellar-retry';
 
 describe('StellarService - Escrow Creation', () => {
   let service: StellarService;
