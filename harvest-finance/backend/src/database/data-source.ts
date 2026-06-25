@@ -2,6 +2,7 @@ import { DataSource, DataSourceOptions } from 'typeorm';
 import { config } from 'dotenv';
 import * as path from 'path';
 import { User } from './entities/user.entity';
+import { UserOAuthLink } from './entities/user-oauth-link.entity';
 import { Order } from './entities/order.entity';
 import { Transaction } from './entities/transaction.entity';
 import { Verification } from './entities/verification.entity';
@@ -37,6 +38,7 @@ const options: DataSourceOptions = {
   database: process.env.DB_NAME || 'harvest_finance',
   entities: [
     User,
+    UserOAuthLink,
     Order,
     Transaction,
     Verification,

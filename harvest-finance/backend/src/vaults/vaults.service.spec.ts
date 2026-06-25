@@ -182,7 +182,7 @@ describe('VaultsService', () => {
 
     it('should sanitize the vault ID before lookup', async () => {
       mockVaultRepository.findOne.mockResolvedValue(mockVault);
-      mockSanitizer.validateUUID.mockReturnValue('vault-1');
+      mockSanitizer.validateUUID.mockReturnValueOnce('vault-1');
 
       await service.getVaultById('vault-1');
 

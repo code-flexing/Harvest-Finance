@@ -34,12 +34,13 @@ import { VaultApproval } from '../database/entities/vault-approval.entity';
 import { User } from '../database/entities/user.entity';
 import { DepositEventService } from './deposit-event.service';
 import { DepositEventResponseDto } from './dto/deposit-event-response.dto';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import {
   DepositCompletedEvent,
   DomainEventNames,
   WithdrawalConfirmedEvent,
   WithdrawalCompletedEvent,
+  PaymentReceivedEvent,
 } from '../domain-events';
 
 const MAX_SAFE_DEPOSIT = 1e30;
@@ -191,39 +192,16 @@ export class VaultsService {
       );
     }
 
-    const confirmedDeposit = await this.confirmDeposit(result.deposit.id);
-
     const userTotalDeposits = await this.getUserTotalDeposits(userId);
 
     this.logger.log(
-      `Deposit of ${amount} confirmed into vault ${vaultId} by user ${userId}`,
+      `Deposit of ${amount} initiated for vault ${vaultId} by user ${userId}`,
       'VaultsService',
-    );
-
-    this.vaultGateway.emitDeposit({
-      vaultId,
-      vaultName: vault.vaultName,
-      asset: vault.type,
-      amount,
-      userId,
-      newBalance: result.vault ? Number(result.vault.totalDeposits) : 0,
-    });
-
-    this.eventEmitter.emit(
-      DomainEventNames.DEPOSIT_COMPLETED,
-      new DepositCompletedEvent(
-        confirmedDeposit.id,
-        userId,
-        vaultId,
-        amount,
-        vault.vaultName,
-        result.vault ? Number(result.vault.totalDeposits) : 0,
-      ),
     );
 
     return {
       vault: result.vault ? this.mapVaultToResponse(result.vault) : null,
-      deposit: this.mapDepositToResponse(confirmedDeposit),
+      deposit: this.mapDepositToResponse(result.deposit),
       userTotalDeposits,
     };
   }
@@ -1003,7 +981,7 @@ export class VaultsService {
     const vault = await this.getVaultById(vaultId);
 
     // Only vault owner or admin can update multi-signature config
-    if (vault.ownerId !== userId && !this.isCurrentUserAdmin(userId)) {
+    if (vault.ownerId !== userId && !(await this.isCurrentUserAdmin(userId))) {
       throw new UnauthorizedException('Only vault owner or admin can update multi-signature configuration');
     }
 
@@ -1030,7 +1008,7 @@ export class VaultsService {
     const vault = await this.getVaultById(vaultId);
 
     // Only vault owner or admin can request approvals
-    if (vault.ownerId !== userId && !this.isCurrentUserAdmin(userId)) {
+    if (vault.ownerId !== userId && !(await this.isCurrentUserAdmin(userId))) {
       throw new UnauthorizedException('Only vault owner or admin can request approvals');
     }
 
@@ -1127,7 +1105,7 @@ export class VaultsService {
     const vault = await this.getVaultById(vaultId);
 
     // Only vault owner or admin can pause vault
-    if (vault.ownerId !== userId && !this.isCurrentUserAdmin(userId)) {
+    if (vault.ownerId !== userId && !(await this.isCurrentUserAdmin(userId))) {
       throw new UnauthorizedException('Only vault owner or admin can pause vault');
     }
 
@@ -1149,7 +1127,7 @@ export class VaultsService {
     const vault = await this.getVaultById(vaultId);
 
     // Only vault owner or admin can resume vault
-    if (vault.ownerId !== userId && !this.isCurrentUserAdmin(userId)) {
+    if (vault.ownerId !== userId && !(await this.isCurrentUserAdmin(userId))) {
       throw new UnauthorizedException('Only vault owner or admin can resume vault');
     }
 
@@ -1175,5 +1153,99 @@ export class VaultsService {
       select: ['role'],
     });
     return user?.role === 'ADMIN';
+  }
+
+  @OnEvent(DomainEventNames.PAYMENT_RECEIVED, { async: true })
+  async handlePaymentReceived(event: PaymentReceivedEvent): Promise<void> {
+    this.logger.log(
+      `Received payment event: tx=${event.transactionHash} from=${event.from} amount=${event.amount} memo=${event.memo}`,
+      'VaultsService',
+    );
+
+    // Try to match the payment to a pending deposit
+    let deposit: Deposit | null = null;
+
+    // 1. Try matching by memo as deposit ID if it's a valid UUID
+    if (event.memo && this.isValidUuid(event.memo)) {
+      deposit = await this.depositRepository.findOne({
+        where: { id: event.memo, status: DepositStatus.PENDING },
+        relations: ['vault'],
+      });
+    }
+
+    // 2. Try matching by user's stellar address and amount
+    if (!deposit) {
+      const user = await this.dataSource.getRepository(User).findOne({
+        where: { stellarAddress: event.from },
+      });
+
+      if (user) {
+        deposit = await this.depositRepository.findOne({
+          where: {
+            userId: user.id,
+            amount: event.amount,
+            status: DepositStatus.PENDING,
+          },
+          relations: ['vault'],
+          order: { createdAt: 'ASC' },
+        });
+      }
+    }
+
+    if (!deposit) {
+      this.logger.warn(
+        `Could not match incoming payment to any pending deposit: tx=${event.transactionHash}`,
+        'VaultsService',
+      );
+      return;
+    }
+
+    this.logger.log(
+      `Matching payment found for deposit ${deposit.id}. Confirming...`,
+      'VaultsService',
+    );
+
+    // Confirm the deposit using applyExternalPaymentNotification
+    const { deposit: confirmedDeposit } = await this.applyExternalPaymentNotification({
+      depositId: deposit.id,
+      eventType: ExternalPaymentEventType.PAYMENT_CONFIRMED,
+      transactionHash: event.transactionHash,
+      stellarTransactionId: event.transactionHash,
+      externalEventId: `stellar_stream_${event.transactionHash}`,
+      occurredAt: event.occurredAt,
+    });
+
+    // Retrieve updated vault state
+    const vault = await this.vaultRepository.findOne({
+      where: { id: deposit.vaultId },
+    });
+
+    // Notify client/realtime Gateway
+    this.vaultGateway.emitDeposit({
+      vaultId: deposit.vaultId,
+      vaultName: vault ? vault.vaultName : 'Vault',
+      asset: vault ? vault.type : 'Asset',
+      amount: Number(deposit.amount),
+      userId: deposit.userId,
+      newBalance: vault ? Number(vault.totalDeposits) : 0,
+    });
+
+    // Emit DepositCompletedEvent
+    this.eventEmitter.emit(
+      DomainEventNames.DEPOSIT_COMPLETED,
+      new DepositCompletedEvent(
+        confirmedDeposit.id,
+        deposit.userId,
+        deposit.vaultId,
+        Number(deposit.amount),
+        vault ? vault.vaultName : 'Vault',
+        vault ? Number(vault.totalDeposits) : 0,
+      ),
+    );
+  }
+
+  private isValidUuid(val: string): boolean {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(val);
   }
 }

@@ -54,6 +54,7 @@ import {
   SorobanEvent,
   Transaction,
   User,
+  UserOAuthLink,
   Vault,
   VaultDeposit,
   Verification,
@@ -109,6 +110,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
         database: configService.get<string>('DB_NAME'),
         entities: [
           User,
+          UserOAuthLink,
           Order,
           Transaction,
           Verification,

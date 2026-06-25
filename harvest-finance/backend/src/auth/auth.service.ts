@@ -15,6 +15,7 @@ import type { Cache } from 'cache-manager';
 import { randomBytes } from 'crypto';
 import { CustomLoggerService } from '../logger/custom-logger.service';
 import { User, UserRole } from '../database/entities/user.entity';
+import { UserOAuthLink } from '../database/entities/user-oauth-link.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -42,6 +43,8 @@ export class AuthService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(UserOAuthLink)
+    private oauthLinkRepository: Repository<UserOAuthLink>,
     private jwtService: JwtService,
     private configService: ConfigService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
@@ -392,6 +395,77 @@ export class AuthService {
         [user.firstName, user.lastName].filter(Boolean).join(' ') || '',
       phone_number: user.phone,
       stellar_address: user.stellarAddress,
+    };
+  }
+
+  /**
+   * Validate or create an OAuth user on callback, linking accounts if email matches.
+   */
+  async validateOrCreateOAuthUser(
+    oauthProvider: string,
+    oauthId: string,
+    email: string,
+    firstName?: string,
+    lastName?: string,
+  ): Promise<User> {
+    // 1. Check if OAuth link already exists
+    let existingLink = await this.oauthLinkRepository.findOne({
+      where: { oauthProvider, oauthId },
+      relations: ['user'],
+    });
+
+    if (existingLink) {
+      // Update last login
+      await this.userRepository.update(existingLink.user.id, { lastLogin: new Date() });
+      return existingLink.user;
+    }
+
+    // 2. Check if a user with the same email exists
+    let user = await this.userRepository.findOne({ where: { email } });
+
+    if (!user) {
+      // Create a new user on first login
+      const randomPassword = randomBytes(16).toString('hex');
+      const hashedPassword = await bcrypt.hash(randomPassword, this.saltRounds);
+
+      user = this.userRepository.create({
+        email,
+        password: hashedPassword,
+        role: UserRole.BUYER, // default role
+        firstName: firstName || null,
+        lastName: lastName || null,
+        isActive: true,
+      });
+
+      user = await this.userRepository.save(user);
+      this.logger.log(`Created new OAuth user: ${email} via ${oauthProvider}`, 'AuthService');
+    } else {
+      this.logger.log(`Linking existing user: ${email} to OAuth provider ${oauthProvider}`, 'AuthService');
+    }
+
+    // 3. Link OAuth provider to the user
+    const link = this.oauthLinkRepository.create({
+      userId: user.id,
+      oauthProvider,
+      oauthId,
+    });
+    await this.oauthLinkRepository.save(link);
+
+    // Update last login
+    await this.userRepository.update(user.id, { lastLogin: new Date() });
+
+    return user;
+  }
+
+  /**
+   * Log in user via OAuth and generate access/refresh tokens.
+   */
+  async loginWithOAuth(user: User): Promise<AuthResponseDto> {
+    const tokens = await this.generateTokens(user);
+    return {
+      access_token: tokens.accessToken,
+      refresh_token: tokens.refreshToken,
+      user: this.mapUserToResponse(user),
     };
   }
 }

@@ -6,7 +6,9 @@ import {
   Req,
   HttpCode,
   HttpStatus,
+  Get,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import type { Request } from 'express';
 import {
   ApiTags,
@@ -173,7 +175,7 @@ export class AuthController {
    @UseGuards(JwtAuthGuard)
    @HttpCode(HttpStatus.OK)
    @ApiBearerAuth()
-   @ApiOperation({ summary: 'Logout user', description: 'Invalidates the user's refresh token, effectively logging them out. Requires a valid JWT access token in the Authorization header.' })
+   @ApiOperation({ summary: 'Logout user', description: 'Invalidates the user\'s refresh token, effectively logging them out. Requires a valid JWT access token in the Authorization header.' })
    @ApiResponse({
      status: 200,
      description: 'Logged out successfully',
@@ -348,5 +350,57 @@ export class AuthController {
           [user.firstName, user.lastName].filter(Boolean).join(' ') || '',
       },
     };
+  }
+
+  /**
+   * Redirect to Google OAuth provider
+   */
+  @Get('google')
+  @UseGuards(AuthGuard('google'))
+  @ApiOperation({ summary: 'Login via Google', description: 'Redirects to Google login consent screen.' })
+  async googleAuth(@Req() req) {
+    // Handled by passport guard
+  }
+
+  /**
+   * Google OAuth callback handler
+   */
+  @Get('google/callback')
+  @UseGuards(AuthGuard('google'))
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Google Auth callback', description: 'Handles redirect callback from Google, registers/links account, and issues JWT tokens.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Successfully authenticated',
+    type: AuthResponseDto,
+  })
+  async googleAuthRedirect(@Req() req): Promise<AuthResponseDto> {
+    return this.authService.loginWithOAuth(req.user);
+  }
+
+  /**
+   * Redirect to GitHub OAuth provider
+   */
+  @Get('github')
+  @UseGuards(AuthGuard('github'))
+  @ApiOperation({ summary: 'Login via GitHub', description: 'Redirects to GitHub login screen.' })
+  async githubAuth(@Req() req) {
+    // Handled by passport guard
+  }
+
+  /**
+   * GitHub OAuth callback handler
+   */
+  @Get('github/callback')
+  @UseGuards(AuthGuard('github'))
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'GitHub Auth callback', description: 'Handles redirect callback from GitHub, registers/links account, and issues JWT tokens.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Successfully authenticated',
+    type: AuthResponseDto,
+  })
+  async githubAuthRedirect(@Req() req): Promise<AuthResponseDto> {
+    return this.authService.loginWithOAuth(req.user);
   }
 }

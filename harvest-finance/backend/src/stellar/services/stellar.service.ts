@@ -30,6 +30,9 @@ import {
   PriorityFeeInfo,
   StellarBalance,
 } from '../interfaces/stellar.interfaces';
+import { CircuitBreaker, CircuitBreakerOpenError, CircuitBreakerStateChange } from '../utils/circuit-breaker';
+import { isRetryableStellarError } from '../utils/stellar-retry';
+import { retry } from '../../common/utils/retry';
 
 @Injectable()
 export class StellarService implements OnModuleInit {
