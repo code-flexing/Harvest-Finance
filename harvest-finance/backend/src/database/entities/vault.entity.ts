@@ -71,6 +71,10 @@ export enum VaultStatus {
   /** totalDeposits >= maxCapacity. Set automatically by the deposit service.
    *  Transitions back to ACTIVE once enough funds are withdrawn to free capacity. */
   FULL_CAPACITY = 'FULL_CAPACITY',
+
+  /** Vault's linked Stellar account has been merged (account no longer exists on-chain).
+   *  All operations are blocked. Set automatically by VaultAccountMonitorService. */
+  SUSPENDED = 'SUSPENDED',
 }
 
 @Entity('vaults')
@@ -136,6 +140,9 @@ export class Vault {
 
   @Column({ name: 'current_approvals', type: 'int', default: 0 })
   currentApprovals: number;
+
+  @Column({ name: 'stellar_account_address', length: 56, nullable: true, default: null })
+  stellarAccountAddress: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

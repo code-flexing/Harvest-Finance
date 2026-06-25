@@ -84,6 +84,7 @@ import { CreateSorobanEvents1700000000011 } from './database/migrations/17000000
 import { CreateYieldAnalytics1700000000012 } from './database/migrations/1700000000012-CreateYieldAnalytics';
 import { AddSorobanEventQueryIndexes1700000000013 } from './database/migrations/1700000000013-AddSorobanEventQueryIndexes';
 import { CreateDepositEvents1700000000016 } from './database/migrations/1700000000016-CreateDepositEvents';
+import { AddSuspendedVaultStatusAndStellarAccount1700000000018 } from './database/migrations/1700000000018-AddSuspendedVaultStatusAndStellarAccount';
 import { DomainEventsModule } from './domain-events';
 import { DomainEventHandlersModule } from './common/events';
 import { WebhooksModule } from './webhooks/webhooks.module';
@@ -143,6 +144,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
           CreateYieldAnalytics1700000000012,
           AddSorobanEventQueryIndexes1700000000013,
           CreateDepositEvents1700000000016,
+          AddSuspendedVaultStatusAndStellarAccount1700000000018,
         ],
         synchronize: false,
         migrationsRun: false,

@@ -17,6 +17,8 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { CommonModule } from '../common/common.module';
 import { WithdrawalConfirmedHandler } from './events/withdrawal-confirmed.handler';
+import { StellarModule } from '../stellar/stellar.module';
+import { VaultAccountMonitorService } from './vault-account-monitor.service';
 
 @Module({
   imports: [
@@ -25,9 +27,10 @@ import { WithdrawalConfirmedHandler } from './events/withdrawal-confirmed.handle
     NotificationsModule,
     RealtimeModule,
     CommonModule,
+    StellarModule,
   ],
   controllers: [VaultsController],
-  providers: [VaultsService, DepositEventService, WithdrawalConfirmedHandler],
+  providers: [VaultsService, DepositEventService, WithdrawalConfirmedHandler, VaultAccountMonitorService],
   exports: [VaultsService, DepositEventService],
 })
 export class VaultsModule {}
