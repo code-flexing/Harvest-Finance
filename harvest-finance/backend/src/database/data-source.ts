@@ -1,5 +1,6 @@
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { config } from 'dotenv';
+import * as path from 'path';
 import { User } from './entities/user.entity';
 import { Order } from './entities/order.entity';
 import { Transaction } from './entities/transaction.entity';
@@ -13,8 +14,10 @@ import { CreateInitialSchema1700000000000 } from './migrations/1700000000000-Cre
 import { CreateSorobanEvents1700000000011 } from './migrations/1700000000011-CreateSorobanEvents';
 import { AddSorobanEventQueryIndexes1700000000013 } from './migrations/1700000000013-AddSorobanEventQueryIndexes';
 
-// Load environment variables
+// Load environment variables explicitly
 config();
+
+const isTestEnv = process.env.NODE_ENV === 'test';
 
 /**
  * TypeORM Data Source Configuration
@@ -43,12 +46,16 @@ const options: DataSourceOptions = {
     Vault,
     VaultDeposit,
   ],
+  // Path fallback to pick up both class references and newly generated CLI files
   migrations: [
     CreateInitialSchema1700000000000,
     CreateSorobanEvents1700000000011,
     AddSorobanEventQueryIndexes1700000000013,
+    path.join(__dirname, '/migrations/*.{ts,js}'),
   ],
-  synchronize: false,
+  // CRITICAL SAFETY: synchronize is strictly disabled outside of explicit integration testing pipelines
+  synchronize: isTestEnv,
+  migrationsRun: false, // Explicit control handled via automated migration lifecycle deployment hooks
   logging: process.env.NODE_ENV === 'development',
 };
 

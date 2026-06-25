@@ -32,14 +32,16 @@ async function bootstrap() {
     new SorobanExceptionFilter(),
   );
 
+  // Issue #448: Strict Request validation pipeline
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
       whitelist: true,
       forbidNonWhitelisted: true,
       transformOptions: {
-        enableImplicitConversion: true,
+        enableImplicitConversion: true, // Auto-coerces primitive type query/route params
       },
+      errorHttpStatusCode: 422, // Overrides default 400 with 422 Unprocessable Entity
     }),
   );
 
@@ -171,6 +173,7 @@ async function bootstrap() {
       console.error('Error during graceful shutdown:', error);
       process.exit(1);
     }
+
   };
 
   // Register shutdown signal handlers
