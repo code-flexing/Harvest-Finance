@@ -4,13 +4,14 @@ import {
   HealthCheck,
   HealthCheckService,
   TypeOrmHealthIndicator,
-  HealthCheckError,
+  HealthIndicator,
   HealthIndicatorResult,
 } from '@nestjs/terminus';
 import { SkipThrottle } from '@nestjs/throttler';
 import { RedisHealthIndicator } from './redis.health';
 import { StellarHealthIndicator } from './stellar.health';
 import { StellarClientService } from '../stellar/services/stellar-client.service';
+import { RedisHealthIndicator } from './redis.health';
 
 @ApiTags('health')
 @SkipThrottle()
@@ -22,6 +23,7 @@ export class HealthController {
     private redis: RedisHealthIndicator,
     private stellar: StellarHealthIndicator,
     private stellarClient: StellarClientService,
+    private redis: RedisHealthIndicator,
   ) {}
 
   @Get()
@@ -39,11 +41,11 @@ export class HealthController {
       () => this.redis.isHealthy('redis'),
       () => this.stellar.isHealthy('stellar-horizon'),
       async (): Promise<HealthIndicatorResult> => {
-        const streamHealth = this.stellarClient.getStreamHealth();
-        if (!streamHealth.isConnected) {
-          throw new HealthCheckError('Stellar stream is disconnected', {
-            'stellar-payment-stream': streamHealth,
-          });
+        try {
+          await this.stellarClient.checkHorizon(3000);
+          return { 'stellar-horizon': { status: 'up' } };
+        } catch {
+          return { 'stellar-horizon': { status: 'down' } };
         }
         return { 'stellar-payment-stream': streamHealth };
       },
