@@ -7,25 +7,29 @@ import {
   UseGuards,
   Request,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiProperty } from '@nestjs/swagger';
 import { IsNumber, IsString, IsUUID, Min } from 'class-validator';
 import { Throttle } from '@nestjs/throttler';
 import { FarmVaultsService } from './farm-vaults.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 class CreateFarmVaultDto {
+  @ApiProperty({ description: 'Vault name' })
   @IsString()
   name: string;
 
+  @ApiProperty({ description: 'Crop cycle ID' })
   @IsUUID()
   cropCycleId: string;
 
+  @ApiProperty({ description: 'Target amount' })
   @IsNumber()
   @Min(0)
   targetAmount: number;
 }
 
 class FarmVaultAmountDto {
+  @ApiProperty({ description: 'Amount to deposit/withdraw' })
   @IsNumber()
   @Min(0.01)
   amount: number;
