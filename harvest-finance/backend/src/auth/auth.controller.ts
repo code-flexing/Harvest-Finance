@@ -40,7 +40,7 @@ import { StellarStrategy } from './strategies/stellar.strategy';
 
 /**
  * Authentication Controller
- * 
+ *
  * Throttling Tiers Overview:
  * - short: Strict rate limits for high-risk or resource-intensive operations (e.g., login, password reset). Protects against brute-force attacks.
  * - medium: Moderate limits for standard operations (e.g., token refresh, generating challenges). Balances usability with spam prevention.
@@ -60,7 +60,7 @@ export class AuthController {
   /**
    * Register a new user
    *
-   * Uses long tier: Registration is an infrequent operation, so a longer 
+   * Uses long tier: Registration is an infrequent operation, so a longer
    * window prevents spam while allowing normal user onboarding.
    */
   @Post('register')
@@ -88,7 +88,7 @@ export class AuthController {
   /**
    * Login user
    *
-   * Uses stricter long tier limits: Login is a high-value target for 
+   * Uses stricter long tier limits: Login is a high-value target for
    * brute-force attacks and requires tighter throttling.
    */
   @Post('login')
@@ -130,7 +130,8 @@ export class AuthController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Validation error — refresh_token field is missing or malformed',
+    description:
+      'Validation error — refresh_token field is missing or malformed',
   })
   async refresh(
     @Body() refreshTokenDto: RefreshTokenDto,

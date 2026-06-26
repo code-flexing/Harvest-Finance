@@ -219,16 +219,13 @@ export class YieldAnalyticsService {
       return null;
     }
 
-    // Calculate daily return as percentage
-    // Use floating-point division for more precise daily return calculation
-    const dailyReturn =
-      (Number(currentPrice) / Number(previousPrice) - 1) * 100;
-
-    // Annualize the daily return by simple annualization (no compounding)
-    // APY percent = dailyReturn (%) * 365
-    const apyPercent = dailyReturn * 365;
-
-    return Math.round(apyPercent * 100) / 100; // Round to 2 decimal places
+    // Compute daily factor as a floating point number
+    const dailyFactor = Number(currentPrice) / Number(previousPrice);
+    // Compound over a year (365 days)
+    const apy = Math.pow(dailyFactor, 365) - 1;
+    // Convert to percentage and round to 2 decimal places
+    const apyPercent = Math.round(apy * 10000) / 100;
+    return apyPercent;
   }
 
   /**

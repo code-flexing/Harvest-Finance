@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddSorobanEventQueryIndexes1700000000013
-  implements MigrationInterface
-{
+export class AddSorobanEventQueryIndexes1700000000013 implements MigrationInterface {
   name = 'AddSorobanEventQueryIndexes1700000000013';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -15,9 +13,7 @@ export class AddSorobanEventQueryIndexes1700000000013
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      `DROP INDEX IF EXISTS "idx_soroban_events_query"`,
-    );
+    await queryRunner.query(`DROP INDEX IF EXISTS "idx_soroban_events_query"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_soroban_events_type"`);
   }
 }

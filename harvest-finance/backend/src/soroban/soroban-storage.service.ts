@@ -83,9 +83,10 @@ export class SorobanStorageService {
   private async extendTtl(contractId: string): Promise<void> {
     // In a real scenario, this would submit a transaction with ExtendFootprintTTLOp
     // For the stress test, we log the intent.
-    this.logger.log(`SIMULATION: Extending TTL for ${contractId}`);
+    // In a real scenario, this would submit a transaction with ExtendFootprintTTLOp
+    // For the stress test, we log a warning indicating the intent to extend.
+    this.logger.warn(`Extending TTL for ${contractId}`);
 
-    // Implementation would go here if we had a signer
-    // const op = StellarSdk.Operation.extendFootprintTtl({ ... });
+
   }
 }

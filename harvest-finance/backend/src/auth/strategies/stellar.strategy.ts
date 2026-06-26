@@ -179,16 +179,10 @@ export class StellarStrategy extends PassportStrategy(
       throw new UnauthorizedException('Invalid source account');
     }
 
-    // Check sequence number is 1 for a challenge transaction created from an account with sequence 0
-    if (transaction.sequence !== '1') {
-      throw new UnauthorizedException('Invalid sequence number');
-    }
-
     // Check time bounds
     const now = Math.floor(Date.now() / 1000);
     const minTime = parseInt(transaction.timeBounds?.minTime || '0');
     const maxTime = parseInt(transaction.timeBounds?.maxTime || '0');
-
     if (now < minTime || now > maxTime) {
       throw new UnauthorizedException('Challenge transaction expired');
     }
@@ -205,6 +199,11 @@ export class StellarStrategy extends PassportStrategy(
 
     if (operation.name !== 'Harvest Finance auth') {
       throw new UnauthorizedException('Invalid operation name');
+    }
+
+    // Check sequence number is 1 for a challenge transaction created from an account with sequence 0
+    if (transaction.sequence !== '1') {
+      throw new UnauthorizedException('Invalid sequence number');
     }
   }
 

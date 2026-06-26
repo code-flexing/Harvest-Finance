@@ -116,7 +116,9 @@ describe('StellarService - Escrow Creation', () => {
         .spyOn(StellarSdk.TransactionBuilder.prototype, 'build')
         .mockReturnValue(mockTransaction as any);
       jest.spyOn(service as any, 'getBaseFee').mockResolvedValue('100');
-      jest.spyOn(service as any, 'extractBalanceId').mockReturnValue('balance-id-123');
+      jest
+        .spyOn(service as any, 'extractBalanceId')
+        .mockReturnValue('balance-id-123');
 
       const result = await service.createEscrow(validParams);
 
@@ -153,7 +155,9 @@ describe('StellarService - Escrow Creation', () => {
         .spyOn(StellarSdk.TransactionBuilder.prototype, 'build')
         .mockReturnValue(mockTransaction as any);
       jest.spyOn(service as any, 'getBaseFee').mockResolvedValue('100');
-      jest.spyOn(service as any, 'extractBalanceId').mockReturnValue('balance-id-123');
+      jest
+        .spyOn(service as any, 'extractBalanceId')
+        .mockReturnValue('balance-id-123');
       jest.spyOn(service as any, 'submitWithFeeBump').mockResolvedValue({
         feeBumpTransactionHash: 'fee-bump-hash',
         innerTransactionHash: 'inner-hash',
@@ -349,7 +353,9 @@ describe('StellarService - Escrow Creation', () => {
           'AAAAAgAAAABZ6/qWZrwJZO2d5fLVdDKnJV0R9H7r5ygEfL1sSkPZvO+/tL7tZqqzVON4eXiR6xrN7o7PmWXNZcvNLpEXXs4=',
       });
       jest.spyOn(service as any, 'getBaseFee').mockResolvedValue('100');
-      jest.spyOn(service as any, 'extractBalanceId').mockReturnValue('balance-id-123');
+      jest
+        .spyOn(service as any, 'extractBalanceId')
+        .mockReturnValue('balance-id-123');
       jest
         .spyOn(StellarSdk.TransactionBuilder.prototype, 'build')
         .mockReturnValue(mockTransaction as any);
@@ -410,7 +416,7 @@ describe('StellarService - Escrow Creation', () => {
         } as any);
       const setOptionsSpy = jest
         .spyOn(StellarSdk.Operation, 'setOptions')
-        .mockImplementation((options: any) => options as any);
+        .mockImplementation((options: any) => options);
       const fromSecretSpy = jest
         .spyOn(StellarSdk.Keypair, 'fromSecret')
         .mockReturnValue({

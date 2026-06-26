@@ -24,9 +24,8 @@ describe('Stellar Authentication Integration', () => {
   let testClientPublicKey: string;
 
   beforeAll(async () => {
-    testServerPublicKey = StellarSdk.Keypair.fromSecret(
-      testServerSecret,
-    ).publicKey();
+    testServerPublicKey =
+      StellarSdk.Keypair.fromSecret(testServerSecret).publicKey();
     testClientKeypair = StellarSdk.Keypair.random();
     testClientSecret = testClientKeypair.secret();
     testClientPublicKey = testClientKeypair.publicKey();
