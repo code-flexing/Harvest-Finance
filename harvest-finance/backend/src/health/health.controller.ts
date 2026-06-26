@@ -7,6 +7,11 @@ import {
   HealthIndicatorResult,
 } from '@nestjs/terminus';
 import { SkipThrottle } from '@nestjs/throttler';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { StellarClientService } from '../stellar/services/stellar-client.service';
 import { RedisHealthIndicator } from './redis.health';
 
