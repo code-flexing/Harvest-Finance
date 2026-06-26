@@ -1,9 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Expose } from 'class-transformer';
 import { UserRole } from '../../database/entities/user.entity';
 
 /** Subset of user fields returned in auth responses. Excludes sensitive data such as password hashes. */
 export class UserResponseDto {
   /** Primary key of the user record (UUID v4). */
+  @Expose()
   @ApiProperty({
     example: '123e4567-e89b-12d3-a456-426614174000',
     description: 'User ID (UUID)',
@@ -11,6 +13,7 @@ export class UserResponseDto {
   id: string;
 
   /** The user's registered email address. */
+  @Expose()
   @ApiProperty({
     example: 'farmer@example.com',
     description: 'User email address',
@@ -18,6 +21,7 @@ export class UserResponseDto {
   email: string;
 
   /** The platform role that governs the user's permissions and feature access. */
+  @Expose()
   @ApiProperty({
     example: 'FARMER',
     enum: UserRole,
@@ -26,6 +30,7 @@ export class UserResponseDto {
   role: UserRole;
 
   /** The user's display name as provided during registration. */
+  @Expose()
   @ApiProperty({
     example: 'John Doe',
     description: 'User full name',
@@ -33,6 +38,7 @@ export class UserResponseDto {
   full_name: string;
 
   /** Optional contact phone number. Null when not provided at registration. */
+  @Expose()
   @ApiPropertyOptional({
     example: '+1234567890',
     description: 'Phone number',
@@ -40,6 +46,7 @@ export class UserResponseDto {
   phone_number?: string | null;
 
   /** The user's Stellar public key. Null when not linked to an on-chain account. */
+  @Expose()
   @ApiPropertyOptional({
     example: 'GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
     description: 'Stellar address',

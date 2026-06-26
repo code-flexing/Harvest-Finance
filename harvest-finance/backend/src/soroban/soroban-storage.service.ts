@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as StellarSdk from 'stellar-sdk';
+import { xdr, Address, Networks } from 'stellar-sdk';
 import { SorobanIndexerService } from './soroban-indexer.service';
 
 @Injectable()
@@ -20,7 +20,7 @@ export class SorobanStorageService {
     );
     this.networkPassphrase = this.config.get<string>(
       'STELLAR_NETWORK_PASSPHRASE',
-      StellarSdk.Networks.TESTNET,
+      Networks.TESTNET,
     );
   }
 
@@ -36,11 +36,11 @@ export class SorobanStorageService {
       const latestLedger = await this.indexer.getLatestLedger();
 
       // 2. Fetch contract instance to check its TTL
-      const instanceKey = StellarSdk.xdr.LedgerKey.contractData(
-        new StellarSdk.xdr.LedgerKeyContractData({
-          contract: StellarSdk.Address.fromString(contractId).toScAddress(),
-          key: StellarSdk.xdr.ScVal.scvLedgerKeyContractInstance(),
-          durability: StellarSdk.xdr.ContractDataDurability.persistent(),
+      const instanceKey = xdr.LedgerKey.contractData(
+        new xdr.LedgerKeyContractData({
+          contract: Address.fromString(contractId).toScAddress(),
+          key: xdr.ScVal.scvLedgerKeyContractInstance(),
+          durability: xdr.ContractDataDurability.persistent(),
         }),
       );
 

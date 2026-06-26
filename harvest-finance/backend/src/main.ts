@@ -50,6 +50,9 @@ async function bootstrap() {
   const ioAdapter = new IoAdapter(app);
   app.useWebSocketAdapter(ioAdapter);
 
+  const configService = app.get(ConfigService);
+
+  if (configService.get<string>('NODE_ENV') !== 'production') {
   const config = new DocumentBuilder()
     .setTitle('Harvest Finance API')
     .setDescription(
@@ -133,8 +136,8 @@ async function bootstrap() {
     },
     customSiteTitle: 'Harvest Finance API Docs',
   });
+  }
 
-  const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT') || 5000;
 
   const server = await app.listen(port);
