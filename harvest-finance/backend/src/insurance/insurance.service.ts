@@ -16,7 +16,7 @@ import {
 } from '../database/entities/insurance-subscription.entity';
 import { FarmVault } from '../database/entities/farm-vault.entity';
 import { NotificationsService } from '../notifications/notifications.service';
-import { NotificationType } from '../database/entities/notification.entity';
+import { NotificationHelper } from '../notifications/notification.helper';
 import { RiskAssessmentDto, SubscribeInsuranceDto } from './dto/insurance.dto';
 
 /** ---------- Types returned to controllers ---------- */
@@ -283,13 +283,15 @@ export class InsuranceService {
 
     const saved = await this.subscriptionRepo.save(subscription);
 
-    // Notify the farmer
-    await this.notificationsService.create({
-      userId,
-      title: 'Insurance Plan Activated',
-      message: `Your "${plan.name}" crop insurance is now active. Monthly premium: $${monthlyPremium.toFixed(2)}. Coverage period: ${coverageStart.toLocaleDateString()} – ${coverageEnd.toLocaleDateString()}.`,
-      type: NotificationType.INSURANCE,
-    });
+    await this.notificationsService.create(
+      NotificationHelper.insuranceActivated({
+        userId,
+        planName: plan.name,
+        monthlyPremium,
+        coverageStart,
+        coverageEnd,
+      }),
+    );
 
     return saved;
   }
@@ -326,12 +328,14 @@ export class InsuranceService {
       .getMany();
 
     for (const sub of expiring) {
-      await this.notificationsService.create({
-        userId: sub.userId,
-        title: 'Insurance Renewal Reminder',
-        message: `Your "${sub.plan.name}" insurance coverage expires on ${new Date(sub.coverageEnd).toLocaleDateString()}. Renew now to maintain protection for your ${sub.cropType} crop.`,
-        type: NotificationType.INSURANCE,
-      });
+      await this.notificationsService.create(
+        NotificationHelper.insuranceRenewalReminder({
+          userId: sub.userId,
+          planName: sub.plan.name,
+          coverageEnd: sub.coverageEnd,
+          cropType: sub.cropType,
+        }),
+      );
     }
 
     return expiring.length;

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import {
   User,
+  UserOAuthLink,
   Order,
   Transaction,
   Verification,
@@ -20,6 +21,7 @@ import {
   imports: [
     TypeOrmModule.forFeature([
       User,
+      UserOAuthLink,
       Order,
       Transaction,
       Verification,

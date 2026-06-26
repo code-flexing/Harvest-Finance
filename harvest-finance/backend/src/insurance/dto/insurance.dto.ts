@@ -1,3 +1,4 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsString,
   IsNumber,
@@ -9,49 +10,48 @@ import {
 } from 'class-validator';
 
 export class RiskAssessmentDto {
+  @ApiProperty({ example: 'maize', description: 'Type of crop being assessed' })
   @IsString()
   cropType: string;
 
-  /**
-   * Season: 'DRY' | 'WET' | 'SPRING' | 'SUMMER' | 'AUTUMN' | 'WINTER'
-   */
+  @ApiProperty({ example: 'WET', description: "Season: 'DRY' | 'WET' | 'SPRING' | 'SUMMER' | 'AUTUMN' | 'WINTER'" })
   @IsString()
   season: string;
 
-  /** Historical average yield in kg/acre (0 if unknown) */
+  @ApiProperty({ example: 800, description: 'Historical average yield in kg/acre (0 if unknown)' })
   @IsNumber()
   @Min(0)
   historicalYieldKgAcre: number;
 
-  /** Farm area in acres */
+  @ApiProperty({ example: 10, description: 'Farm area in acres' })
   @IsNumber()
   @IsPositive()
   farmAreaAcres: number;
 
-  /** Estimated market price per kg in USD */
+  @ApiProperty({ example: 0.5, description: 'Estimated market price per kg in USD' })
   @IsNumber()
   @IsPositive()
   marketPricePerKg: number;
 
-  /** Soil quality index 0–100 */
+  @ApiProperty({ example: 75, description: 'Soil quality index 0–100' })
   @IsNumber()
   @Min(0)
   @Max(100)
   soilQualityIndex: number;
 
-  /** Drought risk index 0–100 (higher = riskier) */
+  @ApiProperty({ example: 30, description: 'Drought risk index 0–100 (higher = riskier)' })
   @IsNumber()
   @Min(0)
   @Max(100)
   droughtRiskIndex: number;
 
-  /** Flood risk index 0–100 */
+  @ApiProperty({ example: 20, description: 'Flood risk index 0–100' })
   @IsNumber()
   @Min(0)
   @Max(100)
   floodRiskIndex: number;
 
-  /** Market volatility index 0–100 */
+  @ApiProperty({ example: 40, description: 'Market volatility index 0–100' })
   @IsNumber()
   @Min(0)
   @Max(100)
@@ -59,17 +59,20 @@ export class RiskAssessmentDto {
 }
 
 export class SubscribeInsuranceDto {
+  @ApiProperty({ example: 'plan-uuid', description: 'ID of the insurance plan to subscribe to' })
   @IsUUID()
   planId: string;
 
+  @ApiProperty({ example: 'maize', description: 'Crop type being insured' })
   @IsString()
   cropType: string;
 
+  @ApiProperty({ example: 5000, description: 'Total insured value in USD' })
   @IsNumber()
   @IsPositive()
   insuredValue: number;
 
-  /** Optional Farm Vault ID to link for automatic premium tracking */
+  @ApiPropertyOptional({ example: 'vault-uuid', description: 'Optional Farm Vault ID to link for automatic premium tracking' })
   @IsOptional()
   @IsUUID()
   farmVaultId?: string;

@@ -22,6 +22,7 @@ export enum NotificationType {
   LARGE_TRANSACTION = 'LARGE_TRANSACTION',
   ERROR = 'ERROR',
   INSURANCE = 'INSURANCE',
+  APPROVAL = 'APPROVAL',
 }
 
 /**

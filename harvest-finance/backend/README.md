@@ -58,7 +58,20 @@ JWT_REFRESH_EXPIRES_IN=7d
 # Rate Limiting
 THROTTLE_TTL=60000
 THROTTLE_LIMIT=100
+
+# Logging
+LOG_LEVEL=info
+LOG_PRETTY=true
 ```
+
+## Logging Configuration
+
+The backend uses pino through `CustomLoggerService`.
+
+- `LOG_LEVEL` controls the minimum emitted level. Supported values are `trace`, `debug`, `info`, `warn`, `error`, and `fatal`. The default is `info`.
+- `LOG_PRETTY` controls the console transport. Set it to `true` for colorized `pino-pretty` output during local development, or `false` for JSON lines on stdout. When unset, local environments use pretty logs and production uses JSON logs.
+- File transports always write `logs/application.log` for all levels and `logs/error.log` for errors.
+- Sensitive fields are redacted before pino writes them. The current redaction list includes passwords, refresh tokens, access tokens, authorization headers, generic token fields, and generic secret fields on top-level payloads, request headers, body payloads, and user payloads.
 
 ## Authentication Guide
 

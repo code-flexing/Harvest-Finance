@@ -4,7 +4,7 @@ import {
   VersioningType,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { NestFactory } from '@nestjs/core';
+import { NestFactory, HttpAdapterHost } from '@nestjs/core';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
@@ -13,34 +13,46 @@ import { ThrottlerExceptionFilter } from './common/filters/throttler-exception.f
 import { SorobanExceptionFilter } from './common/filters/soroban-exception.filter';
 import { CustomLoggerService } from './logger/custom-logger.service';
 import { VersioningInterceptor } from './common/interceptors/versioning.interceptor';
+import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
+    rawBody: true,
   });
   const customLogger = app.get(CustomLoggerService);
   app.useLogger(customLogger);
 
+  const httpAdapterHost = app.get(HttpAdapterHost);
+
   // Register the global filters, including the new Soroban filter
   app.useGlobalFilters(
-    new HttpExceptionFilter(customLogger),
+    new HttpExceptionFilter(customLogger, httpAdapterHost),
     new ThrottlerExceptionFilter(),
     new SorobanExceptionFilter(),
   );
 
+  // Issue #448: Strict Request validation pipeline
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
       whitelist: true,
       forbidNonWhitelisted: true,
       transformOptions: {
-        enableImplicitConversion: true,
+        enableImplicitConversion: true, // Auto-coerces primitive type query/route params
       },
+      errorHttpStatusCode: 422, // Overrides default 400 with 422 Unprocessable Entity
     }),
   );
 
-  app.useWebSocketAdapter(new IoAdapter(app));
+  app.useGlobalInterceptors(new ResponseInterceptor());
 
+  const ioAdapter = new IoAdapter(app);
+  app.useWebSocketAdapter(ioAdapter);
+
+  const configService = app.get(ConfigService);
+
+  if (configService.get<string>('NODE_ENV') !== 'production') {
   const config = new DocumentBuilder()
     .setTitle('Harvest Finance API')
     .setDescription(
@@ -110,6 +122,10 @@ async function bootstrap() {
       'Cross-chain yield aggregation across registered chain adapters',
     )
     .addTag('health', 'Health check endpoints')
+    .addTag(
+      'Webhooks',
+      'HMAC-signed endpoints for external payment and chain event notifications',
+    )
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document, {
@@ -120,10 +136,48 @@ async function bootstrap() {
     },
     customSiteTitle: 'Harvest Finance API Docs',
   });
+  }
 
-  const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT') || 5000;
-  await app.listen(port);
+
+  const server = await app.listen(port);
   console.log(`Application is running on: http://localhost:${port}`);
+
+  // Graceful shutdown handler for WebSocket connections
+  const gracefulShutdown = async (signal: string) => {
+    console.log(`Received ${signal}, closing WebSocket connections gracefully...`);
+
+    try {
+      // Get Socket.io server instance from the app
+      const httpServer = app.getHttpServer();
+
+      // Close Socket.io connections
+      if (ioAdapter && (ioAdapter as any).server) {
+        (ioAdapter as any).server.close();
+      }
+
+      // Close HTTP server
+      await new Promise<void>((resolve, reject) => {
+        httpServer.close((err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+
+      // Close NestJS app
+      await app.close();
+
+      console.log('Graceful shutdown completed');
+      process.exit(0);
+    } catch (error) {
+      console.error('Error during graceful shutdown:', error);
+      process.exit(1);
+    }
+
+  };
+
+  // Register shutdown signal handlers
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 }
 bootstrap();

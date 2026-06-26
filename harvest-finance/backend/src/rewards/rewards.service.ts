@@ -11,7 +11,7 @@ import {
   ClaimRewardsResponseDto,
 } from './dto/reward-response.dto';
 import { NotificationsService } from '../notifications/notifications.service';
-import { NotificationType } from '../database/entities/notification.entity';
+import { NotificationHelper } from '../notifications/notification.helper';
 import { VaultGateway } from '../realtime/vault.gateway';
 
 @Injectable()
@@ -113,13 +113,14 @@ export class RewardsService {
     });
     await this.rewardRepo.save(claimRecord);
 
-    // Trigger notification for user
-    await this.notificationsService.create({
-      userId,
-      title: 'Rewards Claimed',
-      message: `You have successfully claimed ${claimedAmount.toFixed(8)} in rewards from ${vaultId ? 'vault ' + vaultName : 'all vaults'}.`,
-      type: NotificationType.REWARD,
-    });
+    await this.notificationsService.create(
+      NotificationHelper.rewardsClaimed({
+        userId,
+        claimedAmount,
+        vaultId,
+        vaultName,
+      }),
+    );
 
     // Emit real-time event
     this.vaultGateway.emitHarvest({
