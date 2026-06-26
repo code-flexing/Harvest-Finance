@@ -9,6 +9,7 @@ import {
 import { VaultsService } from './vaults.service';
 import { Vault, VaultStatus, VaultType } from '../database/entities/vault.entity';
 import { Deposit, DepositStatus } from '../database/entities/deposit.entity';
+import { VaultApyHistory } from '../database/entities/vault-apy-history.entity';
 import {
   Withdrawal,
   WithdrawalStatus,
@@ -77,6 +78,19 @@ describe('VaultsService', () => {
     update: jest.fn(),
     count: jest.fn(),
   };
+  const mockApyHistoryQB = {
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    getMany: jest.fn().mockResolvedValue([]),
+  };
+  const mockVaultApyHistoryRepository = {
+    findOne: jest.fn(),
+    find: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    createQueryBuilder: jest.fn().mockReturnValue(mockApyHistoryQB),
+  };
   const mockDepositRepository = {
     create: jest.fn(),
     findOne: jest.fn(),
@@ -125,6 +139,10 @@ describe('VaultsService', () => {
       providers: [
         VaultsService,
         { provide: getRepositoryToken(Vault), useValue: mockVaultRepository },
+        {
+          provide: getRepositoryToken(VaultApyHistory),
+          useValue: mockVaultApyHistoryRepository,
+        },
         {
           provide: getRepositoryToken(Deposit),
           useValue: mockDepositRepository,
@@ -1113,6 +1131,87 @@ describe('VaultsService', () => {
       const result = await service.getVaultDepositEventHistory('vault-1');
 
       expect(result).toHaveLength(1);
+    });
+  });
+
+  describe('calculateApy', () => {
+    it('should correctly calculate APY with daily compounding', () => {
+      expect(service.calculateApy(5, 'daily')).toBe(5.13);
+    });
+
+    it('should correctly calculate APY with weekly compounding', () => {
+      expect(service.calculateApy(5, 'weekly')).toBe(5.12);
+    });
+
+    it('should correctly calculate APY with monthly compounding', () => {
+      expect(service.calculateApy(5, 'monthly')).toBe(5.12);
+    });
+  });
+
+  describe('recordDailyApySnapshots', () => {
+    it('should record APY history for active vaults when not already recorded', async () => {
+      const activeVaults = [
+        { id: 'vault-active-1', interestRate: 5, compoundingFrequency: 'daily', status: VaultStatus.ACTIVE },
+      ];
+      mockVaultRepository.find.mockResolvedValue(activeVaults);
+      mockVaultApyHistoryRepository.findOne.mockResolvedValue(null);
+      mockVaultApyHistoryRepository.create.mockReturnValue({ id: 'history-1' });
+      mockVaultApyHistoryRepository.save.mockResolvedValue({});
+
+      await service.recordDailyApySnapshots();
+
+      expect(mockVaultRepository.find).toHaveBeenCalledWith({
+        where: { status: VaultStatus.ACTIVE },
+      });
+      expect(mockVaultApyHistoryRepository.findOne).toHaveBeenCalled();
+      expect(mockVaultApyHistoryRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          vaultId: 'vault-active-1',
+          apy: 5.13,
+        }),
+      );
+      expect(mockVaultApyHistoryRepository.save).toHaveBeenCalled();
+    });
+
+    it('should skip recording APY history if snapshot already exists for today', async () => {
+      const activeVaults = [
+        { id: 'vault-active-1', interestRate: 5, compoundingFrequency: 'daily', status: VaultStatus.ACTIVE },
+      ];
+      mockVaultRepository.find.mockResolvedValue(activeVaults);
+      mockVaultApyHistoryRepository.findOne.mockResolvedValue({ id: 'existing-snapshot-1' });
+      mockVaultApyHistoryRepository.create.mockClear();
+      mockVaultApyHistoryRepository.save.mockClear();
+
+      await service.recordDailyApySnapshots();
+
+      expect(mockVaultApyHistoryRepository.create).not.toHaveBeenCalled();
+      expect(mockVaultApyHistoryRepository.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getApyHistory database query', () => {
+    it('should return records from the database if they exist', async () => {
+      const dbRecords = [
+        { id: 'h-1', vaultId: 'vault-1', date: '2026-06-25', apy: 5.13 },
+        { id: 'h-2', vaultId: 'vault-1', date: '2026-06-26', apy: 5.14 },
+      ];
+      mockApyHistoryQB.getMany.mockResolvedValue(dbRecords);
+
+      const result = await service.getApyHistory('vault-1');
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual({
+        vaultId: 'vault-1',
+        date: '2026-06-25',
+        apy: 5.13,
+      });
+      expect(result[1]).toEqual({
+        vaultId: 'vault-1',
+        date: '2026-06-26',
+        apy: 5.14,
+      });
+
+      mockApyHistoryQB.getMany.mockResolvedValue([]);
     });
   });
 });

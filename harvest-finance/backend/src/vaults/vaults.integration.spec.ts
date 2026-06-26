@@ -22,6 +22,7 @@ import {
   Withdrawal,
   WithdrawalStatus,
 } from '../database/entities/withdrawal.entity';
+import { VaultApyHistory } from '../database/entities/vault-apy-history.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CustomLoggerService } from '../logger/custom-logger.service';
 import { VaultGateway } from '../realtime/vault.gateway';
@@ -91,6 +92,21 @@ describe('VaultsService — Yield Strategy Integration', () => {
     count: jest.fn(),
   };
 
+  const mockApyHistoryQB = {
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    getMany: jest.fn().mockResolvedValue([]),
+  };
+
+  const mockVaultApyHistoryRepository = {
+    findOne: jest.fn(),
+    find: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    createQueryBuilder: jest.fn().mockReturnValue(mockApyHistoryQB),
+  };
+
   const mockEventEmitter = {
     emit: jest.fn(),
   };
@@ -137,6 +153,10 @@ describe('VaultsService — Yield Strategy Integration', () => {
       providers: [
         VaultsService,
         { provide: getRepositoryToken(Vault), useValue: mockVaultRepository },
+        {
+          provide: getRepositoryToken(VaultApyHistory),
+          useValue: mockVaultApyHistoryRepository,
+        },
         {
           provide: getRepositoryToken(Deposit),
           useValue: mockDepositRepository,

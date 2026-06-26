@@ -112,6 +112,14 @@ export class Vault {
   interestRate: number;
 
   @Column({
+    name: 'compounding_frequency',
+    type: 'varchar',
+    length: 20,
+    default: 'daily',
+  })
+  compoundingFrequency: 'daily' | 'weekly' | 'monthly';
+
+  @Column({
     type: 'timestamp with time zone',
     name: 'maturity_date',
     nullable: true,

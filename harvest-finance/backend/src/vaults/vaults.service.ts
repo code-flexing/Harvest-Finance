@@ -8,6 +8,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, FindOptionsWhere, LessThan } from 'typeorm';
 import { Vault, VaultStatus } from '../database/entities/vault.entity';
 import { Deposit, DepositStatus } from '../database/entities/deposit.entity';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { VaultApyHistory } from '../database/entities/vault-apy-history.entity';
 import { DepositEventType } from '../database/entities/deposit-event.entity';
 import { ExternalPaymentEventType } from './dto/external-payment-notification.dto';
 import {
@@ -55,6 +57,8 @@ export class VaultsService {
     private depositRepository: Repository<Deposit>,
     @InjectRepository(Withdrawal)
     private withdrawalRepository: Repository<Withdrawal>,
+    @InjectRepository(VaultApyHistory)
+    private vaultApyHistoryRepository: Repository<VaultApyHistory>,
     private dataSource: DataSource,
     private notificationsService: NotificationsService,
     private logger: CustomLoggerService,
@@ -772,6 +776,7 @@ export class VaultsService {
       totalDeposits: 0,
       maxCapacity: sourceVault.maxCapacity,
       interestRate: sourceVault.interestRate,
+      compoundingFrequency: sourceVault.compoundingFrequency || 'daily',
       maturityDate: sourceVault.maturityDate,
       lockPeriodEnd: sourceVault.lockPeriodEnd,
       isPublic: sourceVault.isPublic,
@@ -831,7 +836,23 @@ export class VaultsService {
     }));
   }
 
+  calculateApy(apr: number, frequency: 'daily' | 'weekly' | 'monthly'): number {
+    let n = 365;
+    if (frequency === 'weekly') {
+      n = 52;
+    } else if (frequency === 'monthly') {
+      n = 12;
+    }
+    const aprDecimal = apr / 100;
+    const apyDecimal = Math.pow(1 + aprDecimal / n, n) - 1;
+    return Math.round(apyDecimal * 100 * 100) / 100;
+  }
+
   mapVaultToResponse(vault: Vault): VaultResponseDto {
+    const apr = Number(vault.interestRate);
+    const compoundingFrequency = vault.compoundingFrequency || 'daily';
+    const apy = this.calculateApy(apr, compoundingFrequency);
+
     return {
       id: vault.id,
       ownerId: vault.ownerId,
@@ -845,7 +866,10 @@ export class VaultsService {
       maxCapacity: Number(vault.maxCapacity),
       availableCapacity: vault.availableCapacity,
       utilizationPercentage: vault.utilizationPercentage,
-      interestRate: Number(vault.interestRate),
+      interestRate: apr,
+      apr,
+      apy,
+      compoundingFrequency,
       maturityDate: vault.maturityDate,
       lockPeriodEnd: vault.lockPeriodEnd,
       isPublic: vault.isPublic,
@@ -929,11 +953,41 @@ export class VaultsService {
     };
   }
 
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async recordDailyApySnapshots(): Promise<void> {
+    this.logger.log('Recording daily APY snapshots...', 'VaultsService');
+    const vaults = await this.vaultRepository.find({
+      where: { status: VaultStatus.ACTIVE },
+    });
+
+    for (const vault of vaults) {
+      const apr = Number(vault.interestRate);
+      const apy = this.calculateApy(apr, vault.compoundingFrequency || 'daily');
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Check if snapshot already exists for today to avoid duplicates
+      const exists = await this.vaultApyHistoryRepository.findOne({
+        where: { vaultId: vault.id, date: today },
+      });
+
+      if (!exists) {
+        const historyRecord = this.vaultApyHistoryRepository.create({
+          vaultId: vault.id,
+          date: today,
+          apy,
+        });
+        await this.vaultApyHistoryRepository.save(historyRecord);
+      }
+    }
+    this.logger.log('Finished recording daily APY snapshots.', 'VaultsService');
+  }
+
   async getApyHistory(
     vaultId?: string,
     timeRange: string = '30d',
   ): Promise<any[]> {
-    // Calculate date range
     const now = new Date();
     let daysBack = 30;
 
@@ -945,7 +999,7 @@ export class VaultsService {
         daysBack = 90;
         break;
       case 'all':
-        daysBack = 365; // Approximate 1 year
+        daysBack = 365;
         break;
       default:
         daysBack = 30;
@@ -953,12 +1007,30 @@ export class VaultsService {
 
     const startDate = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
 
-    // For now, generate mock APY data
-    // In production, this would come from yield analytics data stored in database
+    const queryBuilder = this.vaultApyHistoryRepository
+      .createQueryBuilder('history')
+      .where('history.date >= :startDate', { startDate: startDate.toISOString().split('T')[0] });
+
+    if (vaultId) {
+      queryBuilder.andWhere('history.vaultId = :vaultId', { vaultId });
+    }
+
+    const records = await queryBuilder
+      .orderBy('history.date', 'ASC')
+      .getMany();
+
+    if (records.length > 0) {
+      return records.map(r => ({
+        date: typeof r.date === 'string' ? r.date : new Date(r.date).toISOString().split('T')[0],
+        apy: Number(r.apy),
+        vaultId: r.vaultId,
+      }));
+    }
+
+    // Fallback: If no real data exists, generate some mock data so charts aren't blank
     const dataPoints: { date: string; apy: number; vaultId: string }[] = [];
     for (let i = 0; i < daysBack; i++) {
       const date = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
-      // Generate somewhat realistic APY data with some variation
       const baseApy = 8 + Math.sin(i / 10) * 2 + Math.random() * 1;
       const apy = Math.max(0, Math.min(15, baseApy));
 

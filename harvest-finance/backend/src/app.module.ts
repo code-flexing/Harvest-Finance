@@ -60,6 +60,7 @@ import {
   Verification,
   Withdrawal,
   YieldAnalytics,
+  VaultApyHistory,
 } from './database/entities';
 import { CommunityPost } from './database/entities/community-post.entity';
 import { CommunityComment } from './database/entities/community-comment.entity';
@@ -84,6 +85,7 @@ import { CreateSorobanEvents1700000000011 } from './database/migrations/17000000
 import { CreateYieldAnalytics1700000000012 } from './database/migrations/1700000000012-CreateYieldAnalytics';
 import { AddSorobanEventQueryIndexes1700000000013 } from './database/migrations/1700000000013-AddSorobanEventQueryIndexes';
 import { CreateDepositEvents1700000000016 } from './database/migrations/1700000000016-CreateDepositEvents';
+import { CreateVaultApyHistory1700000000017 } from './database/migrations/1700000000017-CreateVaultApyHistory';
 import { DomainEventsModule } from './domain-events';
 import { DomainEventHandlersModule } from './common/events';
 import { WebhooksModule } from './webhooks/webhooks.module';
@@ -129,6 +131,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
           InsuranceSubscription,
           SorobanEvent,
           YieldAnalytics,
+          VaultApyHistory,
         ],
         migrations: [
           CreateInitialSchema1700000000000,
@@ -143,6 +146,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
           CreateYieldAnalytics1700000000012,
           AddSorobanEventQueryIndexes1700000000013,
           CreateDepositEvents1700000000016,
+          CreateVaultApyHistory1700000000017,
         ],
         synchronize: false,
         migrationsRun: false,
