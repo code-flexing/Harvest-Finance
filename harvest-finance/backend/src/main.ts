@@ -134,8 +134,21 @@ async function bootstrap() {
     customSiteTitle: 'Harvest Finance API Docs',
   });
 
+  // Serve raw OpenAPI JSON at /api/docs-json
+  app.use('/api/docs-json', (req, res) => {
+    res.json(document);
+  });
+
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT') || 5000;
+  const isProduction = configService.get<string>('NODE_ENV') === 'production';
+
+  // Serve raw OpenAPI JSON and Swagger UI in non-production environments
+  if (!isProduction) {
+    app.getHttp().getRouter().get('/api/docs-json', (req, res) => {
+      res.json(document);
+    });
+  }
 
   const server = await app.listen(port);
   console.log(`Application is running on: http://localhost:${port}`);
