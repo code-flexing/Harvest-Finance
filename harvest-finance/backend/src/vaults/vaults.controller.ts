@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Delete,
   Param,
   Body,
   Query,
@@ -28,6 +29,8 @@ import { GetVaultTransactionsQuery } from './cqrs/queries/get-vault-transactions
 import { DepositDto } from './dto/deposit.dto';
 import { BatchDepositDto } from './dto/batch-deposit.dto';
 import { CloneVaultDto } from './dto/clone-vault.dto';
+import { CreateReservationDto } from './dto/create-reservation.dto';
+import { ReservationResponseDto } from './dto/reservation-response.dto';
 import {
   BatchDepositResponseDto,
   DepositVaultResponseDto,
@@ -499,5 +502,53 @@ export class VaultsController {
     @Request() req: any,
   ): Promise<VaultResponseDto> {
     return this.vaultsService.resumeVault(vaultId, req.user.id);
+  }
+
+  @Post(':vaultId/reservations')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Create a capacity reservation for a specific depositor' })
+  @ApiParam({ name: 'vaultId', description: 'Vault ID (UUID)' })
+  @ApiBody({ type: CreateReservationDto })
+  @ApiResponse({ status: 201, description: 'Reservation created', type: ReservationResponseDto })
+  @ApiResponse({ status: 400, description: 'Insufficient capacity or invalid expiry' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Only vault owner can create reservations' })
+  @ApiResponse({ status: 404, description: 'Vault not found' })
+  async createReservation(
+    @Param('vaultId') vaultId: string,
+    @Body() dto: CreateReservationDto,
+    @Request() req: any,
+  ): Promise<ReservationResponseDto> {
+    return this.vaultsService.createReservation(vaultId, req.user.id, dto);
+  }
+
+  @Get(':vaultId/reservations')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'List all active reservations for a vault' })
+  @ApiParam({ name: 'vaultId', description: 'Vault ID (UUID)' })
+  @ApiResponse({ status: 200, description: 'Active reservations', type: [ReservationResponseDto] })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Only vault owner can view reservations' })
+  @ApiResponse({ status: 404, description: 'Vault not found' })
+  async getVaultReservations(
+    @Param('vaultId') vaultId: string,
+    @Request() req: any,
+  ): Promise<ReservationResponseDto[]> {
+    return this.vaultsService.getVaultReservations(vaultId, req.user.id);
+  }
+
+  @Delete(':vaultId/reservations/:reservationId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Cancel a vault capacity reservation' })
+  @ApiParam({ name: 'vaultId', description: 'Vault ID (UUID)' })
+  @ApiParam({ name: 'reservationId', description: 'Reservation ID (UUID)' })
+  @ApiResponse({ status: 204, description: 'Reservation cancelled' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Only vault owner can cancel reservations' })
+  @ApiResponse({ status: 404, description: 'Reservation or vault not found' })
+  async cancelReservation(
+    @Param('vaultId') vaultId: string,
+    @Param('reservationId') reservationId: string,
+    @Request() req: any,
+  ): Promise<void> {
+    return this.vaultsService.cancelReservation(vaultId, reservationId, req.user.id);
   }
 }

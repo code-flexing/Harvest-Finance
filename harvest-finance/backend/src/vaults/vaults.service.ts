@@ -5,7 +5,8 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, FindOptionsWhere, LessThan } from 'typeorm';
+import { Repository, DataSource, FindOptionsWhere, LessThan, MoreThan } from 'typeorm';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { Vault, VaultStatus } from '../database/entities/vault.entity';
 import { Deposit, DepositStatus } from '../database/entities/deposit.entity';
 import { DepositEventType } from '../database/entities/deposit-event.entity';
@@ -14,6 +15,9 @@ import {
   Withdrawal,
   WithdrawalStatus,
 } from '../database/entities/withdrawal.entity';
+import { VaultReservation } from './entities/vault-reservation.entity';
+import { CreateReservationDto } from './dto/create-reservation.dto';
+import { ReservationResponseDto } from './dto/reservation-response.dto';
 import { DepositDto } from './dto/deposit.dto';
 import { BatchDepositDto } from './dto/batch-deposit.dto';
 import {
@@ -55,6 +59,8 @@ export class VaultsService {
     private depositRepository: Repository<Deposit>,
     @InjectRepository(Withdrawal)
     private withdrawalRepository: Repository<Withdrawal>,
+    @InjectRepository(VaultReservation)
+    private reservationRepository: Repository<VaultReservation>,
     private dataSource: DataSource,
     private notificationsService: NotificationsService,
     private logger: CustomLoggerService,
@@ -131,12 +137,35 @@ export class VaultsService {
       throw new BadRequestException('Vault has reached maximum capacity');
     }
 
-    // Verify if the requested deposit amount is within the available capacity of the vault.
-    // The available capacity is derived from the formula: availableCapacity = maxCapacity - totalDeposits.
-    if (amount > vault.availableCapacity) {
-      throw new BadRequestException(
-        `Deposit amount exceeds available vault capacity. Available: ${vault.availableCapacity}`,
-      );
+    // Check if the depositor has an active reservation for this vault.
+    const depositorAddress = await this.getDepositorWalletAddress(userId);
+    const reservation = depositorAddress
+      ? await this.reservationRepository.findOne({
+          where: {
+            vaultId,
+            walletAddress: depositorAddress,
+            isActive: true,
+            expiresAt: MoreThan(new Date()),
+          },
+        })
+      : null;
+
+    if (reservation) {
+      // Reserved depositor: enforce amount <= reservedAmount
+      if (amount > Number(reservation.reservedAmount)) {
+        throw new BadRequestException(
+          `Deposit amount exceeds your reserved allocation. Reserved: ${reservation.reservedAmount}`,
+        );
+      }
+    } else {
+      // Public depositor: available capacity excludes all active reservations
+      const totalReserved = await this.getTotalActiveReservedAmount(vaultId);
+      const publicCapacity = vault.availableCapacity - totalReserved;
+      if (amount > publicCapacity) {
+        throw new BadRequestException(
+          `Deposit amount exceeds available public vault capacity. Available: ${publicCapacity}`,
+        );
+      }
     }
 
     const deposit = this.depositRepository.create({
@@ -1143,6 +1172,132 @@ export class VaultsService {
 
     const updatedVault = await this.getVaultById(vaultId);
     return this.mapVaultToResponse(updatedVault);
+  }
+
+  async createReservation(
+    vaultId: string,
+    ownerId: string,
+    dto: CreateReservationDto,
+  ): Promise<ReservationResponseDto> {
+    const vault = await this.getVaultById(vaultId);
+
+    if (vault.ownerId !== ownerId && !(await this.isCurrentUserAdmin(ownerId))) {
+      throw new UnauthorizedException('Only the vault owner can create reservations');
+    }
+
+    if (vault.status !== VaultStatus.ACTIVE) {
+      throw new BadRequestException('Cannot create reservation for an inactive vault');
+    }
+
+    const expiresAt = new Date(dto.expiresAt);
+    if (expiresAt <= new Date()) {
+      throw new BadRequestException('Reservation expiry must be in the future');
+    }
+
+    const totalReserved = await this.getTotalActiveReservedAmount(vaultId);
+    if (dto.reservedAmount > vault.availableCapacity - totalReserved) {
+      throw new BadRequestException(
+        `Reservation amount exceeds available public capacity. Available: ${vault.availableCapacity - totalReserved}`,
+      );
+    }
+
+    const reservation = this.reservationRepository.create({
+      vaultId,
+      walletAddress: dto.walletAddress,
+      reservedAmount: dto.reservedAmount,
+      expiresAt,
+      isActive: true,
+    });
+
+    const saved = await this.reservationRepository.save(reservation);
+    return this.mapReservationToResponse(saved);
+  }
+
+  async getVaultReservations(
+    vaultId: string,
+    ownerId: string,
+  ): Promise<ReservationResponseDto[]> {
+    const vault = await this.getVaultById(vaultId);
+
+    if (vault.ownerId !== ownerId && !(await this.isCurrentUserAdmin(ownerId))) {
+      throw new UnauthorizedException('Only the vault owner can view reservations');
+    }
+
+    const reservations = await this.reservationRepository.find({
+      where: { vaultId, isActive: true },
+      order: { createdAt: 'DESC' },
+    });
+
+    return reservations.map((r) => this.mapReservationToResponse(r));
+  }
+
+  async cancelReservation(
+    vaultId: string,
+    reservationId: string,
+    ownerId: string,
+  ): Promise<void> {
+    const vault = await this.getVaultById(vaultId);
+
+    if (vault.ownerId !== ownerId && !(await this.isCurrentUserAdmin(ownerId))) {
+      throw new UnauthorizedException('Only the vault owner can cancel reservations');
+    }
+
+    const reservation = await this.reservationRepository.findOne({
+      where: { id: reservationId, vaultId },
+    });
+
+    if (!reservation) {
+      throw new NotFoundException('Reservation not found');
+    }
+
+    await this.reservationRepository.update(reservationId, { isActive: false });
+  }
+
+  private async getTotalActiveReservedAmount(vaultId: string): Promise<number> {
+    const result = await this.reservationRepository
+      .createQueryBuilder('r')
+      .select('SUM(r.reservedAmount)', 'total')
+      .where('r.vaultId = :vaultId', { vaultId })
+      .andWhere('r.isActive = true')
+      .andWhere('r.expiresAt > :now', { now: new Date() })
+      .getRawOne();
+
+    return result?.total ? parseFloat(result.total) : 0;
+  }
+
+  private async getDepositorWalletAddress(userId: string): Promise<string | null> {
+    const user = await this.dataSource.getRepository(User).findOne({
+      where: { id: userId },
+      select: ['stellarAddress'],
+    });
+    return user?.stellarAddress ?? null;
+  }
+
+  private mapReservationToResponse(reservation: VaultReservation): ReservationResponseDto {
+    return {
+      id: reservation.id,
+      vaultId: reservation.vaultId,
+      walletAddress: reservation.walletAddress,
+      reservedAmount: Number(reservation.reservedAmount),
+      expiresAt: reservation.expiresAt,
+      isActive: reservation.isActive,
+      createdAt: reservation.createdAt,
+    };
+  }
+
+  @Cron('0 */5 * * * *')
+  async expireReservations(): Promise<void> {
+    const result = await this.reservationRepository.update(
+      { isActive: true, expiresAt: LessThan(new Date()) },
+      { isActive: false },
+    );
+
+    if (result.affected && result.affected > 0) {
+      this.logger.log(
+        `Expired ${result.affected} vault reservation(s)`,
+        'VaultsService',
+      );
+    }
   }
 
   private async isCurrentUserAdmin(userId: string): Promise<boolean> {
