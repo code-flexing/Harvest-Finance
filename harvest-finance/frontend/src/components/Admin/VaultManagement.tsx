@@ -113,9 +113,9 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
     switch (status) {
       case 'ACTIVE': return 'success';
       case 'FULL_CAPACITY': return 'warning';
-      case 'INACTIVE': return 'neutral';
+      case 'INACTIVE': return 'default';
       case 'FROZEN': return 'error';
-      default: return 'neutral';
+      default: return 'default';
     }
   };
   

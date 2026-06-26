@@ -7,6 +7,8 @@ import { Container, Section } from '@/components/ui';
 import { StrategyDetails } from '@/components/dashboard/StrategyDetails';
 import { DepositModal } from '@/components/dashboard/DepositModal';
 import { WithdrawModal } from '@/components/dashboard/WithdrawModal';
+import { Header } from '@/components/landing/Header';
+import { Footer } from '@/components/landing/Footer';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import { Vault } from '@/types/vault';
@@ -101,22 +103,11 @@ export default function StrategyDetailsPage() {
   const vault = vaults.find(v => v.id === id) || MOCK_VAULTS.find(v => v.id === id);
 
   if (isLoading) {
-return (
-     <div className="min-h-screen bg-[#f4f8f0] dark:bg-[#0d1f12]">
-       <main className="pt-24 pb-16">
-         <Section>
-           <Container size="lg">
-             <div className="animate-pulse space-y-8">
-               <div className="h-6 w-32 bg-gray-200 dark:bg-white/5 rounded-lg" />
-             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 h-[600px] bg-gray-200 dark:bg-white/5 rounded-[2.5rem]" />
-                <div className="h-[400px] bg-gray-200 dark:bg-white/5 rounded-[2.5rem]" />
-             </div>
-             </div>
-           </Container>
-         </Section>
-       </main>
-     );
+    return (
+      <div className="min-h-screen bg-[#f4f8f0] dark:bg-[#0d1f12] flex items-center justify-center">
+        <div className="text-gray-500">Loading vault...</div>
+      </div>
+    );
   }
 
   if (!vault) {

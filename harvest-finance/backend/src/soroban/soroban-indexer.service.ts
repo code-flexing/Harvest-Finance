@@ -300,10 +300,16 @@ export class SorobanIndexerService implements OnModuleInit {
       method,
       params,
     });
+    if (typeof data !== 'object' || data === null) {
+      throw new Error('Invalid RPC response: expected object');
+    }
     if (data.error) {
       throw new Error(
         `Soroban RPC error: ${data.error.code} ${data.error.message ?? 'unknown'}`,
       );
+    }
+    if (!('result' in data)) {
+      throw new Error('Invalid RPC response: missing result field');
     }
 
     const result = data.result as T;
@@ -339,7 +345,7 @@ export class SorobanIndexerService implements OnModuleInit {
       .values(entities as any)
       .orIgnore()
       .execute();
-    return result.identifiers.filter((id) => id !== undefined).length;
+    return (result.identifiers ?? []).filter((id) => id !== undefined).length;
   }
 
   async query(filter: QuerySorobanEventsDto): Promise<SorobanEventPageDto> {

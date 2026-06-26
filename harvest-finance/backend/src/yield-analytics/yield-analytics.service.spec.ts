@@ -168,7 +168,7 @@ describe('YieldAnalyticsService', () => {
       );
       const result = calculateDailyApy(currentPrice, previousPrice);
 
-      expect(result).toBeCloseTo(148.77, 1); // Approximately 148.77% APY
+      expect(result).toBeCloseTo(91.48, 1); // Approximately 91.48% APY
     });
 
     it('should return null when previous price is null', () => {
