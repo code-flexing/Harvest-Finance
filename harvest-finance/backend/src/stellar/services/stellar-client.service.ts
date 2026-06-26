@@ -145,6 +145,29 @@ export class StellarClientService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  public async estimateFee(): Promise<number> {
+    const feeStats = await this.server.feeStats();
+    const p90 = parseFloat(feeStats.fee_charged.p90);
+    return Math.ceil(p90 * 1.1);
+  }
+
+  public async submitTransaction(
+    transaction: StellarSdk.Transaction | StellarSdk.FeeBumpTransaction,
+  ): Promise<StellarSdk.Horizon.HorizonApi.SubmitTransactionResponse> {
+    const fee = await this.estimateFee();
+    const maxFee = this.configService.get<number>('STELLAR_MAX_FEE_STROOPS', 10000);
+
+    if (fee > maxFee) {
+      this.logger.warn(
+        `Estimated fee ${fee} stroops exceeds cap ${maxFee} stroops — queuing for retry`,
+      );
+      throw new Error('FEE_EXCEEDS_CAP');
+    }
+
+    this.logger.log(`Submitting transaction with fee=${fee} stroops`);
+    return this.server.submitTransaction(transaction);
+  }
+
   private handleStreamError(error: any) {
     this.logger.warn(`Stellar payment stream disconnected or encountered an error: ${error?.message || error}`);
     this.isConnected = false;
