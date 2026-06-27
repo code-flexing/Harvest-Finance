@@ -112,6 +112,16 @@ export class AdminService {
     return this.userRepository.save(user);
   }
 
+  async unlockUser(id: string): Promise<{ message: string }> {
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    await this.userRepository.update(id, { lockedUntil: null });
+    return { message: `User ${id} has been unlocked` };
+  }
+
   /**
    * Vault CRUD Operations
    */

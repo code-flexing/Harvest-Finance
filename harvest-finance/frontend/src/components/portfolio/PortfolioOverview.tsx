@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { Card, CardHeader, CardBody, Badge } from '@/components/ui';
 import { PortfolioStats } from '@/lib/mock-data';
 import { Wallet, TrendingUp, Award } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '@/lib/i18n';
 
 interface PortfolioOverviewProps {
   stats: PortfolioStats;

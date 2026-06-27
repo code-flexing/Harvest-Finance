@@ -15,7 +15,7 @@ import { User, UserRole } from '../database/entities/user.entity';
 import * as fastCsv from 'fast-csv';
 import * as ExcelJS from 'exceljs';
 import { Readable } from 'stream';
-import * as PDFDocument from 'pdfkit';
+import PDFDocument from 'pdfkit';
 
 export interface TransactionExportData {
   date: string;
@@ -175,7 +175,7 @@ export class ExportService {
    */
   async generatePdf(data: TransactionExportData[]): Promise<Buffer> {
     return new Promise((resolve, reject) => {
-      const doc = new (PDFDocument as any)({
+      const doc = new PDFDocument({
         margin: 50,
         size: 'A4',
       });

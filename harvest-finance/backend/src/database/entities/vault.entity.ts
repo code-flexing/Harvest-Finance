@@ -8,9 +8,12 @@ import {
   JoinColumn,
   ManyToOne,
   OneToMany,
+  OneToOne,
+  ManyToMany,
 } from 'typeorm';
 import { User } from './user.entity';
 import { Deposit } from './deposit.entity';
+import { VaultApproval } from './vault-approval.entity';
 
 export enum VaultType {
   CROP_PRODUCTION = 'CROP_PRODUCTION',
@@ -68,6 +71,10 @@ export enum VaultStatus {
   /** totalDeposits >= maxCapacity. Set automatically by the deposit service.
    *  Transitions back to ACTIVE once enough funds are withdrawn to free capacity. */
   FULL_CAPACITY = 'FULL_CAPACITY',
+
+  /** Vault's linked Stellar account has been merged (account no longer exists on-chain).
+   *  All operations are blocked. Set automatically by VaultAccountMonitorService. */
+  SUSPENDED = 'SUSPENDED',
 }
 
 @Entity('vaults')
@@ -112,6 +119,14 @@ export class Vault {
   depositorConcentrationThreshold: number;
 
   @Column({
+    name: 'compounding_frequency',
+    type: 'varchar',
+    length: 20,
+    default: 'daily',
+  })
+  compoundingFrequency: 'daily' | 'weekly' | 'monthly';
+
+  @Column({
     type: 'timestamp with time zone',
     name: 'maturity_date',
     nullable: true,
@@ -128,6 +143,18 @@ export class Vault {
   @Column({ name: 'is_public', default: true })
   isPublic: boolean;
 
+  @Column({ name: 'requires_multi_signature', default: false })
+  requiresMultiSignature: boolean;
+
+  @Column({ name: 'approval_threshold', type: 'int', default: 1 })
+  approvalThreshold: number;
+
+  @Column({ name: 'current_approvals', type: 'int', default: 0 })
+  currentApprovals: number;
+
+  @Column({ name: 'stellar_account_address', length: 56, nullable: true, default: null })
+  stellarAccountAddress: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
@@ -141,6 +168,9 @@ export class Vault {
   @OneToMany(() => Deposit, (deposit) => deposit.vault)
   deposits: Deposit[];
 
+  @OneToMany(() => VaultApproval, (approval) => approval.vault)
+  approvals: VaultApproval[];
+
   get availableCapacity(): number {
     return Number(this.maxCapacity) - Number(this.totalDeposits);
   }
@@ -152,5 +182,15 @@ export class Vault {
 
   get isFullCapacity(): boolean {
     return Number(this.totalDeposits) >= Number(this.maxCapacity);
+  }
+
+  get requiresApproval(): boolean {
+    return this.requiresMultiSignature && this.currentApprovals < this.approvalThreshold;
+  }
+
+  get approvalStatus(): string {
+    if (!this.requiresMultiSignature) return 'NOT_REQUIRED';
+    if (this.currentApprovals >= this.approvalThreshold) return 'APPROVED';
+    return 'PENDING';
   }
 }

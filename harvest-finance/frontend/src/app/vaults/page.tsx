@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from '@/lib/i18n';
 import { Container, Section, Button, Inline, Stack, cn, VaultCardSkeleton, VaultTableRowSkeleton } from "@/components/ui";
 import { DepositModal } from "@/components/dashboard/DepositModal";
 import { MilestoneConfetti } from "@/components/dashboard/MilestoneConfetti";
@@ -111,13 +111,13 @@ function VaultWithProgress({
 
   return (
     <div className="space-y-0">
-      <VaultCard 
-        {...vault} 
-        apy={formatPercentage(vault.apy)} 
-        tvl={formatCurrency(vault.tvl)} 
+      <VaultCard
+        {...vault}
+        apy={formatPercentage(vault.apy)}
+        tvl={formatCurrency(vault.tvl)}
         icon={getVaultIcon(vault.iconName)}
-        onDeposit={onDeposit} 
-        onWithdraw={onWithdraw} 
+        onDeposit={onDeposit}
+        onWithdraw={onWithdraw}
       />
       <div className="px-4 py-4 -mt-1 bg-white dark:bg-[#162a1a] border border-t-0 border-gray-100 dark:border-[rgba(141,187,85,0.12)] rounded-b-xl">
         <ProgressBar
@@ -242,7 +242,7 @@ export default function VaultsPage() {
                   {t('vaults.subtitle')}
                 </p>
               </div>
-              
+
               <div className="flex items-center bg-gray-100 dark:bg-[#162a1a] border border-transparent dark:border-[rgba(141,187,85,0.12)] p-1 rounded-lg self-start">
                 <button
                   onClick={() => setViewMode('grid')}
@@ -276,13 +276,13 @@ export default function VaultsPage() {
                 {isLoading
                   ? Array.from({ length: 4 }).map((_, i) => <VaultCardSkeleton key={i} />)
                   : vaultsWithBalances.map((vault) => (
-                      <VaultWithProgress
-                        key={vault.id}
-                        vault={vault as any}
-                        onDeposit={handleDepositClick}
-                        onWithdraw={handleWithdrawClick}
-                      />
-                    ))}
+                    <VaultWithProgress
+                      key={vault.id}
+                      vault={vault as any}
+                      onDeposit={handleDepositClick}
+                      onWithdraw={handleWithdrawClick}
+                    />
+                  ))}
               </div>
             ) : isLoading ? (
               <div className="rounded-xl border border-gray-100 bg-white overflow-hidden shadow-sm">
@@ -293,10 +293,10 @@ export default function VaultsPage() {
                 </table>
               </div>
             ) : (
-              <VaultTable 
-                vaults={vaultsWithBalances as any} 
-                onDeposit={handleDepositClick} 
-                onWithdraw={handleWithdrawClick} 
+              <VaultTable
+                vaults={vaultsWithBalances as any}
+                onDeposit={handleDepositClick}
+                onWithdraw={handleWithdrawClick}
               />
             )}
 
@@ -305,7 +305,7 @@ export default function VaultsPage() {
       </main>
 
       <Footer />
-      
+
       {selectedVault && (
         <>
           <DepositModal

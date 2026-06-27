@@ -1,6 +1,6 @@
 /**
  * Decides whether a failure from Horizon (or the underlying HTTP client)
- * is worth retrying. We retry transient/network-level failures only —
+ * is worth retrying. We retry transient/network-level failures only:
  * deterministic Stellar transaction rejections (carrying `result_codes`)
  * will fail again on retry and only waste fee-bumps and ledger sequence.
  */
@@ -17,20 +17,21 @@ export function isRetryableStellarError(err: unknown): boolean {
     message?: string;
   };
 
-  // Horizon embeds `result_codes` when the transaction was evaluated and
-  // rejected by the Stellar network (e.g. tx_bad_seq, op_no_trust).
-  // These are deterministic: the same transaction will be rejected again
-  // regardless of how many times we retry, so retrying only burns fees
-  // and consumes sequence numbers unnecessarily.
+  // Horizon embeds `result_codes` when the transaction was evaluated by
+  // Stellar Core and rejected by the network (e.g. tx_bad_seq, op_no_trust).
+  // These are ledger/transaction outcomes rather than Horizon availability
+  // failures, so they must not count toward the Horizon circuit breaker.
+  // Some result codes may require a rebuild, later poll, or caller-specific
+  // recovery flow; an immediate generic network retry is the wrong layer.
   if (e.response?.data?.extras?.result_codes) return false;
 
   const status = e.response?.status;
   if (typeof status === 'number') {
-    // 429 Too Many Requests — Horizon is rate-limiting this client.
+    // 429 Too Many Requests: Horizon is rate-limiting this client.
     // The request itself is valid; we just need to back off and try again.
     if (status === 429) return true;
 
-    // 5xx Server / Gateway errors — the failure is on Horizon's side
+    // 5xx Server / Gateway errors: the failure is on Horizon's side
     // (overload, restart, upstream timeout, etc.), not in our transaction.
     // These are transient by nature and safe to retry after a delay.
     if (status >= 500 && status < 600) return true;
@@ -42,7 +43,7 @@ export function isRetryableStellarError(err: unknown): boolean {
     return false;
   }
 
-  // No HTTP response at all → the request never reached Horizon.
+  // No HTTP response at all means the request never reached Horizon.
   // These Node.js / OS-level error codes represent transient network
   // conditions (connection dropped, DNS hiccup, unreachable host) that
   // are safe to retry once connectivity is restored.

@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { AchievementType } from '../../database/entities/achievement.entity';
 
 export const ACHIEVEMENT_META: Record<
@@ -27,10 +28,21 @@ export const ACHIEVEMENT_META: Record<
 };
 
 export class AchievementResponseDto {
+  @ApiProperty({ example: 'uuid-123', description: 'Achievement ID' })
   id: string;
+
+  @ApiProperty({ enum: AchievementType, description: 'Achievement type' })
   type: AchievementType;
+
+  @ApiProperty({ example: 'First Deposit', description: 'Human-readable label' })
   label: string;
+
+  @ApiProperty({ example: 'Made your first deposit into a vault.', description: 'Achievement description' })
   description: string;
+
+  @ApiProperty({ example: 'seedling', description: 'Icon identifier' })
   icon: string;
+
+  @ApiProperty({ example: '2024-01-15T10:00:00Z', description: 'Timestamp when the achievement was unlocked' })
   unlockedAt: Date;
 }

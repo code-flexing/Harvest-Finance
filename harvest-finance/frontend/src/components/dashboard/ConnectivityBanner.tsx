@@ -2,7 +2,7 @@
 
 import { Badge, Button, Card, CardBody } from "@/components/ui";
 import { CloudOff, RefreshCcw, Wifi, CheckCircle2 } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from '@/lib/i18n';
 import { motion, AnimatePresence } from "framer-motion";
 
 interface ConnectivityBannerProps {

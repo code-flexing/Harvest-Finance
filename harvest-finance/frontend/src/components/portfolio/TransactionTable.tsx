@@ -14,7 +14,7 @@ import {
 } from '@/components/ui';
 import { Transaction, TransactionType } from '@/lib/mock-data';
 import { Search, ChevronDown } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '@/lib/i18n';
 
 interface TransactionTableProps {
   transactions: Transaction[];

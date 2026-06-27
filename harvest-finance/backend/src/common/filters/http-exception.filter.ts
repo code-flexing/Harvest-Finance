@@ -7,47 +7,70 @@ import {
 } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import { CustomLoggerService } from '../../logger/custom-logger.service';
+import { randomUUID } from 'crypto';
 
 /**
  * Global exception filter to catch all NestJS and unhandled exceptions.
  * Formats all error responses into a consistent JSON structure:
  * {
  *   "statusCode": number,
- *   "message": string | string[],
- *   "errorCode": string | number,
+ *   "message": "Error description or array of error details",
+ *   "errorCode": "String error code",
  *   "timestamp": "ISO 8601 string",
- *   "path": string,
- *   "requestId": string
+ *   "path": "request url path",
+ *   "requestId": "UUID"
  * }
  */
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   constructor(
-    private readonly httpAdapterHost: HttpAdapterHost,
     private readonly logger: CustomLoggerService,
+    private readonly httpAdapterHost: HttpAdapterHost,
   ) {}
 
-  catch(exception: unknown, host: ArgumentsHost) {
+  catch(exception: unknown, host: ArgumentsHost): void {
     const { httpAdapter } = this.httpAdapterHost;
     const ctx = host.switchToHttp();
-    const request = ctx.getRequest(); // Native request (Express/Fastify)
-    const response = ctx.getResponse(); // Native response
+    const request = ctx.getRequest();
+    const response = ctx.getResponse();
+    
+    const path = httpAdapter.getRequestUrl(request) || '/';
+    const method = httpAdapter.getRequestMethod(request) || 'UNKNOWN';
+
+    // Retrieve x-request-id from headers or generate one
+    const headers = request.headers || {};
+    const requestId = headers['x-request-id'] || randomUUID();
 
     const status =
       exception instanceof HttpException
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    // Extract or generate a unique request ID for tracing
-    const requestId =
-      request.headers['x-request-id'] ||
-      request.id ||
-      `req-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
-
-    const message =
+    const exceptionResponse =
       exception instanceof HttpException
         ? exception.getResponse()
-        : 'Internal server error';
+        : null;
+
+    let message: any = 'Internal server error';
+    let errorCode = 'INTERNAL_SERVER_ERROR';
+
+    if (exceptionResponse) {
+      if (typeof exceptionResponse === 'string') {
+        message = exceptionResponse;
+      } else if (typeof exceptionResponse === 'object') {
+        message = (exceptionResponse as any).message || exceptionResponse;
+        errorCode =
+          (exceptionResponse as any).error ||
+          (exceptionResponse as any).code ||
+          this.getErrorCodeFromStatus(status);
+      }
+    } else if (exception instanceof Error) {
+      message = exception.message;
+    }
+
+    if (errorCode === 'INTERNAL_SERVER_ERROR' && status !== HttpStatus.INTERNAL_SERVER_ERROR) {
+      errorCode = this.getErrorCodeFromStatus(status);
+    }
 
     // Determine error code: prefer existing errorCode on exception, fallback to status code
     const errorCode =
@@ -56,31 +79,42 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     const errorResponse = {
       statusCode: status,
-      message:
-        typeof message === 'string'
-          ? message
-          : (message as any).message || message,
+      message: message,
       errorCode: errorCode,
       timestamp: new Date().toISOString(),
-      path: httpAdapter.getRequestUrl(request),
+      path: path,
       requestId: requestId,
     };
 
-    // Log error with requestId for correlation; include stack trace in development
-    const logMessage = `[Request ID: ${requestId}] ${request.method} ${httpAdapter.getRequestUrl(
-      request,
-    )} - Error: ${JSON.stringify(errorResponse.message)}`;
-    if (
-      process.env.NODE_ENV !== 'production' &&
-      exception instanceof Error &&
-      exception.stack
-    ) {
-      this.logger.error(logMessage, exception.stack);
-    } else {
-      this.logger.error(logMessage);
+    let trace: string | undefined;
+    if (exception instanceof Error) {
+      trace = exception.stack;
     }
+    
+    this.logger.error(
+      `[${requestId}] ${method} ${path} - Error: ${JSON.stringify(errorResponse.message)}`,
+      trace,
+      'ExceptionFilter',
+    );
 
     httpAdapter.reply(response, errorResponse, status);
+  }
+
+  private getErrorCodeFromStatus(status: number): string {
+    const statusMap: Record<number, string> = {
+      400: 'BAD_REQUEST',
+      401: 'UNAUTHORIZED',
+      403: 'FORBIDDEN',
+      404: 'NOT_FOUND',
+      405: 'METHOD_NOT_ALLOWED',
+      409: 'CONFLICT',
+      422: 'UNPROCESSABLE_ENTITY',
+      429: 'TOO_MANY_REQUESTS',
+      500: 'INTERNAL_SERVER_ERROR',
+      502: 'BAD_GATEWAY',
+      503: 'SERVICE_UNAVAILABLE',
+    };
+    return statusMap[status] || 'UNKNOWN_ERROR';
   }
 }
 

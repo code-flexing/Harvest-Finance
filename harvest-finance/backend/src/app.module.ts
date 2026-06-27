@@ -1,7 +1,8 @@
 import { CacheModule } from '@nestjs/cache-manager';
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { ClassSerializerInterceptor } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -23,7 +24,7 @@ import { HealthModule } from './health/health.module';
 import { OrdersModule } from './orders/orders.module';
 import { VerificationModule } from './verification/verification.module';
 import { DatabaseModule } from './database/database.module';
-import { LoggerMiddleware } from './logger/logger.middleware';
+import { HttpLoggerMiddleware } from './common/middleware/http-logger.middleware';
 import { LoggerModule } from './logger/logger.module';
 import { MultiChainModule } from './multi-chain/multi-chain.module';
 import { PortfolioModule } from './portfolio/portfolio.module';
@@ -32,15 +33,20 @@ import { SorobanModule } from './soroban/soroban.module';
 import { StellarModule } from './stellar/stellar.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { StateSyncModule } from './state-sync/state-sync.module';
+import { PaymentsModule } from './payments/payments.module';
 import { AchievementsModule } from './achievements/achievements.module';
 import { AdminModule } from './admin/admin.module';
 import { InsuranceModule } from './insurance/insurance.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { RewardsModule } from './rewards/rewards.module';
+import { ObservabilityModule } from './observability/observability.module';
+import { AppConfigModule } from './config/config.module'; 
+
 import {
   Achievement,
   CreditScore,
   Deposit,
+  DepositEvent,
   FarmVault,
   Notification,
   Order,
@@ -48,12 +54,15 @@ import {
   SorobanEvent,
   Transaction,
   User,
+  UserOAuthLink,
   Vault,
   VaultDeposit,
   Verification,
   Withdrawal,
   YieldAnalytics,
+  VaultApyHistory,
 } from './database/entities';
+import { IndexerState } from './database/entities/indexer-state.entity';
 import { CommunityPost } from './database/entities/community-post.entity';
 import { CommunityComment } from './database/entities/community-comment.entity';
 import { PostReaction } from './database/entities/post-reaction.entity';
@@ -76,10 +85,20 @@ import { AddInsuranceNotificationType1700000000010 } from './database/migrations
 import { CreateSorobanEvents1700000000011 } from './database/migrations/1700000000011-CreateSorobanEvents';
 import { CreateYieldAnalytics1700000000012 } from './database/migrations/1700000000012-CreateYieldAnalytics';
 import { AddSorobanEventQueryIndexes1700000000013 } from './database/migrations/1700000000013-AddSorobanEventQueryIndexes';
+import { CreateDepositEvents1700000000016 } from './database/migrations/1700000000016-CreateDepositEvents';
+import { CreateVaultReservations1700000000018 } from './database/migrations/1700000000018-CreateVaultReservations';
+import { VaultReservation } from './vaults/entities/vault-reservation.entity';
+import { CreateVaultApyHistory1700000000017 } from './database/migrations/1700000000017-CreateVaultApyHistory';
+import { DomainEventsModule } from './domain-events';
+import { DomainEventHandlersModule } from './common/events';
+import { WebhooksModule } from './webhooks/webhooks.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    DomainEventsModule,
+    ObservabilityModule,
+    AppConfigModule,
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -96,6 +115,7 @@ import { AddSorobanEventQueryIndexes1700000000013 } from './database/migrations/
         database: configService.get<string>('DB_NAME'),
         entities: [
           User,
+          UserOAuthLink,
           Order,
           Transaction,
           Verification,
@@ -103,6 +123,7 @@ import { AddSorobanEventQueryIndexes1700000000013 } from './database/migrations/
           Vault,
           VaultDeposit,
           Deposit,
+          DepositEvent,
           Achievement,
           Reward,
           Notification,
@@ -112,7 +133,10 @@ import { AddSorobanEventQueryIndexes1700000000013 } from './database/migrations/
           InsurancePlan,
           InsuranceSubscription,
           SorobanEvent,
+          IndexerState,
           YieldAnalytics,
+          VaultReservation,
+          VaultApyHistory,
         ],
         migrations: [
           CreateInitialSchema1700000000000,
@@ -126,6 +150,9 @@ import { AddSorobanEventQueryIndexes1700000000013 } from './database/migrations/
           CreateSorobanEvents1700000000011,
           CreateYieldAnalytics1700000000012,
           AddSorobanEventQueryIndexes1700000000013,
+          CreateDepositEvents1700000000016,
+          CreateVaultReservations1700000000018,
+          CreateVaultApyHistory1700000000017,
         ],
         synchronize: false,
         migrationsRun: false,
@@ -164,6 +191,8 @@ import { AddSorobanEventQueryIndexes1700000000013 } from './database/migrations/
     PortfolioModule,
     AnalyticsModule,
     StateSyncModule,
+    WebhooksModule,
+    DomainEventHandlersModule,
   ],
   controllers: [AppController],
   providers: [
@@ -172,12 +201,16 @@ import { AddSorobanEventQueryIndexes1700000000013 } from './database/migrations/
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ClassSerializerInterceptor,
+    },
   ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
-      .apply(RequestValidationMiddleware, LoggerMiddleware)
+      .apply(RequestValidationMiddleware, HttpLoggerMiddleware)
       .forRoutes('*');
   }
 }
