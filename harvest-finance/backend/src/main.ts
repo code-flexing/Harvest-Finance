@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { HttpAdapterHost } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ThrottlerExceptionFilter } from './common/filters/throttler-exception.filter';
@@ -21,9 +22,11 @@ async function bootstrap() {
   const customLogger = app.get(CustomLoggerService);
   app.useLogger(customLogger);
 
+  const httpAdapterHost = app.get(HttpAdapterHost);
+
   // Register the global filters, including the new Soroban filter
   app.useGlobalFilters(
-    new HttpExceptionFilter(customLogger),
+    new HttpExceptionFilter(httpAdapterHost, customLogger),
     new ThrottlerExceptionFilter(),
     new SorobanExceptionFilter(),
   );

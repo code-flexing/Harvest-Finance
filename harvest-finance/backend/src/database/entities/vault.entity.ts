@@ -108,6 +108,9 @@ export class Vault {
   @Column({ type: 'decimal', precision: 18, scale: 8, default: 0 })
   interestRate: number;
 
+  @Column({ type: 'decimal', precision: 5, scale: 4, default: 0.5 })
+  depositorConcentrationThreshold: number;
+
   @Column({
     type: 'timestamp with time zone',
     name: 'maturity_date',

@@ -7,14 +7,16 @@ import { Withdrawal } from '../database/entities/withdrawal.entity';
 import { AnalyticsService } from './analytics.service';
 import { AnalyticsController } from './analytics.controller';
 import { AnalyticsInterceptor } from './analytics.interceptor';
+import { RiskService } from './risk.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Vault, Deposit, Withdrawal])],
   controllers: [AnalyticsController],
   providers: [
     AnalyticsService,
+    RiskService,
     { provide: APP_INTERCEPTOR, useClass: AnalyticsInterceptor },
   ],
-  exports: [AnalyticsService],
+  exports: [AnalyticsService, RiskService],
 })
 export class AnalyticsModule {}

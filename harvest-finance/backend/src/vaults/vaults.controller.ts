@@ -5,6 +5,7 @@ import {
   Param,
   Body,
   Query,
+ 0,
   UseGuards,
   Request,
   HttpCode,
@@ -26,6 +27,8 @@ import {
   VaultResponseDto,
 } from './dto/vault-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RiskService } from '../analytics/risk.service';
+import { WithdrawalQueueService } from './withdrawal-queue.service';
 
 @ApiTags('Vaults')
 @Controller({
@@ -35,7 +38,11 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class VaultsController {
-  constructor(private readonly vaultsService: VaultsService) {}
+  constructor(
+    private readonly vaultsService: VaultsService,
+    private readonly riskService: RiskService,
+    private readonly withdrawalQueueService: WithdrawalQueueService,
+  ) {}
 
   @Post(':vaultId/deposit')
   @Throttle({ default: { limit: 20, ttl: 60000 } })
@@ -167,17 +174,88 @@ export class VaultsController {
     return this.vaultsService.getVaultsMetadata();
   }
 
-  @Get('apy-history')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get APY history for vaults' })
-  @ApiResponse({
-    status: 200,
-    description: 'APY history retrieved successfully',
-  })
-  async getApyHistory(
-    @Query('vaultId') vaultId?: string,
-    @Query('timeRange') timeRange: string = '30d',
-  ): Promise<any[]> {
-    return this.vaultsService.getApyHistory(vaultId, timeRange);
-  }
+@Get('apy-history')
+   @HttpCode(HttpStatus.OK)
+   @ApiOperation({ summary: 'Get APY history for vaults' })
+   @ApiResponse({
+     status: 200,
+     description: 'APY history retrieved successfully',
+   })
+   async getApyHistory(
+     @Query('vaultId') vaultId?: string,
+     @Query('timeRange') timeRange: string = '30d',
+   ): Promise<any[]> {
+     return this.vaultsService.getApyHistory(vaultId, timeRange);
+   }
+
+   @Get(':vaultId/risk-metrics')
+   @HttpCode(HttpStatus.OK)
+   @ApiOperation({ summary: 'Get depositor concentration risk metrics for a vault' })
+   @ApiParam({
+     name: 'vaultId',
+     description: 'Vault ID (UUID)',
+     example: '123e4567-e89b-12d3-a456-426614174000',
+   })
+   @ApiResponse({
+     status: 200,
+     description: 'Risk metrics retrieved successfully',
+   })
+   @ApiResponse({
+     status: 404,
+     description: 'Vault not found',
+   })
+   async getVaultRiskMetrics(
+     @Param('vaultId') vaultId: string,
+   ) {
+     return this.riskService.getVaultDepositorConcentration(vaultId);
+   }
+
+   @Get('withdrawals/:withdrawalId/queue-position')
+   @HttpCode(HttpStatus.OK)
+   @ApiOperation({ summary: 'Get the position of a withdrawal in the queue' })
+   @ApiParam({
+     name: 'withdrawalId',
+     description: 'Withdrawal ID (UUID)',
+     example: '123e4567-e89b-12d3-a456-426614174000',
+   })
+   @ApiResponse({
+     status: 200,
+     description: 'Queue position retrieved successfully',
+   })
+   @ApiResponse({
+     status: 404,
+     description: 'Withdrawal not found or not queued',
+   })
+   async getWithdrawalQueuePosition(
+     @Param('withdrawalId') withdrawalId: string,
+   ): Promise<{ position: number | null }> {
+     const position = await this.withdrawalQueueService.getQueuePosition(
+       withdrawalId,
+     );
+     return { position };
+   }
+
+   @Get('withdrawals/:withdrawalId/estimated-wait-time')
+   @HttpCode(HttpStatus.OK)
+   @ApiOperation({ summary: 'Get estimated wait time for a queued withdrawal' })
+   @ApiParam({
+     name: 'withdrawalId',
+     description: 'Withdrawal ID (UUID)',
+     example: '123e4567-e89b-12d3-a456-426614174000',
+   })
+   @ApiResponse({
+     status: 200,
+     description: 'Estimated wait time retrieved successfully',
+   })
+   @ApiResponse({
+     status: 404,
+     description: 'Withdrawal not found or not queued',
+   })
+   async getWithdrawalEstimatedWaitTime(
+     @Param('withdrawalId') withdrawalId: string,
+   ): Promise<{ estimatedWaitTime: number | null }> {
+     const waitTime =
+       await this.withdrawalQueueService.getEstimatedWaitTime(withdrawalId);
+     return { estimatedWaitTime: waitTime };
+   }
 }

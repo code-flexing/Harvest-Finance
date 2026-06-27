@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { VaultsController } from './vaults.controller';
 import { VaultsService } from './vaults.service';
+import { WithdrawalQueueService } from './withdrawal-queue.service';
 import { Vault } from '../database/entities/vault.entity';
 import { Deposit } from '../database/entities/deposit.entity';
 import { Withdrawal } from '../database/entities/withdrawal.entity';
@@ -19,7 +20,7 @@ import { CommonModule } from '../common/common.module';
     CommonModule,
   ],
   controllers: [VaultsController],
-  providers: [VaultsService],
+  providers: [VaultsService, WithdrawalQueueService],
   exports: [VaultsService],
 })
 export class VaultsModule {}

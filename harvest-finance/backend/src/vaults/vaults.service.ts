@@ -23,6 +23,7 @@ import { CustomLoggerService } from '../logger/custom-logger.service';
 import { VaultGateway } from '../realtime/vault.gateway';
 import { ContractCacheService } from '../common/cache/contract-cache.service';
 import { InputSanitizerService } from '../common/sanitization/input-sanitizer.service';
+import { WithdrawalQueueService } from './withdrawal-queue.service';
 
 const MAX_SAFE_DEPOSIT = 1e30;
 const LARGE_DEPOSIT_THRESHOLD = 10000;
@@ -42,6 +43,7 @@ export class VaultsService {
     private vaultGateway: VaultGateway,
     private contractCache: ContractCacheService,
     private sanitizer: InputSanitizerService,
+    private withdrawalQueueService: WithdrawalQueueService,
   ) {}
 
   async getVaultById(vaultId: string): Promise<Vault> {
@@ -148,6 +150,16 @@ export class VaultsService {
 
       return { deposit: savedDeposit, vault: updatedVault };
     });
+
+    // Process withdrawal queue after successful deposit
+    try {
+      await this.withdrawalQueueService.processWithdrawalQueue(vaultId);
+    } catch (error) {
+      this.logger.error(
+        `Error processing withdrawal queue for vault ${vaultId} after deposit:`,
+        error,
+      );
+    }
 
     if (amount >= LARGE_DEPOSIT_THRESHOLD) {
       await this.notificationsService.create({
@@ -308,75 +320,106 @@ export class VaultsService {
       throw new BadRequestException('Insufficient balance for withdrawal');
     }
 
-    const withdrawal = this.withdrawalRepository.create({
-      userId,
-      vaultId,
-      amount,
-      status: WithdrawalStatus.PENDING,
-    });
-
-    const result = await this.dataSource.transaction(async (manager) => {
-      const savedWithdrawal = await manager.save(withdrawal);
-
-      await manager.decrement(Vault, { id: vaultId }, 'totalDeposits', amount);
-
-      const updatedVault = await manager.findOne(Vault, {
-        where: { id: vaultId },
+    // Check if vault has sufficient liquidity for immediate withdrawal
+    if (Number(vault.totalDeposits) >= amount) {
+      // Process withdrawal immediately
+      const withdrawal = this.withdrawalRepository.create({
+        userId,
+        vaultId,
+        amount,
+        status: WithdrawalStatus.PENDING,
       });
 
-      if (updatedVault && updatedVault.status === VaultStatus.FULL_CAPACITY) {
-        await manager.update(
-          Vault,
-          { id: vaultId },
-          { status: VaultStatus.ACTIVE },
-        );
-        updatedVault.status = VaultStatus.ACTIVE;
+      const result = await this.dataSource.transaction(async (manager) => {
+        const savedWithdrawal = await manager.save(withdrawal);
+
+        await manager.decrement(Vault, { id: vaultId }, 'totalDeposits', amount);
+
+        const updatedVault = await manager.findOne(Vault, {
+          where: { id: vaultId },
+        });
+
+        if (updatedVault && updatedVault.status === VaultStatus.FULL_CAPACITY) {
+          await manager.update(
+            Vault,
+            { id: vaultId },
+            { status: VaultStatus.ACTIVE },
+          );
+          updatedVault.status = VaultStatus.ACTIVE;
+        }
+
+        return { withdrawal: savedWithdrawal, vault: updatedVault };
+      });
+
+      await this.withdrawalRepository.update(result.withdrawal.id, {
+        status: WithdrawalStatus.CONFIRMED,
+        confirmedAt: new Date(),
+        transactionHash: `mock_withdraw_tx_${Date.now()}`,
+      });
+
+      const confirmedWithdrawal = await this.withdrawalRepository.findOne({
+        where: { id: result.withdrawal.id },
+      });
+
+      if (!confirmedWithdrawal) {
+        throw new NotFoundException('Withdrawal not found after confirmation');
       }
 
-      return { withdrawal: savedWithdrawal, vault: updatedVault };
-    });
+      await this.notificationsService.create({
+        userId,
+        title: 'Withdrawal Confirmed',
+        message: `Your withdrawal of ${amount} from vault ${vault.vaultName} has been confirmed.`,
+        type: NotificationType.WITHDRAWAL, // Fixed: should be WITHDRAWAL, not DEPOSIT
+      });
 
-    await this.withdrawalRepository.update(result.withdrawal.id, {
-      status: WithdrawalStatus.CONFIRMED,
-      confirmedAt: new Date(),
-      transactionHash: `mock_withdraw_tx_${Date.now()}`,
-    });
+      this.logger.log(
+        `Withdrawal of ${amount} confirmed from vault ${vaultId} by user ${userId}`,
+        'VaultsService',
+      );
 
-    const confirmedWithdrawal = await this.withdrawalRepository.findOne({
-      where: { id: result.withdrawal.id },
-    });
+      this.vaultGateway.emitWithdrawal({
+        vaultId,
+        vaultName: vault.vaultName,
+        asset: vault.type,
+        amount,
+        userId,
+        newBalance: result.vault ? Number(result.vault.totalDeposits) : 0,
+      });
 
-    if (!confirmedWithdrawal) {
-      throw new NotFoundException('Withdrawal not found after confirmation');
+      return {
+        withdrawal: confirmedWithdrawal,
+        vault: result.vault
+          ? this.mapVaultToResponse(result.vault)
+          : this.mapVaultToResponse(vault),
+      };
+    } else {
+      // Insufficient liquidity: create withdrawal and queue it
+      const withdrawal = this.withdrawalRepository.create({
+        userId,
+        vaultId,
+        amount,
+        status: WithdrawalStatus.PENDING,
+      });
+
+      const savedWithdrawal = await this.withdrawalRepository.save(withdrawal);
+
+      // Immediately mark as queued
+      await this.withdrawalQueueService.enqueueWithdrawal(savedWithdrawal.id);
+
+      // Fetch the updated withdrawal to return
+      const queuedWithdrawal = await this.withdrawalRepository.findOne({
+        where: { id: savedWithdrawal.id },
+      });
+
+      if (!queuedWithdrawal) {
+        throw new NotFoundException('Withdrawal not found after queuing');
+      }
+
+      return {
+        withdrawal: queuedWithdrawal,
+        vault: this.mapVaultToResponse(vault),
+      };
     }
-
-    await this.notificationsService.create({
-      userId,
-      title: 'Withdrawal Confirmed',
-      message: `Your withdrawal of ${amount} from vault ${vault.vaultName} has been confirmed.`,
-      type: NotificationType.DEPOSIT,
-    });
-
-    this.logger.log(
-      `Withdrawal of ${amount} confirmed from vault ${vaultId} by user ${userId}`,
-      'VaultsService',
-    );
-
-    this.vaultGateway.emitWithdrawal({
-      vaultId,
-      vaultName: vault.vaultName,
-      asset: vault.type,
-      amount,
-      userId,
-      newBalance: result.vault ? Number(result.vault.totalDeposits) : 0,
-    });
-
-    return {
-      withdrawal: confirmedWithdrawal,
-      vault: result.vault
-        ? this.mapVaultToResponse(result.vault)
-        : this.mapVaultToResponse(vault),
-    };
   }
 
   private mapDepositToResponse(deposit: Deposit): DepositResponseDto {

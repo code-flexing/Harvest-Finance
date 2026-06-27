@@ -16,6 +16,7 @@ import { Vault } from './vault.entity';
  */
 export enum WithdrawalStatus {
   PENDING = 'PENDING',
+  QUEUED = 'QUEUED',
   CONFIRMED = 'CONFIRMED',
   FAILED = 'FAILED',
 }
