@@ -33,7 +33,7 @@ describe('TTL Stress Test (Archival Simulation)', () => {
   });
 
   it('should detect when TTL is below threshold and trigger extension', async () => {
-    const contractId = 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+    const contractId = 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
     const currentLedger = 100000;
     const liveUntil = 100500; // TTL = 500 < 1000 threshold
 
@@ -52,7 +52,7 @@ describe('TTL Stress Test (Archival Simulation)', () => {
   });
 
   it('should not trigger extension if TTL is sufficient', async () => {
-    const contractId = 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+    const contractId = 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
     const currentLedger = 100000;
     const liveUntil = 105000; // TTL = 5000 > 1000 threshold
 
@@ -69,7 +69,7 @@ describe('TTL Stress Test (Archival Simulation)', () => {
   });
 
   it('should simulate long-term inactivity by advancing current ledger', async () => {
-    const contractId = 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+    const contractId = 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
     let currentLedger = 100000;
     const liveUntil = 105000; // Initially safe
 

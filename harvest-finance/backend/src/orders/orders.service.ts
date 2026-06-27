@@ -9,12 +9,15 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderEntity } from './entities/order.entity';
 import { OrderStatus } from './order-status.enum';
 import { StellarService } from './stellar.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { DomainEventNames, EscrowChangedEvent } from '../domain-events';
 
 @Injectable()
 export class OrdersService {
   constructor(
     private repo: OrdersRepository,
     private stellar: StellarService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async create(
@@ -65,6 +68,18 @@ export class OrdersService {
       order.escrowTxHash = escrowTx;
       order.status = OrderStatus.IN_ESCROW;
       await this.repo.save(order);
+
+      this.eventEmitter.emit(
+        DomainEventNames.ESCROW_CHANGED,
+        new EscrowChangedEvent(
+          'created',
+          order.id,
+          escrowTx,
+          undefined,
+          String(order.price * order.quantity),
+        ),
+      );
+
       return order;
     } catch (err) {
       // rollback acceptance
@@ -96,6 +111,18 @@ export class OrdersService {
     order.status = OrderStatus.ACCEPTED;
     order.escrowTxHash = tx.transactionHash;
     await this.repo.save(order);
+
+    this.eventEmitter.emit(
+      DomainEventNames.ESCROW_CHANGED,
+      new EscrowChangedEvent(
+        'released',
+        order.id,
+        tx.transactionHash,
+        undefined,
+        upfrontAmount,
+      ),
+    );
+
     return order;
   }
 }

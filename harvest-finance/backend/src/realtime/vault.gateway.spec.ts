@@ -47,7 +47,6 @@ describe('VaultGateway', () => {
     gateway['server'] = {
       emit: jest.fn(),
       to: jest.fn().mockReturnThis(),
-      emit: jest.fn(),
     } as any;
   });
 

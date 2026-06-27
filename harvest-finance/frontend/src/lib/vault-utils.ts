@@ -38,21 +38,37 @@ export const sortVaults = (
   });
 };
 
+export const getCurrentLocale = (): string => {
+  if (typeof window === 'undefined') return 'en';
+  const cookieMatch = document.cookie.match(/(^|;)\s*NEXT_LOCALE\s*=\s*([^;]+)/);
+  if (cookieMatch) {
+    return cookieMatch[2];
+  }
+  return localStorage.getItem('NEXT_LOCALE') || 'en';
+};
+
 export const formatCurrency = (value: number): string => {
-  if (value >= 1_000_000) {
-    return `$${(value / 1_000_000).toFixed(1)}M`;
-  }
-  if (value >= 1_000) {
-    return `$${(value / 1_000).toFixed(1)}K`;
-  }
-  return new Intl.NumberFormat('en-US', {
+  const locale = getCurrentLocale();
+  const currency = locale === 'en' ? 'USD' : 'NGN';
+  const formatLocale = locale === 'en' ? 'en-US' : `${locale}-NG`;
+  const convertedValue = locale === 'en' ? value : value * 1500; // 1 USD = 1500 NGN
+
+  return new Intl.NumberFormat(formatLocale, {
     style: 'currency',
-    currency: 'USD',
-  }).format(value);
+    currency: currency,
+    notation: convertedValue >= 1000 ? 'compact' : 'standard',
+    maximumFractionDigits: 1,
+  }).format(convertedValue);
 };
 
 export const formatPercentage = (value: number): string => {
-  return `${value.toFixed(1)}%`;
+  const locale = getCurrentLocale();
+  const formatLocale = locale === 'en' ? 'en-US' : `${locale}-NG`;
+  return new Intl.NumberFormat(formatLocale, {
+    style: 'percent',
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(value / 100);
 };
 
 export const getRiskVariant = (riskLevel: RiskLevel): 'success' | 'warning' | 'error' => {

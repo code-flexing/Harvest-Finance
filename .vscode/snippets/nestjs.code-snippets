@@ -1,0 +1,78 @@
+{
+  "ApiProperty decorator": {
+    "prefix": "apiprop",
+    "body": [
+      "@ApiProperty({ description: '$1', example: $2 })",
+      "$0"
+    ],
+    "description": "NestJS @ApiProperty decorator with description and example"
+  },
+  "ApiPropertyOptional decorator": {
+    "prefix": "apiopt",
+    "body": [
+      "@ApiPropertyOptional({ description: '$1', example: $2 })",
+      "$0"
+    ],
+    "description": "NestJS @ApiPropertyOptional decorator"
+  },
+  "CreateDto class": {
+    "prefix": "createdto",
+    "body": [
+      "import { ApiProperty } from '@nestjs/swagger';",
+      "import { IsString, IsNotEmpty } from 'class-validator';",
+      "",
+      "export class Create${1:Resource}Dto {",
+      "  @ApiProperty({ description: '$2', example: '$3' })",
+      "  @IsString()",
+      "  @IsNotEmpty()",
+      "  ${4:field}: string;",
+      "$0",
+      "}"
+    ],
+    "description": "NestJS CreateDto class with ApiProperty and class-validator decorators"
+  },
+  "UpdateDto class": {
+    "prefix": "updatedto",
+    "body": [
+      "import { ApiPropertyOptional, PartialType } from '@nestjs/swagger';",
+      "import { Create${1:Resource}Dto } from './create-${2:resource}.dto';",
+      "",
+      "export class Update${1:Resource}Dto extends PartialType(Create${1:Resource}Dto) {}"
+    ],
+    "description": "NestJS UpdateDto extending PartialType of the CreateDto"
+  },
+  "IsString validator": {
+    "prefix": "isstr",
+    "body": [
+      "@IsString()",
+      "@IsNotEmpty()",
+      "$0"
+    ],
+    "description": "class-validator @IsString and @IsNotEmpty decorators"
+  },
+  "IsNumber validator": {
+    "prefix": "isnum",
+    "body": [
+      "@IsNumber()",
+      "@Min($1)",
+      "$0"
+    ],
+    "description": "class-validator @IsNumber and @Min decorators"
+  },
+  "IsOptional validator": {
+    "prefix": "isopt",
+    "body": [
+      "@IsOptional()",
+      "$0"
+    ],
+    "description": "class-validator @IsOptional decorator"
+  },
+  "IsEnum validator": {
+    "prefix": "isenum",
+    "body": [
+      "@IsEnum(${1:EnumName})",
+      "$0"
+    ],
+    "description": "class-validator @IsEnum decorator"
+  }
+}

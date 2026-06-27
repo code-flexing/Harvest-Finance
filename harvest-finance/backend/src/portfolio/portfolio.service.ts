@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import * as StellarSdk from 'stellar-sdk';
+import { StrKey } from '@stellar/stellar-sdk';
 import { StellarService } from '../stellar/services/stellar.service';
 import { Deposit, DepositStatus } from '../database/entities/deposit.entity';
 import { Vault } from '../database/entities/vault.entity';
@@ -64,7 +64,7 @@ export class PortfolioService {
   private async snapshotAccount(
     publicKey: string,
   ): Promise<StellarAccountSnapshotDto> {
-    if (!StellarSdk.StrKey.isValidEd25519PublicKey(publicKey)) {
+    if (!StrKey.isValidEd25519PublicKey(publicKey)) {
       return {
         publicKey,
         exists: false,

@@ -7,47 +7,70 @@ import {
 } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import { CustomLoggerService } from '../../logger/custom-logger.service';
+import { randomUUID } from 'crypto';
 
 /**
  * Global exception filter to catch all NestJS and unhandled exceptions.
  * Formats all error responses into a consistent JSON structure:
  * {
  *   "statusCode": number,
- *   "message": string | string[],
- *   "errorCode": string | number,
+ *   "message": "Error description or array of error details",
+ *   "errorCode": "String error code",
  *   "timestamp": "ISO 8601 string",
- *   "path": string,
- *   "requestId": string
+ *   "path": "request url path",
+ *   "requestId": "UUID"
  * }
  */
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   constructor(
-    private readonly httpAdapterHost: HttpAdapterHost,
     private readonly logger: CustomLoggerService,
+    private readonly httpAdapterHost: HttpAdapterHost,
   ) {}
 
-  catch(exception: unknown, host: ArgumentsHost) {
+  catch(exception: unknown, host: ArgumentsHost): void {
     const { httpAdapter } = this.httpAdapterHost;
     const ctx = host.switchToHttp();
-    const request = ctx.getRequest(); // Native request (Express/Fastify)
-    const response = ctx.getResponse(); // Native response
+    const request = ctx.getRequest();
+    const response = ctx.getResponse();
+    
+    const path = httpAdapter.getRequestUrl(request) || '/';
+    const method = httpAdapter.getRequestMethod(request) || 'UNKNOWN';
+
+    // Retrieve x-request-id from headers or generate one
+    const headers = request.headers || {};
+    const requestId = headers['x-request-id'] || randomUUID();
 
     const status =
       exception instanceof HttpException
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    // Extract or generate a unique request ID for tracing
-    const requestId =
-      request.headers['x-request-id'] ||
-      request.id ||
-      `req-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
-
-    const message =
+    const exceptionResponse =
       exception instanceof HttpException
         ? exception.getResponse()
-        : 'Internal server error';
+        : null;
+
+    let message: any = 'Internal server error';
+    let errorCode = 'INTERNAL_SERVER_ERROR';
+
+    if (exceptionResponse) {
+      if (typeof exceptionResponse === 'string') {
+        message = exceptionResponse;
+      } else if (typeof exceptionResponse === 'object') {
+        message = (exceptionResponse as any).message || exceptionResponse;
+        errorCode =
+          (exceptionResponse as any).error ||
+          (exceptionResponse as any).code ||
+          this.getErrorCodeFromStatus(status);
+      }
+    } else if (exception instanceof Error) {
+      message = exception.message;
+    }
+
+    if (errorCode === 'INTERNAL_SERVER_ERROR' && status !== HttpStatus.INTERNAL_SERVER_ERROR) {
+      errorCode = this.getErrorCodeFromStatus(status);
+    }
 
     // Determine error code: prefer existing errorCode on exception, fallback to status code
     const errorCode =

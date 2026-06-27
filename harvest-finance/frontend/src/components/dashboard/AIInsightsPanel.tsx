@@ -18,7 +18,7 @@ import {
   Info
 } from 'lucide-react';
 import { Badge, Button, Card, CardBody } from '@/components/ui';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '@/lib/i18n';
 import { useOfflineData } from '@/hooks/useOfflineData';
 import { db, AIRecommendation } from '@/lib/db';
 

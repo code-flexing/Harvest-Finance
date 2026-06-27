@@ -32,7 +32,7 @@ export class MultiChainController {
     summary:
       'Aggregate yield-bearing positions for the authenticated user across all registered chains',
     description:
-      'Currently Stellar is the only registered chain. The response shape is designed so additional chains slot in without breaking clients — any failing chain is reported under `errors` while the rest of the data is returned.',
+      'Aggregates yields from every registered chain adapter (Stellar, Solana, …). Any failing chain is reported under `errors` while the rest of the data is returned.',
   })
   @ApiResponse({
     status: 200,

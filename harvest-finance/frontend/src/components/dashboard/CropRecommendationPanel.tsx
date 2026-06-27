@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from '@/lib/i18n';
 import {
   Badge,
   Button,
@@ -155,7 +155,7 @@ export function CropRecommendationPanel({
                     <h3 className="text-base font-semibold text-gray-900 dark:text-white">
                       {item.title}
                     </h3>
-                    <Badge variant={item.priority === 'high' ? 'danger' : item.priority === 'medium' ? 'warning' : 'primary'} size="sm">
+                    <Badge variant={item.priority === 'high' ? 'error' : item.priority === 'medium' ? 'warning' : 'primary'} size="sm">
                       {item.priority}
                     </Badge>
                   </div>
