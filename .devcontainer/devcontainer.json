@@ -34,6 +34,6 @@
       }
     }
   },
-  "postCreateCommand": "cd harvest-finance/backend && npm install",
+  "postCreateCommand": "cd /workspaces/Harvest-Finance/harvest-finance/backend && npm install",
   "remoteUser": "node"
 }
