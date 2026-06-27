@@ -72,6 +72,18 @@ export class SorobanEvent {
   })
   inSuccessfulContractCall: boolean;
 
+  /**
+   * The contract schema version active at the ledger this event was emitted.
+   * Set by the indexer using ContractVersionRegistry and used by EventParserFactory.
+   */
+  @Column({
+    name: 'contract_version',
+    type: 'varchar',
+    length: 32,
+    default: 'v1',
+  })
+  contractVersion: string;
+
   @CreateDateColumn({ name: 'indexed_at' })
   indexedAt: Date;
 }

@@ -16,6 +16,8 @@ import {
   IndexerStatusDto,
   SorobanEventPageDto,
 } from './dto/soroban-events.dto';
+import { ContractVersionRegistry } from './parsers/contract-version-registry';
+import { EventParserFactory } from './parsers/event-parser.factory';
 
 interface RpcContractEvent {
   id: string;
@@ -58,6 +60,8 @@ export class SorobanIndexerService implements OnModuleInit {
     private readonly config: ConfigService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
     private readonly dataSource: DataSource,
+    private readonly versionRegistry: ContractVersionRegistry,
+    private readonly parserFactory: EventParserFactory,
   ) {
     this.enabled =
       this.config.get<string>('SOROBAN_INDEXER_ENABLED', 'false') === 'true';
@@ -332,6 +336,27 @@ export class SorobanIndexerService implements OnModuleInit {
     entity.topics = ev.topic ?? [];
     entity.value = ev.value ?? null;
     entity.inSuccessfulContractCall = ev.inSuccessfulContractCall ?? true;
+
+    // Resolve and stamp the contract version for this ledger.
+    const contractVersion = this.versionRegistry.resolveVersion(
+      entity.contractId,
+      entity.ledger,
+    );
+    entity.contractVersion = contractVersion;
+
+    // Attempt to parse the event; log and skip unknown schemas without crashing.
+    const parsed = this.parserFactory.parse(
+      contractVersion,
+      entity.topics,
+      entity.value,
+    );
+    if (!parsed) {
+      this.logger.warn(
+        `Unrecognised event schema for contractVersion="${contractVersion}" ` +
+          `eventId="${entity.eventId}" ledger=${entity.ledger} — stored raw, skipping parse`,
+      );
+    }
+
     return entity;
   }
 
@@ -409,6 +434,10 @@ export class SorobanIndexerService implements OnModuleInit {
     entity.topics = event.topics ?? [];
     entity.value = event.value ?? null;
     entity.inSuccessfulContractCall = event.inSuccessfulContractCall ?? true;
+    entity.contractVersion = this.versionRegistry.resolveVersion(
+      entity.contractId,
+      entity.ledger,
+    );
 
     const stored = await this.persist([entity]);
     if (stored > 0 && entity.ledger > (this.lastIndexedLedger ?? 0)) {
