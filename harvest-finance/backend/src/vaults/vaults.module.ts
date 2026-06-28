@@ -13,12 +13,14 @@ import { DepositEvent } from '../database/entities/deposit-event.entity';
 import { Withdrawal } from '../database/entities/withdrawal.entity';
 import { Strategy } from '../database/entities/strategy.entity';
 import { VaultApyHistory } from '../database/entities/vault-apy-history.entity';
+import { VaultScoreHistory } from '../database/entities/vault-score-history.entity';
 import { DepositEventService } from './deposit-event.service';
 import { AuthModule } from '../auth/auth.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { CommonModule } from '../common/common.module';
 import { WithdrawalConfirmedHandler } from './events/withdrawal-confirmed.handler';
+import { AnalyticsModule } from '../analytics/analytics.module';
 
 @Module({
   imports: [
@@ -29,11 +31,13 @@ import { WithdrawalConfirmedHandler } from './events/withdrawal-confirmed.handle
       Withdrawal,
       Strategy,
       VaultApyHistory,
+      VaultScoreHistory,
     ]),
     AuthModule,
     NotificationsModule,
     RealtimeModule,
     CommonModule,
+    AnalyticsModule,
   ],
   controllers: [VaultsController],
   providers: [VaultsService, DepositEventService, WithdrawalConfirmedHandler],

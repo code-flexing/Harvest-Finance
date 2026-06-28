@@ -138,6 +138,9 @@ export class Vault {
   @Column({ name: 'current_approvals', type: 'int', default: 0 })
   currentApprovals: number;
 
+  @Column({ name: 'strategy_score', type: 'int', default: 0 })
+  strategyScore: number;
+
   @Column({ name: 'strategy_id', type: 'uuid', nullable: true })
   strategyId: string | null;
 
