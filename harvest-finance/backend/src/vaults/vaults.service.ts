@@ -6,10 +6,9 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, FindOptionsWhere, LessThan, MoreThan } from 'typeorm';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
 import { Vault, VaultStatus } from '../database/entities/vault.entity';
 import { Deposit, DepositStatus } from '../database/entities/deposit.entity';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import { VaultApyHistory } from '../database/entities/vault-apy-history.entity';
 import { DepositEventType } from '../database/entities/deposit-event.entity';
 import { ExternalPaymentEventType } from './dto/external-payment-notification.dto';
@@ -845,8 +844,19 @@ export class VaultsService {
       vaults.pop();
     }
 
+    const data = await Promise.all(
+      vaults.map(async (vault) => {
+        const dto = this.mapVaultToResponse(vault);
+        const totalReserved = await this.getTotalActiveReservedAmount(vault.id);
+        return {
+          ...dto,
+          availableCapacity: Math.max(0, dto.availableCapacity - totalReserved),
+        };
+      }),
+    );
+
     return {
-      data: vaults.map((vault) => this.mapVaultToResponse(vault)),
+      data,
       total,
       hasMore,
     };

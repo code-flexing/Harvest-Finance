@@ -22,6 +22,7 @@ import { ContractCacheService } from '../common/cache/contract-cache.service';
 import { InputSanitizerService } from '../common/sanitization/input-sanitizer.service';
 import { DepositEventService } from './deposit-event.service';
 import { ExternalPaymentEventType } from './dto/external-payment-notification.dto';
+import { VaultReservation } from './entities/vault-reservation.entity';
 
 describe('VaultsService', () => {
   let service: VaultsService;
@@ -103,6 +104,20 @@ describe('VaultsService', () => {
     findOne: jest.fn(),
     update: jest.fn(),
   };
+  const mockReservationQB = {
+    select: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    getRawOne: jest.fn().mockResolvedValue({ total: null }),
+  };
+  const mockReservationRepository = {
+    findOne: jest.fn().mockResolvedValue(null),
+    find: jest.fn().mockResolvedValue([]),
+    create: jest.fn((dto) => dto),
+    save: jest.fn(),
+    update: jest.fn().mockResolvedValue({ affected: 0 }),
+    createQueryBuilder: jest.fn().mockReturnValue(mockReservationQB),
+  };
   const mockNotificationsService = {
     create: jest.fn().mockResolvedValue(undefined),
   };
@@ -150,6 +165,10 @@ describe('VaultsService', () => {
         {
           provide: getRepositoryToken(Withdrawal),
           useValue: mockWithdrawalRepository,
+        },
+        {
+          provide: getRepositoryToken(VaultReservation),
+          useValue: mockReservationRepository,
         },
         { provide: DataSource, useValue: mockDataSource },
         { provide: NotificationsService, useValue: mockNotificationsService },
@@ -1212,6 +1231,132 @@ describe('VaultsService', () => {
       });
 
       mockApyHistoryQB.getMany.mockResolvedValue([]);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // vault capacity reservations
+  // ---------------------------------------------------------------------------
+  describe('vault capacity reservations', () => {
+    const futureExpiry = new Date(Date.now() + 86400000).toISOString();
+
+    beforeEach(() => {
+      mockDataSource.getRepository.mockReturnValue({
+        findOne: jest.fn().mockResolvedValue(null),
+      });
+      mockReservationQB.getRawOne.mockResolvedValue({ total: null });
+    });
+
+    describe('createReservation', () => {
+      it('should create a reservation for the vault owner', async () => {
+        mockVaultRepository.findOne.mockResolvedValue(mockVault);
+        const savedReservation = {
+          id: 'res-1',
+          vaultId: 'vault-1',
+          walletAddress: 'GBXXX',
+          reservedAmount: 2000,
+          expiresAt: new Date(futureExpiry),
+          isActive: true,
+          createdAt: new Date(),
+        };
+        mockReservationRepository.save.mockResolvedValue(savedReservation);
+
+        const result = await service.createReservation('vault-1', 'user-1', {
+          walletAddress: 'GBXXX',
+          reservedAmount: 2000,
+          expiresAt: futureExpiry,
+        });
+
+        expect(result.walletAddress).toBe('GBXXX');
+        expect(result.reservedAmount).toBe(2000);
+        expect(mockReservationRepository.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            vaultId: 'vault-1',
+            walletAddress: 'GBXXX',
+            reservedAmount: 2000,
+            isActive: true,
+          }),
+        );
+      });
+
+      it('should reject non-owner reservation creation', async () => {
+        mockVaultRepository.findOne.mockResolvedValue(mockVault);
+
+        await expect(
+          service.createReservation('vault-1', 'other-user', {
+            walletAddress: 'GBXXX',
+            reservedAmount: 1000,
+            expiresAt: futureExpiry,
+          }),
+        ).rejects.toThrow(UnauthorizedException);
+      });
+
+      it('should reject reservation exceeding public capacity', async () => {
+        mockVaultRepository.findOne.mockResolvedValue(mockVault);
+        mockReservationQB.getRawOne.mockResolvedValue({ total: '8000' });
+
+        await expect(
+          service.createReservation('vault-1', 'user-1', {
+            walletAddress: 'GBXXX',
+            reservedAmount: 2000,
+            expiresAt: futureExpiry,
+          }),
+        ).rejects.toThrow(BadRequestException);
+      });
+    });
+
+    describe('depositToVault with reservations', () => {
+      it('should limit reserved depositor to their allocation', async () => {
+        mockVaultRepository.findOne.mockResolvedValue(mockVault);
+        mockDataSource.getRepository.mockReturnValue({
+          findOne: jest.fn().mockResolvedValue({ stellarAddress: 'GBRESERVED' }),
+        });
+        mockReservationRepository.findOne.mockResolvedValue({
+          reservedAmount: 500,
+        });
+
+        await expect(
+          service.depositToVault('vault-1', { userId: 'user-1', amount: 600 }),
+        ).rejects.toThrow('Deposit amount exceeds your reserved allocation');
+      });
+
+      it('should exclude reserved capacity for public depositors', async () => {
+        mockVaultRepository.findOne.mockResolvedValue(mockVault);
+        mockReservationQB.getRawOne.mockResolvedValue({ total: '8000' });
+
+        await expect(
+          service.depositToVault('vault-1', { userId: 'user-1', amount: 1500 }),
+        ).rejects.toThrow('Deposit amount exceeds available public vault capacity');
+      });
+    });
+
+    describe('expireReservations', () => {
+      it('should deactivate expired reservations', async () => {
+        mockReservationRepository.update.mockResolvedValue({ affected: 3 });
+
+        await service.expireReservations();
+
+        expect(mockReservationRepository.update).toHaveBeenCalledWith(
+          expect.objectContaining({ isActive: true }),
+          { isActive: false },
+        );
+        expect(mockLogger.log).toHaveBeenCalledWith(
+          'Expired 3 vault reservation(s)',
+          'VaultsService',
+        );
+      });
+    });
+
+    describe('getPublicVaults', () => {
+      it('should subtract active reservations from public availableCapacity', async () => {
+        mockVaultRepository.find.mockResolvedValue([mockVault]);
+        mockVaultRepository.count.mockResolvedValue(1);
+        mockReservationQB.getRawOne.mockResolvedValue({ total: '3000' });
+
+        const result = await service.getPublicVaults({ limit: 20, skip: 0 });
+
+        expect(result.data[0].availableCapacity).toBe(6000);
+      });
     });
   });
 });
