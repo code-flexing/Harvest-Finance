@@ -6,7 +6,6 @@ import {
   Param,
   Body,
   Query,
- 0,
   UseGuards,
   Request,
   HttpCode,
@@ -56,6 +55,7 @@ export class VaultsController {
     private readonly vaultsService: VaultsService,
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
+    private readonly riskService: RiskService,
   ) {}
 
   @Post('deposits/batch')
@@ -266,6 +266,20 @@ export class VaultsController {
   })
   async getMyVaults(@Request() req: any): Promise<VaultResponseDto[]> {
     return this.vaultsService.getUserVaults(req.user.id);
+  }
+
+  @Get(':vaultId/risk-metrics')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get depositor concentration risk metrics for a vault' })
+  @ApiParam({
+    name: 'vaultId',
+    description: 'Vault ID (UUID)',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiResponse({ status: 200, description: 'Risk metrics retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Vault not found' })
+  async getVaultRiskMetrics(@Param('vaultId') vaultId: string): Promise<any> {
+    return this.riskService.getVaultDepositorConcentration(vaultId);
   }
 
   @Get(':vaultId')

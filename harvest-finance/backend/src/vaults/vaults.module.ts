@@ -24,6 +24,7 @@ import { AuthModule } from '../auth/auth.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { CommonModule } from '../common/common.module';
+import { AnalyticsModule } from '../analytics/analytics.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { CommonModule } from '../common/common.module';
     RealtimeModule,
     CommonModule,
     StellarModule,
+    AnalyticsModule,
   ],
   controllers: [VaultsController, InsuranceFundController],
   providers: [VaultsService, DepositEventService, WithdrawalConfirmedHandler, VaultAccountMonitorService, InsuranceFundService],

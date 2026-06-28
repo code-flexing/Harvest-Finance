@@ -87,6 +87,7 @@ import { CreateYieldAnalytics1700000000012 } from './database/migrations/1700000
 import { AddSorobanEventQueryIndexes1700000000013 } from './database/migrations/1700000000013-AddSorobanEventQueryIndexes';
 import { CreateDepositEvents1700000000016 } from './database/migrations/1700000000016-CreateDepositEvents';
 import { CreateVaultReservations1700000000018 } from './database/migrations/1700000000018-CreateVaultReservations';
+import { AddDepositorConcentrationThreshold1700000000022 } from './database/migrations/1700000000022-AddDepositorConcentrationThreshold';
 import { VaultReservation } from './vaults/entities/vault-reservation.entity';
 import { CreateVaultApyHistory1700000000017 } from './database/migrations/1700000000017-CreateVaultApyHistory';
 import { DomainEventsModule } from './domain-events';
@@ -152,6 +153,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
           AddSorobanEventQueryIndexes1700000000013,
           CreateDepositEvents1700000000016,
           CreateVaultReservations1700000000018,
+          AddDepositorConcentrationThreshold1700000000022,
           CreateVaultApyHistory1700000000017,
         ],
         synchronize: false,
