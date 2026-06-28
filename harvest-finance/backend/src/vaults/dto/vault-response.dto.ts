@@ -84,9 +84,21 @@ export class VaultResponseDto {
 
   @ApiProperty({
     example: 5.5,
-    description: 'Annual interest rate',
+    description: 'Annual interest rate (APR)',
   })
   interestRate: number;
+
+  @ApiProperty({
+    example: 5.65,
+    description: 'Annual Percentage Rate (APR)',
+  })
+  apr: number;
+
+  @ApiProperty({
+    example: 5.78,
+    description: 'Annual Percentage Yield (APY)',
+  })
+  apy: number;
 
   @ApiProperty({
     example: '2024-12-31T23:59:59Z',

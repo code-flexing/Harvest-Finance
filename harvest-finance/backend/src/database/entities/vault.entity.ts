@@ -14,6 +14,7 @@ import {
 import { User } from './user.entity';
 import { Deposit } from './deposit.entity';
 import { VaultApproval } from './vault-approval.entity';
+import { Strategy, CompoundingFrequency, COMPOUNDING_FREQUENCY_N } from './strategy.entity';
 
 export enum VaultType {
   CROP_PRODUCTION = 'CROP_PRODUCTION',
@@ -137,6 +138,13 @@ export class Vault {
   @Column({ name: 'current_approvals', type: 'int', default: 0 })
   currentApprovals: number;
 
+  @Column({ name: 'strategy_id', type: 'uuid', nullable: true })
+  strategyId: string | null;
+
+  @ManyToOne(() => Strategy, { onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'strategy_id' })
+  strategy: Strategy | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
@@ -152,6 +160,19 @@ export class Vault {
 
   @OneToMany(() => VaultApproval, (approval) => approval.vault)
   approvals: VaultApproval[];
+
+  get apr(): number {
+    return Number(this.interestRate);
+  }
+
+  get apy(): number {
+    const apr = Number(this.interestRate);
+    if (apr === 0) return 0;
+    const frequency = this.strategy?.compoundingFrequency ?? CompoundingFrequency.DAILY;
+    const n = COMPOUNDING_FREQUENCY_N[frequency];
+    const decimalApr = apr / 100;
+    return Math.pow(1 + decimalApr / n, n) - 1;
+  }
 
   get availableCapacity(): number {
     return Number(this.maxCapacity) - Number(this.totalDeposits);

@@ -13,6 +13,8 @@ import {
   Withdrawal,
   WithdrawalStatus,
 } from '../database/entities/withdrawal.entity';
+import { Strategy, CompoundingFrequency, COMPOUNDING_FREQUENCY_N } from '../database/entities/strategy.entity';
+import { VaultApyHistory } from '../database/entities/vault-apy-history.entity';
 import { DepositDto } from './dto/deposit.dto';
 import { BatchDepositDto } from './dto/batch-deposit.dto';
 import {
@@ -28,6 +30,7 @@ import { ContractCacheService } from '../common/cache/contract-cache.service';
 import { InputSanitizerService } from '../common/sanitization/input-sanitizer.service';
 import { VaultApproval } from '../database/entities/vault-approval.entity';
 import { User } from '../database/entities/user.entity';
+import { NotificationType } from '../database/entities/notification.entity';
 import { DepositEventService } from './deposit-event.service';
 import { DepositEventResponseDto } from './dto/deposit-event-response.dto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -50,6 +53,10 @@ export class VaultsService {
     private depositRepository: Repository<Deposit>,
     @InjectRepository(Withdrawal)
     private withdrawalRepository: Repository<Withdrawal>,
+    @InjectRepository(Strategy)
+    private strategyRepository: Repository<Strategy>,
+    @InjectRepository(VaultApyHistory)
+    private apyHistoryRepository: Repository<VaultApyHistory>,
     private dataSource: DataSource,
     private notificationsService: NotificationsService,
     private logger: CustomLoggerService,
@@ -59,6 +66,35 @@ export class VaultsService {
     private depositEventService: DepositEventService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
+
+  /**
+   * Calculate APY from APR using the compound interest formula:
+   * APY = (1 + APR / n)^n - 1
+   *
+   * @param apr - Annual Percentage Rate (as a percentage, e.g. 5.5 for 5.5%)
+   * @param frequency - Compounding frequency
+   * @returns Annual Percentage Yield (as a percentage)
+   */
+  calculateApy(
+    apr: number,
+    frequency: CompoundingFrequency = CompoundingFrequency.DAILY,
+  ): number {
+    if (apr === 0) return 0;
+
+    const n = COMPOUNDING_FREQUENCY_N[frequency];
+    const decimalApr = apr / 100;
+    const apy = Math.pow(1 + decimalApr / n, n) - 1;
+
+    return Math.round(apy * 10000) / 100; // Return as percentage, rounded to 2 decimal places
+  }
+
+  /**
+   * Get the effective compounding frequency for a vault.
+   * Falls back to DAILY if no strategy is assigned.
+   */
+  private getVaultCompoundingFrequency(vault: Vault): CompoundingFrequency {
+    return vault.strategy?.compoundingFrequency ?? CompoundingFrequency.DAILY;
+  }
 
   async getVaultById(vaultId: string): Promise<Vault> {
     // Sanitize and validate vault ID
@@ -589,6 +625,9 @@ export class VaultsService {
   }
 
   mapVaultToResponse(vault: Vault): VaultResponseDto {
+    const apr = Number(vault.interestRate);
+    const apy = this.calculateApy(apr, this.getVaultCompoundingFrequency(vault));
+
     return {
       id: vault.id,
       ownerId: vault.ownerId,
@@ -602,7 +641,9 @@ export class VaultsService {
       maxCapacity: Number(vault.maxCapacity),
       availableCapacity: vault.availableCapacity,
       utilizationPercentage: vault.utilizationPercentage,
-      interestRate: Number(vault.interestRate),
+      interestRate: apr,
+      apr,
+      apy,
       maturityDate: vault.maturityDate,
       lockPeriodEnd: vault.lockPeriodEnd,
       isPublic: vault.isPublic,
@@ -613,6 +654,36 @@ export class VaultsService {
       createdAt: vault.createdAt,
       updatedAt: vault.updatedAt,
     };
+  }
+
+  async recordApySnapshot(vaultId: string): Promise<void> {
+    const vault = await this.vaultRepository.findOne({
+      where: { id: vaultId },
+      relations: ['strategy'],
+    });
+
+    if (!vault) {
+      return;
+    }
+
+    const apr = Number(vault.interestRate);
+    const apy = this.calculateApy(apr, this.getVaultCompoundingFrequency(vault));
+    const today = new Date();
+    const snapshotDate = new Date(
+      Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
+    );
+
+    await this.dataSource
+      .createQueryBuilder()
+      .insert()
+      .into('vault_apy_history')
+      .values({
+        vault_id: vault.id,
+        apy,
+        snapshot_date: snapshotDate,
+      })
+      .orIgnore() // Ignore if a snapshot for this vault/date already exists
+      .execute();
   }
 
   async withdrawFromVault(
@@ -739,23 +810,24 @@ export class VaultsService {
 
     const startDate = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
 
-    // For now, generate mock APY data
-    // In production, this would come from yield analytics data stored in database
-    const dataPoints: { date: string; apy: number; vaultId: string }[] = [];
-    for (let i = 0; i < daysBack; i++) {
-      const date = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
-      // Generate somewhat realistic APY data with some variation
-      const baseApy = 8 + Math.sin(i / 10) * 2 + Math.random() * 1;
-      const apy = Math.max(0, Math.min(15, baseApy));
+    const query = this.apyHistoryRepository
+      .createQueryBuilder('history')
+      .where('history.snapshotDate >= :startDate', {
+        startDate: startDate.toISOString().split('T')[0],
+      })
+      .orderBy('history.snapshotDate', 'ASC');
 
-      dataPoints.push({
-        date: date.toISOString().split('T')[0],
-        apy: Math.round(apy * 100) / 100,
-        vaultId: vaultId || 'all',
-      });
+    if (vaultId) {
+      query.andWhere('history.vaultId = :vaultId', { vaultId });
     }
 
-    return dataPoints;
+    const rows = await query.getMany();
+
+    return rows.map((row) => ({
+      date: row.snapshotDate.toISOString().split('T')[0],
+      apy: Number(row.apy),
+      vaultId: row.vaultId,
+    }));
   }
 
   async updateVaultMultiSignatureConfig(

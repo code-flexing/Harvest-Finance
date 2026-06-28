@@ -9,6 +9,8 @@ import { Deposit } from './entities/deposit.entity';
 import { SorobanEvent } from './entities/soroban-event.entity';
 import { Vault } from './entities/vault.entity';
 import { VaultDeposit } from './entities/vault-deposit.entity';
+import { Strategy } from './entities/strategy.entity';
+import { VaultApyHistory } from './entities/vault-apy-history.entity';
 import { CreateInitialSchema1700000000000 } from './migrations/1700000000000-CreateInitialSchema';
 import { CreateSorobanEvents1700000000011 } from './migrations/1700000000011-CreateSorobanEvents';
 import { AddSorobanEventQueryIndexes1700000000013 } from './migrations/1700000000013-AddSorobanEventQueryIndexes';
@@ -42,6 +44,8 @@ const options: DataSourceOptions = {
     SorobanEvent,
     Vault,
     VaultDeposit,
+    Strategy,
+    VaultApyHistory,
   ],
   migrations: [
     CreateInitialSchema1700000000000,

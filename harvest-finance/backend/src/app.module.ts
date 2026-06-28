@@ -49,9 +49,11 @@ import {
   Order,
   Reward,
   SorobanEvent,
+  Strategy,
   Transaction,
   User,
   Vault,
+  VaultApyHistory,
   VaultDeposit,
   Verification,
   Withdrawal,
@@ -80,6 +82,7 @@ import { CreateSorobanEvents1700000000011 } from './database/migrations/17000000
 import { CreateYieldAnalytics1700000000012 } from './database/migrations/1700000000012-CreateYieldAnalytics';
 import { AddSorobanEventQueryIndexes1700000000013 } from './database/migrations/1700000000013-AddSorobanEventQueryIndexes';
 import { CreateDepositEvents1700000000016 } from './database/migrations/1700000000016-CreateDepositEvents';
+import { CreateStrategyAndApyHistory1700000000017 } from './database/migrations/1700000000017-CreateStrategyAndApyHistory';
 import { DomainEventsModule } from './domain-events';
 
 @Module({
@@ -121,6 +124,8 @@ import { DomainEventsModule } from './domain-events';
           InsuranceSubscription,
           SorobanEvent,
           YieldAnalytics,
+          Strategy,
+          VaultApyHistory,
         ],
         migrations: [
           CreateInitialSchema1700000000000,
@@ -135,6 +140,7 @@ import { DomainEventsModule } from './domain-events';
           CreateYieldAnalytics1700000000012,
           AddSorobanEventQueryIndexes1700000000013,
           CreateDepositEvents1700000000016,
+          CreateStrategyAndApyHistory1700000000017,
         ],
         synchronize: false,
         migrationsRun: false,
