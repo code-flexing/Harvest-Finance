@@ -29,27 +29,28 @@ export class WithdrawFundsHandler implements ICommandHandler<WithdrawFundsComman
       throw new BadRequestException('Vault is frozen');
     }
 
-    // In command side we validate user's available balance via deposits table or other services
-    // Here we do a simplified check using totalDeposits (for demo)
-    if (amount > Number(vault.totalDeposits)) {
-      throw new BadRequestException('Insufficient balance');
-    }
+    const isQueued = amount > Number(vault.totalDeposits);
 
     const withdrawal = this.withdrawalRepository.create({
       userId,
       vaultId,
       amount,
-      status: WithdrawalStatus.PENDING,
+      status: isQueued ? WithdrawalStatus.QUEUED : WithdrawalStatus.PENDING,
+      queuedAt: isQueued ? new Date() : null,
     });
 
     const result = await this.dataSource.transaction(async (manager) => {
       const saved = await manager.save(withdrawal);
-      await manager.decrement(Vault, { id: vaultId }, 'totalDeposits', amount);
+      if (!isQueued) {
+        await manager.decrement(Vault, { id: vaultId }, 'totalDeposits', amount);
+      }
       const updatedVault = await manager.findOne(Vault, { where: { id: vaultId } });
       return { saved, updatedVault };
     });
 
-    this.eventBus.publish(new VaultDebitedEvent(vaultId, userId, amount));
+    if (!isQueued) {
+      this.eventBus.publish(new VaultDebitedEvent(vaultId, userId, amount));
+    }
 
     return result.saved;
   }

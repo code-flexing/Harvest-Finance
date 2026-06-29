@@ -41,6 +41,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { RewardsModule } from './rewards/rewards.module';
 import { ObservabilityModule } from './observability/observability.module';
 import { AppConfigModule } from './config/config.module'; 
+import { TelegramModule } from './integrations/telegram/telegram.module';
 
 import {
   Achievement,
@@ -93,6 +94,9 @@ import { CreateVaultApyHistory1700000000017 } from './database/migrations/170000
 import { DomainEventsModule } from './domain-events';
 import { DomainEventHandlersModule } from './common/events';
 import { WebhooksModule } from './webhooks/webhooks.module';
+import { WalletsModule } from './wallets/wallets.module';
+import { CustodialWallet } from './wallets/entities/custodial-wallet.entity';
+import { CreateCustodialWallets1700000000021 } from './database/migrations/1700000000021-CreateCustodialWallets';
 
 @Module({
   imports: [
@@ -138,6 +142,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
           YieldAnalytics,
           VaultReservation,
           VaultApyHistory,
+          CustodialWallet,
         ],
         migrations: [
           CreateInitialSchema1700000000000,
@@ -155,6 +160,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
           CreateVaultReservations1700000000018,
           AddDepositorConcentrationThreshold1700000000022,
           CreateVaultApyHistory1700000000017,
+          CreateCustodialWallets1700000000021,
         ],
         synchronize: false,
         migrationsRun: false,
@@ -195,6 +201,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     StateSyncModule,
     WebhooksModule,
     DomainEventHandlersModule,
+    TelegramModule,
   ],
   controllers: [AppController],
   providers: [

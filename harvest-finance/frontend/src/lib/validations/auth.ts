@@ -20,6 +20,9 @@ export const loginSchema = z.object({
 export type LoginFormData = z.infer<typeof loginSchema>;
 
 // ─── Signup Schema ───────────────────────────────────────────
+export const WalletType = z.enum(['custodial', 'self-custody']);
+export type WalletType = z.infer<typeof WalletType>;
+
 export const signupSchema = z
   .object({
     name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -27,6 +30,8 @@ export const signupSchema = z
     password: passwordSchema,
     confirmPassword: z.string(),
     role: UserRole,
+    wallet_type: WalletType,
+    stellar_address: z.string().optional(),
     agreeToTerms: z.literal(true, {
       message: 'You must accept the terms and conditions',
     }),
@@ -34,7 +39,18 @@ export const signupSchema = z
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Passwords do not match',
     path: ['confirmPassword'],
-  });
+  })
+  .refine(
+    (data) =>
+      data.wallet_type === 'custodial' ||
+      (data.wallet_type === 'self-custody' &&
+        !!data.stellar_address &&
+        /^G[A-Z0-9]{55}$/.test(data.stellar_address)),
+    {
+      message: 'A valid Stellar address (G...) is required for self-custody wallets',
+      path: ['stellar_address'],
+    },
+  );
 export type SignupFormData = z.infer<typeof signupSchema>;
 
 // ─── Forgot Password Schema ─────────────────────────────────
