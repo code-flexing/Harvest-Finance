@@ -51,6 +51,7 @@ import { InsuranceFundService } from './insurance-fund.service';
     RealtimeModule,
     CommonModule,
     StellarModule,
+    AnalyticsModule,
   ],
   controllers: [
     VaultsController, 
