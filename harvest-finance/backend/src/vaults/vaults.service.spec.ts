@@ -24,6 +24,7 @@ import { ContractCacheService } from '../common/cache/contract-cache.service';
 import { InputSanitizerService } from '../common/sanitization/input-sanitizer.service';
 import { DepositEventService } from './deposit-event.service';
 import { ExternalPaymentEventType } from './dto/external-payment-notification.dto';
+import { WithdrawalQueueService } from './withdrawal-queue.service';
 import { VaultReservation } from './entities/vault-reservation.entity';
 
 describe('VaultsService', () => {
@@ -70,7 +71,9 @@ describe('VaultsService', () => {
     transaction: jest.fn((cb: (em: typeof mockEntityManager) => unknown) =>
       cb(mockEntityManager),
     ),
-    getRepository: jest.fn(),
+    getRepository: jest.fn().mockReturnValue({
+      findOne: jest.fn().mockResolvedValue({ stellarAddress: 'some-address' }),
+    }),
   };
 
   const mockVaultRepository = {
@@ -123,6 +126,17 @@ describe('VaultsService', () => {
   const mockNotificationsService = {
     create: jest.fn().mockResolvedValue(undefined),
   };
+  const mockVaultReservationRepository = {
+    findOne: jest.fn().mockResolvedValue(null),
+    save: jest.fn(),
+    createQueryBuilder: jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue({ total: 0 }),
+    }),
+  };
+
   const mockLogger = { log: jest.fn(), error: jest.fn(), warn: jest.fn() };
   const mockVaultGateway = {
     emitDeposit: jest.fn(),
@@ -155,6 +169,7 @@ describe('VaultsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         VaultsService,
+        { provide: 'VaultReservationRepository', useValue: mockVaultReservationRepository },
         { provide: getRepositoryToken(Vault), useValue: mockVaultRepository },
         {
           provide: getRepositoryToken(VaultApyHistory),

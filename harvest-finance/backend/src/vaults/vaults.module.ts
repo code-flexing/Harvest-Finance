@@ -53,6 +53,6 @@ import { AnalyticsModule } from '../analytics/analytics.module';
     ...QueryHandlers,
     ...EventHandlers,
   ],
-  exports: [VaultsService, DepositEventService, InsuranceFundService],
+  exports: [VaultsService, DepositEventService, WithdrawalQueueService, InsuranceFundService],
 })
 export class VaultsModule {}

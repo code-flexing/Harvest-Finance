@@ -40,15 +40,6 @@ import { User } from '../database/entities/user.entity';
 import { DepositEventService } from './deposit-event.service';
 import { FeesService } from './fees.service';
 import { UpdateVaultFeesDto } from './dto/update-vault-fees.dto';
-import { DepositEventResponseDto } from './dto/deposit-event-response.dto';
-import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
-import {
-  DepositCompletedEvent,
-  DomainEventNames,
-  WithdrawalConfirmedEvent,
-  WithdrawalCompletedEvent,
-  PaymentReceivedEvent,
-} from '../domain-events';
 import { WithdrawalQueueService } from './withdrawal-queue.service';
 
 const MAX_SAFE_DEPOSIT = 1e30;
@@ -266,6 +257,10 @@ export class VaultsService {
     }
 
     const userTotalDeposits = await this.getUserTotalDeposits(userId);
+
+    if (result.vault) {
+      await this.withdrawalQueueService.processQueue(vaultId, Number(result.vault.totalDeposits));
+    }
 
     this.logger.log(
       `Deposit of ${amount} initiated for vault ${vaultId} by user ${userId}`,
@@ -487,6 +482,8 @@ export class VaultsService {
       }
 
       if (r.vault) {
+        await this.withdrawalQueueService.processQueue(r.vault.id, Number(r.vault.totalDeposits));
+
         this.vaultGateway.emitDeposit({
           vaultId: r.vault.id,
           vaultName: r.vault.vaultName,

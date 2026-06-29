@@ -8,6 +8,7 @@ import { SecretsService } from '../../common/secrets/secrets.service';
 import { FeeBumpScenario } from '../interfaces/stellar.interfaces';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CustomLoggerService } from '../../logger/custom-logger.service';
+import { StellarClientService } from '../services/stellar-client.service';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -67,6 +68,7 @@ describe('StellarService — Fee-Bump & MEV Testing', () => {
       ],
       providers: [
         StellarService,
+        { provide: StellarClientService, useValue: {} },
         {
           provide: SecretsService,
           useValue: {

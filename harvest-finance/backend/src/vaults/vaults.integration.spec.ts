@@ -84,7 +84,9 @@ describe('VaultsService — Yield Strategy Integration', () => {
     transaction: jest.fn((cb: (em: typeof mockManager) => unknown) =>
       cb(mockManager),
     ),
-    getRepository: jest.fn(),
+    getRepository: jest.fn().mockReturnValue({
+      findOne: jest.fn().mockResolvedValue({ stellarAddress: 'some-address' }),
+    }),
   };
 
   const mockVaultRepository = {
@@ -170,6 +172,19 @@ describe('VaultsService — Yield Strategy Integration', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         VaultsService,
+        { 
+          provide: 'VaultReservationRepository', 
+          useValue: { 
+            findOne: jest.fn().mockResolvedValue(null), 
+            save: jest.fn(),
+            createQueryBuilder: jest.fn().mockReturnValue({
+              select: jest.fn().mockReturnThis(),
+              where: jest.fn().mockReturnThis(),
+              andWhere: jest.fn().mockReturnThis(),
+              getRawOne: jest.fn().mockResolvedValue({ total: 0 }),
+            }),
+          } 
+        },
         { provide: getRepositoryToken(Vault), useValue: mockVaultRepository },
         {
           provide: getRepositoryToken(VaultApyHistory),
@@ -194,6 +209,7 @@ describe('VaultsService — Yield Strategy Integration', () => {
         { provide: ContractCacheService, useValue: mockContractCache },
         { provide: InputSanitizerService, useValue: mockSanitizer },
         { provide: DepositEventService, useValue: mockDepositEventService },
+        { provide: WithdrawalQueueService, useValue: { processQueue: jest.fn().mockResolvedValue(undefined) } },
         { provide: EventEmitter2, useValue: mockEventEmitter },
         FeesService,
         {
