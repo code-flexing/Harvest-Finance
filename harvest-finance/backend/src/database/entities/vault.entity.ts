@@ -71,6 +71,10 @@ export enum VaultStatus {
   /** totalDeposits >= maxCapacity. Set automatically by the deposit service.
    *  Transitions back to ACTIVE once enough funds are withdrawn to free capacity. */
   FULL_CAPACITY = 'FULL_CAPACITY',
+
+  /** Vault's linked Stellar account has been merged (account no longer exists on-chain).
+   *  All operations are blocked. Set automatically by VaultAccountMonitorService. */
+  SUSPENDED = 'SUSPENDED',
 }
 
 @Entity('vaults')
@@ -78,6 +82,8 @@ export enum VaultStatus {
 @Index('idx_vaults_type', ['type'])
 @Index('idx_vaults_status', ['status'])
 export class Vault {
+  @Column({ name: 'strategy_score', type: 'float', default: 0, nullable: true })
+  strategyScore: number | null;
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -110,6 +116,9 @@ export class Vault {
 
   @Column({ type: 'decimal', precision: 18, scale: 8, default: 0 })
   interestRate: number;
+
+  @Column({ type: 'decimal', precision: 5, scale: 4, default: 0.5 })
+  depositorConcentrationThreshold: number;
 
   @Column({
     name: 'compounding_frequency',
@@ -144,6 +153,9 @@ export class Vault {
 
   @Column({ name: 'current_approvals', type: 'int', default: 0 })
   currentApprovals: number;
+
+  @Column({ name: 'stellar_account_address', length: 56, nullable: true, default: null })
+  stellarAccountAddress: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

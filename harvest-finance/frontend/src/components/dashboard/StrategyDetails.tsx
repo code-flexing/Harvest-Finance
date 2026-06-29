@@ -44,13 +44,13 @@ export const StrategyDetails: React.FC<StrategyDetailsProps> = ({ vault, onDepos
                   {vault.name}
                 </h1>
                 <div className="flex flex-wrap gap-3">
-                  <Badge variant="outline" className="px-3 py-1 text-[10px] font-black uppercase tracking-widest border-gray-100">
+                  <Badge variant="default" className="px-3 py-1 text-[10px] font-black uppercase tracking-widest border-gray-100">
                     {vault.asset} Native
                   </Badge>
                   <Badge variant="success" className="px-3 py-1 text-[10px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
                     {vault.riskLevel} Risk
                   </Badge>
-                  <Badge variant="outline" className="px-3 py-1 text-[10px] font-black uppercase tracking-widest border-gray-100">
+                  <Badge variant="default" className="px-3 py-1 text-[10px] font-black uppercase tracking-widest border-gray-100">
                     {vault.strategyType || 'Audited'}
                   </Badge>
                 </div>

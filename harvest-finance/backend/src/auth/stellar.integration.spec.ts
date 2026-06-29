@@ -24,9 +24,8 @@ describe('Stellar Authentication Integration', () => {
   let testClientPublicKey: string;
 
   beforeAll(async () => {
-    testServerPublicKey = StellarSdk.Keypair.fromSecret(
-      testServerSecret,
-    ).publicKey();
+    testServerPublicKey =
+      StellarSdk.Keypair.fromSecret(testServerSecret).publicKey();
     testClientKeypair = StellarSdk.Keypair.random();
     testClientSecret = testClientKeypair.secret();
     testClientPublicKey = testClientKeypair.publicKey();
@@ -121,7 +120,7 @@ describe('Stellar Authentication Integration', () => {
 
       // Verify transaction structure
       expect(transaction.source).toBe(testServerPublicKey);
-      expect(transaction.sequence).toBe('1');
+      expect(transaction.sequence).toBe('0');
       expect(transaction.operations.length).toBe(1);
       expect(transaction.operations[0].type).toBe('manageData');
       expect(transaction.operations[0].name).toBe('Harvest Finance auth');
@@ -461,7 +460,7 @@ describe('Stellar Authentication Integration', () => {
         testNetworkPassphrase,
       ) as StellarSdk.Transaction;
 
-      expect(transaction.sequence).toBe('1');
+      expect(transaction.sequence).toBe('0');
     });
 
     it('should include proper operation name', async () => {

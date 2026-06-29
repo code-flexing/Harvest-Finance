@@ -8,10 +8,12 @@ import {
   OneToMany,
   OneToOne,
 } from 'typeorm';
+import { Exclude } from 'class-transformer';
 import { Order } from './order.entity';
 import { Verification } from './verification.entity';
 import { CreditScore } from './credit-score.entity';
 import { UserOAuthLink } from './user-oauth-link.entity';
+import { Session } from './session.entity';
 
 /**
  * User roles in the agricultural marketplace
@@ -47,6 +49,7 @@ export class User {
   email: string;
 
   @Column({ select: false })
+  @Exclude()
   password: string;
 
   @Column({
@@ -89,23 +92,25 @@ export class User {
   @Column({ name: 'last_login', nullable: true })
   lastLogin: Date | null;
 
-  @Column({ name: 'refresh_token', select: false, nullable: true })
-  refreshToken: string | null;
+  @Column({ name: 'email_verified_at', nullable: true })
+  emailVerifiedAt: Date | null;
+
+  @Column({ name: 'email_verification_token', nullable: true })
+  @Exclude()
+  emailVerificationToken: string | null;
+
+  @OneToMany(() => Session, (session) => session.user)
+  sessions: Session[];
 
   @Column({ name: 'reset_password_token', select: false, nullable: true })
+  @Exclude()
   resetPasswordToken: string | null;
 
   @Column({ name: 'reset_password_expires', nullable: true })
   resetPasswordExpires: Date | null;
 
-  @Column({ name: 'telegram_chat_id', nullable: true })
-  telegramChatId: string | null;
-
-  @Column({ name: 'telegram_link_token', select: false, nullable: true })
-  telegramLinkToken: string | null;
-
-  @Column({ name: 'telegram_link_token_expires', nullable: true })
-  telegramLinkTokenExpires: Date | null;
+  @Column({ name: 'locked_until', nullable: true, default: null })
+  lockedUntil: Date | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

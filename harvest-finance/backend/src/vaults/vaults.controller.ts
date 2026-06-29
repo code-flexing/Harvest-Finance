@@ -6,6 +6,7 @@ import {
   Param,
   Body,
   Query,
+ 0,
   UseGuards,
   Request,
   HttpCode,
@@ -40,6 +41,8 @@ import {
 import { PaginationQueryDto } from './dto/pagination-query.dto';
 import { DepositEventResponseDto } from './dto/deposit-event-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RiskService } from '../analytics/risk.service';
+import { WithdrawalQueueService } from './withdrawal-queue.service';
 
 @ApiTags('Vaults')
 @Controller({

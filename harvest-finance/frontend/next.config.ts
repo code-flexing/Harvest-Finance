@@ -1,3 +1,4 @@
+// Simplified Next.js config without next-intl plugin
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {

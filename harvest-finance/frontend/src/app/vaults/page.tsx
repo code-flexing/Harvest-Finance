@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from '@/lib/i18n';
 import { Container, Section, Button, Inline, Stack, cn, VaultCardSkeleton, VaultTableRowSkeleton } from "@/components/ui";
 import { DepositModal } from "@/components/dashboard/DepositModal";
 import { MilestoneConfetti } from "@/components/dashboard/MilestoneConfetti";

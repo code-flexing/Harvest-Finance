@@ -9,6 +9,7 @@ import { CreditScore } from './entities/credit-score.entity';
 import { Deposit } from './entities/deposit.entity';
 import { DepositEvent } from './entities/deposit-event.entity';
 import { SorobanEvent } from './entities/soroban-event.entity';
+import { IndexerState } from './entities/indexer-state.entity';
 import { Vault } from './entities/vault.entity';
 import { VaultDeposit } from './entities/vault-deposit.entity';
 import { VaultApproval } from './entities/vault-approval.entity';

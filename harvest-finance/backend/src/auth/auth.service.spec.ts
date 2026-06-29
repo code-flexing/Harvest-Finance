@@ -11,6 +11,7 @@ import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { CustomLoggerService } from '../logger/custom-logger.service';
 import { User, UserRole } from '../database/entities/user.entity';
+import { UserOAuthLink } from '../database/entities/user-oauth-link.entity';
 
 // Mock bcrypt
 jest.mock('bcrypt', () => ({
@@ -36,6 +37,7 @@ describe('AuthService', () => {
     phone: '+1234567890',
     stellarAddress: 'GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
     isActive: true,
+    lockedUntil: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -55,20 +57,24 @@ describe('AuthService', () => {
     };
 
     mockConfigService = {
-      get: jest.fn((key: string) => {
-        const config: Record<string, string> = {
+      get: jest.fn((key: string, defaultValue?: any) => {
+        const config: Record<string, any> = {
           JWT_SECRET: 'test_jwt_secret',
           JWT_REFRESH_SECRET: 'test_refresh_secret',
           JWT_EXPIRES_IN: '1h',
           JWT_REFRESH_EXPIRES_IN: '7d',
+          MAX_LOGIN_ATTEMPTS: 5,
+          LOCKOUT_WINDOW_MINUTES: 15,
+          LOCKOUT_DURATION_MINUTES: 30,
         };
-        return config[key];
+        return key in config ? config[key] : defaultValue;
       }),
     };
 
     mockCacheManager = {
       get: jest.fn(),
       set: jest.fn(),
+      del: jest.fn(),
     };
 
     mockLogger = {
@@ -104,6 +110,10 @@ describe('AuthService', () => {
         {
           provide: CustomLoggerService,
           useValue: mockLogger,
+        },
+        {
+          provide: getRepositoryToken(UserOAuthLink),
+          useValue: { findOne: jest.fn(), save: jest.fn() },
         },
       ],
     }).compile();
@@ -344,6 +354,93 @@ describe('AuthService', () => {
       );
       // update must NOT be called — password must not change
       expect(mockUserRepository.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('account lockout', () => {
+    const loginDto = { email: 'test@example.com', password: 'WrongPass!' };
+
+    it('should throw UnauthorizedException when account is locked', async () => {
+      const lockedUser = {
+        ...mockUser,
+        lockedUntil: new Date(Date.now() + 20 * 60 * 1000), // 20 min from now
+      };
+      mockUserRepository.findOne.mockResolvedValue(lockedUser);
+
+      await expect(service.login(loginDto)).rejects.toThrow(UnauthorizedException);
+      const err = await service.login(loginDto).catch((e) => e);
+      expect(err.message).toMatch(/locked/i);
+    });
+
+    it('should allow login when lock has expired', async () => {
+      const expiredLockUser = {
+        ...mockUser,
+        lockedUntil: new Date(Date.now() - 1000), // 1 second in the past
+        password: 'hashed',
+      };
+      mockUserRepository.findOne.mockResolvedValue(expiredLockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      mockUserRepository.update.mockResolvedValue({ affected: 1 });
+      mockCacheManager.del.mockResolvedValue(undefined);
+      mockJwtService.signAsync
+        .mockResolvedValueOnce('access_token')
+        .mockResolvedValueOnce('refresh_token');
+
+      const result = await service.login(loginDto);
+      expect(result).toHaveProperty('access_token');
+    });
+
+    it('should increment Redis counter on failed password', async () => {
+      mockUserRepository.findOne.mockResolvedValue({ ...mockUser });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+      mockCacheManager.get.mockResolvedValue(1); // existing count = 1
+      mockCacheManager.set.mockResolvedValue(undefined);
+
+      await expect(service.login(loginDto)).rejects.toThrow(UnauthorizedException);
+      expect(mockCacheManager.set).toHaveBeenCalledWith(
+        `lockout:attempts:${mockUser.id}`,
+        2,
+        expect.any(Number),
+      );
+    });
+
+    it('should lock account and write lockedUntil to DB when threshold reached', async () => {
+      mockUserRepository.findOne.mockResolvedValue({ ...mockUser });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+      mockCacheManager.get.mockResolvedValue(4); // 4 existing → 5th attempt triggers lock
+      mockCacheManager.set.mockResolvedValue(undefined);
+      mockCacheManager.del.mockResolvedValue(undefined);
+      mockUserRepository.update.mockResolvedValue({ affected: 1 });
+
+      await expect(service.login(loginDto)).rejects.toThrow(UnauthorizedException);
+
+      expect(mockUserRepository.update).toHaveBeenCalledWith(
+        mockUser.id,
+        expect.objectContaining({ lockedUntil: expect.any(Date) }),
+      );
+      expect(mockCacheManager.del).toHaveBeenCalledWith(
+        `lockout:attempts:${mockUser.id}`,
+      );
+    });
+
+    it('should reset counter and clear lockedUntil on successful login', async () => {
+      mockUserRepository.findOne.mockResolvedValue({ ...mockUser, password: 'hashed' });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      mockCacheManager.del.mockResolvedValue(undefined);
+      mockUserRepository.update.mockResolvedValue({ affected: 1 });
+      mockJwtService.signAsync
+        .mockResolvedValueOnce('access_token')
+        .mockResolvedValueOnce('refresh_token');
+
+      await service.login(loginDto);
+
+      expect(mockCacheManager.del).toHaveBeenCalledWith(
+        `lockout:attempts:${mockUser.id}`,
+      );
+      expect(mockUserRepository.update).toHaveBeenCalledWith(
+        mockUser.id,
+        expect.objectContaining({ lockedUntil: null }),
+      );
     });
   });
 });

@@ -13,23 +13,29 @@ import { DepositEvent } from '../database/entities/deposit-event.entity';
 import { Withdrawal } from '../database/entities/withdrawal.entity';
 import { VaultReservation } from './entities/vault-reservation.entity';
 import { VaultApyHistory } from '../database/entities/vault-apy-history.entity';
+import { InsuranceClaim } from '../database/entities/insurance-claim.entity';
 import { DepositEventService } from './deposit-event.service';
+import { WithdrawalConfirmedHandler } from './events/withdrawal-confirmed.handler';
+import { StellarModule } from '../stellar/stellar.module';
+import { VaultAccountMonitorService } from './vault-account-monitor.service';
+import { InsuranceFundService } from './insurance-fund.service';
+import { InsuranceFundController } from './insurance-fund.controller';
 import { AuthModule } from '../auth/auth.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { CommonModule } from '../common/common.module';
-import { WithdrawalConfirmedHandler } from './events/withdrawal-confirmed.handler';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Vault, Deposit, DepositEvent, Withdrawal, VaultReservation, VaultApyHistory]),
+    TypeOrmModule.forFeature([Vault, Deposit, DepositEvent, Withdrawal, VaultReservation, VaultApyHistory, InsuranceClaim]),
     AuthModule,
     NotificationsModule,
     RealtimeModule,
     CommonModule,
+    StellarModule,
   ],
-  controllers: [VaultsController],
-  providers: [VaultsService, DepositEventService, WithdrawalConfirmedHandler],
-  exports: [VaultsService, DepositEventService],
+  controllers: [VaultsController, InsuranceFundController],
+  providers: [VaultsService, DepositEventService, WithdrawalConfirmedHandler, VaultAccountMonitorService, InsuranceFundService],
+  exports: [VaultsService, DepositEventService, InsuranceFundService],
 })
 export class VaultsModule {}

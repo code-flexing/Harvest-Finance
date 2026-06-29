@@ -29,6 +29,7 @@ import { VaultGateway } from '../realtime/vault.gateway';
 import { ContractCacheService } from '../common/cache/contract-cache.service';
 import { InputSanitizerService } from '../common/sanitization/input-sanitizer.service';
 import { DepositEventService } from './deposit-event.service';
+import { VaultReservation } from './entities/vault-reservation.entity';
 
 const USER_ID = '11111111-1111-1111-1111-111111111111';
 const OTHER_USER_ID = '99999999-9999-9999-9999-999999999999';
@@ -124,6 +125,21 @@ describe('VaultsService — Yield Strategy Integration', () => {
     update: jest.fn(),
   };
 
+  const mockReservationQB = {
+    select: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    getRawOne: jest.fn().mockResolvedValue({ total: null }),
+  };
+  const mockReservationRepository = {
+    findOne: jest.fn().mockResolvedValue(null),
+    find: jest.fn().mockResolvedValue([]),
+    create: jest.fn((dto) => dto),
+    save: jest.fn(),
+    update: jest.fn().mockResolvedValue({ affected: 0 }),
+    createQueryBuilder: jest.fn().mockReturnValue(mockReservationQB),
+  };
+
   const mockNotificationsService = {
     create: jest.fn().mockResolvedValue(undefined),
   };
@@ -164,6 +180,10 @@ describe('VaultsService — Yield Strategy Integration', () => {
         {
           provide: getRepositoryToken(Withdrawal),
           useValue: mockWithdrawalRepository,
+        },
+        {
+          provide: getRepositoryToken(VaultReservation),
+          useValue: mockReservationRepository,
         },
         { provide: DataSource, useValue: mockDataSource },
         { provide: NotificationsService, useValue: mockNotificationsService },

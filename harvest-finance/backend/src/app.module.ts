@@ -1,7 +1,8 @@
 import { CacheModule } from '@nestjs/cache-manager';
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { ClassSerializerInterceptor } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -62,6 +63,7 @@ import {
   YieldAnalytics,
   VaultApyHistory,
 } from './database/entities';
+import { IndexerState } from './database/entities/indexer-state.entity';
 import { CommunityPost } from './database/entities/community-post.entity';
 import { CommunityComment } from './database/entities/community-comment.entity';
 import { PostReaction } from './database/entities/post-reaction.entity';
@@ -132,6 +134,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
           InsurancePlan,
           InsuranceSubscription,
           SorobanEvent,
+          IndexerState,
           YieldAnalytics,
           VaultReservation,
           VaultApyHistory,
@@ -199,6 +202,10 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ClassSerializerInterceptor,
     },
   ],
 })

@@ -42,7 +42,7 @@ import { StellarStrategy } from './strategies/stellar.strategy';
 
 /**
  * Authentication Controller
- * 
+ *
  * Throttling Tiers Overview:
  * - short: Strict rate limits for high-risk or resource-intensive operations (e.g., login, password reset). Protects against brute-force attacks.
  * - medium: Moderate limits for standard operations (e.g., token refresh, generating challenges). Balances usability with spam prevention.
@@ -62,7 +62,7 @@ export class AuthController {
   /**
    * Register a new user
    *
-   * Uses long tier: Registration is an infrequent operation, so a longer 
+   * Uses long tier: Registration is an infrequent operation, so a longer
    * window prevents spam while allowing normal user onboarding.
    */
    @Post('register')
@@ -98,7 +98,7 @@ export class AuthController {
   /**
    * Login user
    *
-   * Uses stricter long tier limits: Login is a high-value target for 
+   * Uses stricter long tier limits: Login is a high-value target for
    * brute-force attacks and requires tighter throttling.
    */
    @Post('login')
@@ -402,5 +402,16 @@ export class AuthController {
   })
   async githubAuthRedirect(@Req() req): Promise<AuthResponseDto> {
     return this.authService.loginWithOAuth(req.user);
+  }
+
+  @Get('verify-email')
+  async verifyEmail(@Query('token') token: string) {
+    return this.authService.verifyEmail(token);
+  }
+
+  @Post('resend-verification')
+  @UseGuards(JwtAuthGuard)
+  async resendVerification(@Req() req) {
+    return this.authService.resendVerification(req.user.id);
   }
 }

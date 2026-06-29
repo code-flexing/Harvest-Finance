@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { StellarService } from './stellar.service';
+import { StellarService, FeeCapExceededException } from './stellar.service';
 import { ConfigService } from '@nestjs/config';
 import { SecretsService } from '../../common/secrets/secrets.service';
 import { CustomLoggerService } from '../../logger/custom-logger.service';
@@ -114,7 +114,9 @@ describe('StellarService - Escrow Creation', () => {
         .spyOn(StellarSdk.TransactionBuilder.prototype, 'build')
         .mockReturnValue(mockTransaction as any);
       jest.spyOn(service as any, 'getBaseFee').mockResolvedValue('100');
-      jest.spyOn(service as any, 'extractBalanceId').mockReturnValue('balance-id-123');
+      jest
+        .spyOn(service as any, 'extractBalanceId')
+        .mockReturnValue('balance-id-123');
 
       const result = await service.createEscrow(validParams);
 
@@ -151,7 +153,9 @@ describe('StellarService - Escrow Creation', () => {
         .spyOn(StellarSdk.TransactionBuilder.prototype, 'build')
         .mockReturnValue(mockTransaction as any);
       jest.spyOn(service as any, 'getBaseFee').mockResolvedValue('100');
-      jest.spyOn(service as any, 'extractBalanceId').mockReturnValue('balance-id-123');
+      jest
+        .spyOn(service as any, 'extractBalanceId')
+        .mockReturnValue('balance-id-123');
       jest.spyOn(service as any, 'submitWithFeeBump').mockResolvedValue({
         feeBumpTransactionHash: 'fee-bump-hash',
         innerTransactionHash: 'inner-hash',
@@ -381,7 +385,9 @@ describe('StellarService - Escrow Creation', () => {
           'AAAAAgAAAABZ6/qWZrwJZO2d5fLVdDKnJV0R9H7r5ygEfL1sSkPZvO+/tL7tZqqzVON4eXiR6xrN7o7PmWXNZcvNLpEXXs4=',
       });
       jest.spyOn(service as any, 'getBaseFee').mockResolvedValue('100');
-      jest.spyOn(service as any, 'extractBalanceId').mockReturnValue('balance-id-123');
+      jest
+        .spyOn(service as any, 'extractBalanceId')
+        .mockReturnValue('balance-id-123');
       jest
         .spyOn(StellarSdk.TransactionBuilder.prototype, 'build')
         .mockReturnValue(mockTransaction as any);
@@ -442,7 +448,7 @@ describe('StellarService - Escrow Creation', () => {
         } as any);
       const setOptionsSpy = jest
         .spyOn(StellarSdk.Operation, 'setOptions')
-        .mockImplementation((options: any) => options as any);
+        .mockImplementation((options: any) => options);
       const fromSecretSpy = jest
         .spyOn(StellarSdk.Keypair, 'fromSecret')
         .mockReturnValue({
@@ -491,5 +497,139 @@ describe('StellarService - Escrow Creation', () => {
       expect(setTimeoutSpy).toHaveBeenCalledWith(30);
       expect(buildSpy).toHaveBeenCalled();
     });
+  });
+});
+
+describe('StellarService - getBaseFee', () => {
+  let service: StellarService;
+  let mockConfigGet: jest.Mock;
+  let logSpy: jest.SpyInstance;
+  let warnSpy: jest.SpyInstance;
+
+  const platformKeypair = StellarSdk.Keypair.random();
+
+  beforeEach(async () => {
+    mockConfigGet = jest.fn().mockImplementation((key: string, defaultValue?: any) => {
+      const config: Record<string, any> = {
+        STELLAR_NETWORK: 'testnet',
+        STELLAR_PLATFORM_PUBLIC_KEY: platformKeypair.publicKey(),
+      };
+      return config[key] ?? defaultValue;
+    });
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        StellarService,
+        {
+          provide: ConfigService,
+          useValue: {
+            get: mockConfigGet,
+            getOrThrow: jest.fn().mockReturnValue(platformKeypair.publicKey()),
+          },
+        },
+        {
+          provide: SecretsService,
+          useValue: { getSecret: jest.fn().mockResolvedValue(platformKeypair.secret()) },
+        },
+        {
+          provide: CustomLoggerService,
+          useValue: { log: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
+        },
+        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
+      ],
+    }).compile();
+
+    service = module.get<StellarService>(StellarService);
+    service['server'] = {
+      loadAccount: jest.fn(),
+      submitTransaction: jest.fn(),
+      feeStats: jest.fn(),
+    } as any;
+    await service.onModuleInit();
+
+    logSpy = jest.spyOn(service['logger'], 'log').mockImplementation(() => {});
+    warnSpy = jest.spyOn(service['logger'], 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  function mockFeeStats(p90: number) {
+    jest.spyOn(service as any, 'getHorizonFeeStats').mockResolvedValue({
+      fee_charged: { p90: String(p90), mode: '100' },
+    });
+  }
+
+  it('returns p90 + 10% buffer on a normal network', async () => {
+    mockFeeStats(200);
+    const fee = await (service as any).getBaseFee();
+    // Math.ceil(200 * 1.1) = 220
+    expect(fee).toBe('220');
+  });
+
+  it('logs fee details on every successful call', async () => {
+    mockFeeStats(200);
+    await (service as any).getBaseFee();
+    expect(logSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Fee selected | p90=200'),
+    );
+  });
+
+  it('throws FeeCapExceededException when buffered fee exceeds cap', async () => {
+    // p90=10000, buffered=11000, default cap=10000
+    mockFeeStats(10000);
+    await expect((service as any).getBaseFee()).rejects.toThrow(FeeCapExceededException);
+  });
+
+  it('does not log before throwing when fee exceeds cap (exception carries the message)', async () => {
+    mockFeeStats(10000);
+    await expect((service as any).getBaseFee()).rejects.toThrow(
+      expect.objectContaining({
+        message: expect.stringContaining('Operation queued for retry when fee cap is exceeded'),
+      }),
+    );
+    // No misleading warn should fire before the throw
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining('Operation queued for retry when fee cap is exceeded'),
+    );
+  });
+
+  it('respects a custom STELLAR_MAX_FEE_STROOPS cap from config', async () => {
+    // Set cap to 5000, p90=4000 → buffered=4400 → under cap → OK
+    mockConfigGet.mockImplementation((key: string, defaultValue?: any) => {
+      if (key === 'STELLAR_MAX_FEE_STROOPS') return 5000;
+      const config: Record<string, any> = {
+        STELLAR_NETWORK: 'testnet',
+        STELLAR_PLATFORM_PUBLIC_KEY: platformKeypair.publicKey(),
+      };
+      return config[key] ?? defaultValue;
+    });
+    mockFeeStats(4000);
+    const fee = await (service as any).getBaseFee();
+    expect(fee).toBe('4400');
+  });
+
+  it('throws FeeCapExceededException when custom cap is exceeded', async () => {
+    // Set cap to 5000, p90=5000 → buffered=5500 → exceeds cap → exception
+    mockConfigGet.mockImplementation((key: string, defaultValue?: any) => {
+      if (key === 'STELLAR_MAX_FEE_STROOPS') return 5000;
+      const config: Record<string, any> = {
+        STELLAR_NETWORK: 'testnet',
+        STELLAR_PLATFORM_PUBLIC_KEY: platformKeypair.publicKey(),
+      };
+      return config[key] ?? defaultValue;
+    });
+    mockFeeStats(5000);
+    await expect((service as any).getBaseFee()).rejects.toThrow(FeeCapExceededException);
+  });
+
+  it('falls back to 100 stroops when fee stats are unavailable', async () => {
+    jest.spyOn(service as any, 'getHorizonFeeStats').mockRejectedValue(new Error('Horizon down'));
+    const fee = await (service as any).getBaseFee();
+    expect(fee).toBe('100');
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Could not fetch fee stats, using default 100 stroops',
+    );
   });
 });

@@ -72,43 +72,39 @@ export class HttpExceptionFilter implements ExceptionFilter {
       errorCode = this.getErrorCodeFromStatus(status);
     }
 
+    // Determine error code: prefer existing errorCode on exception, fallback to status code
+    const errorCode =
+      (exception as any).errorCode ||
+      (exception instanceof HttpException ? status.toString() : '500');
+
     const errorResponse = {
       statusCode: status,
-      message: message,
+      message:
+        typeof message === 'string'
+          ? message
+          : (message as any).message || message,
       errorCode: errorCode,
       timestamp: new Date().toISOString(),
-      path: path,
+      path: httpAdapter.getRequestUrl(request),
       requestId: requestId,
     };
 
-    let trace: string | undefined;
-    if (exception instanceof Error) {
-      trace = exception.stack;
+    // Log error with requestId for correlation; include stack trace in development
+    const logMessage = `[Request ID: ${requestId}] ${request.method} ${httpAdapter.getRequestUrl(
+      request,
+    )} - Error: ${JSON.stringify(errorResponse.message)}`;
+    if (
+      process.env.NODE_ENV !== 'production' &&
+      exception instanceof Error &&
+      exception.stack
+    ) {
+      this.logger.error(logMessage, exception.stack);
+    } else {
+      this.logger.error(logMessage);
     }
-    
-    this.logger.error(
-      `[${requestId}] ${method} ${path} - Error: ${JSON.stringify(errorResponse.message)}`,
-      trace,
-      'ExceptionFilter',
-    );
 
     httpAdapter.reply(response, errorResponse, status);
   }
-
-  private getErrorCodeFromStatus(status: number): string {
-    const statusMap: Record<number, string> = {
-      400: 'BAD_REQUEST',
-      401: 'UNAUTHORIZED',
-      403: 'FORBIDDEN',
-      404: 'NOT_FOUND',
-      405: 'METHOD_NOT_ALLOWED',
-      409: 'CONFLICT',
-      422: 'UNPROCESSABLE_ENTITY',
-      429: 'TOO_MANY_REQUESTS',
-      500: 'INTERNAL_SERVER_ERROR',
-      502: 'BAD_GATEWAY',
-      503: 'SERVICE_UNAVAILABLE',
-    };
-    return statusMap[status] || 'UNKNOWN_ERROR';
-  }
 }
+
+    

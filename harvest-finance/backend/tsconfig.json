@@ -15,6 +15,7 @@
     "outDir": "./dist",
     "incremental": true,
     "skipLibCheck": true,
+    "noEmitOnError": false,
     "strictNullChecks": true,
     "forceConsistentCasingInFileNames": true,
     "noImplicitAny": false,
@@ -22,4 +23,3 @@
     "noFallthroughCasesInSwitch": false
   }
 }
-

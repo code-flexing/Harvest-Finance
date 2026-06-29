@@ -4,17 +4,20 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
-import { Between, FindOptionsWhere, Repository } from 'typeorm';
+import { Between, DataSource, FindOptionsWhere, Repository } from 'typeorm';
 import axios, { AxiosInstance } from 'axios';
 import {
   SorobanEvent,
   SorobanEventType,
 } from '../database/entities/soroban-event.entity';
+import { IndexerState } from '../database/entities/indexer-state.entity';
 import {
   QuerySorobanEventsDto,
   IndexerStatusDto,
   SorobanEventPageDto,
 } from './dto/soroban-events.dto';
+import { ContractVersionRegistry } from './parsers/contract-version-registry';
+import { EventParserFactory } from './parsers/event-parser.factory';
 
 interface RpcContractEvent {
   id: string;
@@ -44,14 +47,21 @@ export class SorobanIndexerService implements OnModuleInit {
   private readonly http: AxiosInstance;
 
   private lastIndexedLedger: number | null = null;
+  private lastCursor: string | null = null;
   private lastPolledAt: Date | null = null;
   private running = false;
+  private persistedCursors: Map<string, string> = new Map();
 
   constructor(
     @InjectRepository(SorobanEvent)
     private readonly eventRepository: Repository<SorobanEvent>,
+    @InjectRepository(IndexerState)
+    private readonly indexerStateRepository: Repository<IndexerState>,
     private readonly config: ConfigService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    private readonly dataSource: DataSource,
+    private readonly versionRegistry: ContractVersionRegistry,
+    private readonly parserFactory: EventParserFactory,
   ) {
     this.enabled =
       this.config.get<string>('SOROBAN_INDEXER_ENABLED', 'false') === 'true';
@@ -88,8 +98,26 @@ export class SorobanIndexerService implements OnModuleInit {
     });
   }
 
+  private get stateKey(): string {
+    return this.filterContractIds.length > 0
+      ? this.filterContractIds.join(',')
+      : '*';
+  }
+
   async onModuleInit(): Promise<void> {
     try {
+      // Load persisted cursors from indexer_state
+      const states = await this.indexerStateRepository.find();
+      if (states.length > 0) {
+        this.persistedCursors = new Map(
+          states.map((s) => [s.contractId, s.lastCursor]),
+        );
+        this.logger.log(
+          `Soroban indexer resumed from ${states.length} persisted cursor(s)`,
+        );
+      }
+
+      // Also load lastIndexedLedger for fallback ledger-based startup
       const latest = await this.eventRepository
         .createQueryBuilder('e')
         .select('MAX(e.ledger)', 'maxLedger')
@@ -97,12 +125,27 @@ export class SorobanIndexerService implements OnModuleInit {
       this.lastIndexedLedger = latest?.maxLedger
         ? parseInt(latest.maxLedger, 10)
         : null;
+
+      // Restore persisted cursor from the indexer_state table.
+      try {
+        const state = await this.indexerStateRepository.findOne({
+          where: { contractId: this.stateKey },
+        });
+        if (state) {
+          this.lastCursor = state.lastCursor;
+        }
+      } catch (cursorErr) {
+        this.logger.warn(
+          `Failed to restore indexer cursor (table may not yet exist): ${(cursorErr as Error).message}`,
+        );
+      }
+
       this.logger.log(
-        `Soroban indexer initialised | enabled=${this.enabled} rpc=${this.rpcUrl} lastLedger=${this.lastIndexedLedger ?? 'none'}`,
+        `Soroban indexer initialised | enabled=${this.enabled} rpc=${this.rpcUrl} lastLedger=${this.lastIndexedLedger ?? 'none'} cursor=${this.lastCursor ?? 'none'}`,
       );
     } catch (err) {
       this.logger.warn(
-        `Failed to resolve last indexed ledger (table may not yet exist): ${(err as Error).message}`,
+        `Failed to load indexer state: ${(err as Error).message}`,
       );
     }
   }
@@ -145,17 +188,64 @@ export class SorobanIndexerService implements OnModuleInit {
     }
 
     const entities = response.events.map((ev) => this.toEntity(ev));
-    const saved = await this.persist(entities);
-    const maxLedgerInBatch = entities.reduce(
-      (max, e) => (e.ledger > max ? e.ledger : max),
-      this.lastIndexedLedger ?? 0,
+
+    // Find the max pagingToken from the batch (lexicographic max is safe for
+    // Soroban paging tokens which are zero-padded numeric strings).
+    const maxPagingToken = entities.reduce(
+      (max, e) => (e.pagingToken > max ? e.pagingToken : max),
+      entities[0].pagingToken,
     );
-    this.lastIndexedLedger = maxLedgerInBatch;
+
+    // Persist events and update cursor atomically inside a single transaction.
+    const dataSource = this.eventRepository.manager.connection;
+    const queryRunner = dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    let saved = 0;
+    try {
+      // Insert events (idempotent — orIgnore on unique event_id).
+      const result = await queryRunner.manager
+        .createQueryBuilder()
+        .insert()
+        .into(SorobanEvent)
+        .values(entities as any)
+        .orIgnore()
+        .execute();
+      saved = result.identifiers.filter((id) => id !== undefined).length;
+
+      // Upsert the cursor position.
+      await queryRunner.manager.save(IndexerState, {
+        contractId: this.stateKey,
+        lastCursor: maxPagingToken,
+      } as IndexerState);
+
+      await queryRunner.commitTransaction();
+
+      // Update in-memory state only after successful commit.
+      this.lastCursor = maxPagingToken;
+      const maxLedgerInBatch = entities.reduce(
+        (max, e) => (e.ledger > max ? e.ledger : max),
+        this.lastIndexedLedger ?? 0,
+      );
+      this.lastIndexedLedger = maxLedgerInBatch;
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
 
     return { saved, latestLedger: response.latestLedger };
   }
 
   private async resolveStartLedger(): Promise<number> {
+    // When we have a persisted cursor, cursor-based pagination is used in
+    // fetchEvents instead of startLedger, so any positive integer is fine here.
+    if (this.lastCursor) {
+      return 1;
+    }
+
     if (this.lastIndexedLedger && this.lastIndexedLedger > 0) {
       return this.lastIndexedLedger + 1;
     }
@@ -184,11 +274,21 @@ export class SorobanIndexerService implements OnModuleInit {
       filters.contractIds = this.filterContractIds;
     }
 
-    return this.rpcCall<RpcGetEventsResponse>('getEvents', {
-      startLedger,
+    // When a persisted cursor exists use it for pagination; otherwise fall back
+    // to startLedger so the RPC knows where to begin.
+    const pagination: Record<string, unknown> = this.lastCursor
+      ? { cursor: this.lastCursor, limit: this.pageSize }
+      : { limit: this.pageSize };
+
+    const params: Record<string, unknown> = {
       filters: [filters],
-      pagination: { limit: this.pageSize },
-    });
+      pagination,
+    };
+    if (!this.lastCursor) {
+      params.startLedger = startLedger;
+    }
+
+    return this.rpcCall<RpcGetEventsResponse>('getEvents', params);
   }
 
   private async rpcCall<T>(method: string, params: unknown): Promise<T> {
@@ -204,10 +304,16 @@ export class SorobanIndexerService implements OnModuleInit {
       method,
       params,
     });
+    if (typeof data !== 'object' || data === null) {
+      throw new Error('Invalid RPC response: expected object');
+    }
     if (data.error) {
       throw new Error(
         `Soroban RPC error: ${data.error.code} ${data.error.message ?? 'unknown'}`,
       );
+    }
+    if (!('result' in data)) {
+      throw new Error('Invalid RPC response: missing result field');
     }
 
     const result = data.result as T;
@@ -230,6 +336,27 @@ export class SorobanIndexerService implements OnModuleInit {
     entity.topics = ev.topic ?? [];
     entity.value = ev.value ?? null;
     entity.inSuccessfulContractCall = ev.inSuccessfulContractCall ?? true;
+
+    // Resolve and stamp the contract version for this ledger.
+    const contractVersion = this.versionRegistry.resolveVersion(
+      entity.contractId,
+      entity.ledger,
+    );
+    entity.contractVersion = contractVersion;
+
+    // Attempt to parse the event; log and skip unknown schemas without crashing.
+    const parsed = this.parserFactory.parse(
+      contractVersion,
+      entity.topics,
+      entity.value,
+    );
+    if (!parsed) {
+      this.logger.warn(
+        `Unrecognised event schema for contractVersion="${contractVersion}" ` +
+          `eventId="${entity.eventId}" ledger=${entity.ledger} — stored raw, skipping parse`,
+      );
+    }
+
     return entity;
   }
 
@@ -243,7 +370,7 @@ export class SorobanIndexerService implements OnModuleInit {
       .values(entities as any)
       .orIgnore()
       .execute();
-    return result.identifiers.filter((id) => id !== undefined).length;
+    return (result.identifiers ?? []).filter((id) => id !== undefined).length;
   }
 
   async query(filter: QuerySorobanEventsDto): Promise<SorobanEventPageDto> {
@@ -307,6 +434,10 @@ export class SorobanIndexerService implements OnModuleInit {
     entity.topics = event.topics ?? [];
     entity.value = event.value ?? null;
     entity.inSuccessfulContractCall = event.inSuccessfulContractCall ?? true;
+    entity.contractVersion = this.versionRegistry.resolveVersion(
+      entity.contractId,
+      entity.ledger,
+    );
 
     const stored = await this.persist([entity]);
     if (stored > 0 && entity.ledger > (this.lastIndexedLedger ?? 0)) {

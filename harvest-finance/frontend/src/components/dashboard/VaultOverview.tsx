@@ -3,7 +3,7 @@
 import React from "react";
 import { Database, Coins, TrendingUp, ShieldCheck, Activity } from "lucide-react";
 import { VaultCard, VaultProps } from "./VaultCard";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from '@/lib/i18n';
 import { Badge, Stack } from "@/components/ui";
 
 const mockVaults: VaultProps[] = [
