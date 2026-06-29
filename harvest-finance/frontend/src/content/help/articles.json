@@ -1,0 +1,37 @@
+[
+  {
+    "id": "deposits-1",
+    "title": "How do I deposit funds into a vault?",
+    "category": "Deposits",
+    "body": "To deposit, navigate to the vault page, click Deposit, enter the amount and confirm the transaction with your wallet.",
+    "keywords": ["deposit","funds","vault","add funds"]
+  },
+  {
+    "id": "withdrawals-1",
+    "title": "How do withdrawals work?",
+    "category": "Withdrawals",
+    "body": "Withdrawals remove your funds from a vault. Depending on the strategy there may be a delay or on-chain fees.",
+    "keywords": ["withdraw","remove","vault","redeem"]
+  },
+  {
+    "id": "strategies-1",
+    "title": "What are vault strategies?",
+    "category": "Vault Strategies",
+    "body": "Vault strategies determine how deposited assets are allocated to earn yield. Strategies are managed by the protocol and can change over time.",
+    "keywords": ["strategy","yield","allocation","strategy change"]
+  },
+  {
+    "id": "wallets-1",
+    "title": "How do I connect my wallet?",
+    "category": "Wallet Connections",
+    "body": "Click the Connect button and choose your wallet provider. Approve the connection in the wallet popup.",
+    "keywords": ["wallet","connect","freighter","metamask"]
+  },
+  {
+    "id": "fees-1",
+    "title": "What fees does the protocol charge?",
+    "category": "Fees",
+    "body": "Fees may include withdrawal fees, performance fees, and protocol fees. Check the vault page for exact fee details.",
+    "keywords": ["fees","withdrawal fee","performance fee","protocol fee"]
+  }
+]
