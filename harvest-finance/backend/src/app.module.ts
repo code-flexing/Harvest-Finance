@@ -93,6 +93,9 @@ import { CreateVaultApyHistory1700000000017 } from './database/migrations/170000
 import { DomainEventsModule } from './domain-events';
 import { DomainEventHandlersModule } from './common/events';
 import { WebhooksModule } from './webhooks/webhooks.module';
+import { WalletsModule } from './wallets/wallets.module';
+import { CustodialWallet } from './wallets/entities/custodial-wallet.entity';
+import { CreateCustodialWallets1700000000021 } from './database/migrations/1700000000021-CreateCustodialWallets';
 
 @Module({
   imports: [
@@ -138,6 +141,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
           YieldAnalytics,
           VaultReservation,
           VaultApyHistory,
+          CustodialWallet,
         ],
         migrations: [
           CreateInitialSchema1700000000000,
@@ -154,6 +158,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
           CreateDepositEvents1700000000016,
           CreateVaultReservations1700000000018,
           CreateVaultApyHistory1700000000017,
+          CreateCustodialWallets1700000000021,
         ],
         synchronize: false,
         migrationsRun: false,

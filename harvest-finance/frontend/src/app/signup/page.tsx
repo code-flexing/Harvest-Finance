@@ -9,7 +9,7 @@ import { AuthShell } from '@/components/auth/AuthShell';
 import { PasswordStrength } from '@/components/auth/PasswordStrength';
 import { EyeIcon, EyeSlashIcon } from '@/components/icons';
 import { useAuthStore } from '@/lib/stores/auth-store';
-import { signupSchema, type SignupFormData, type UserRole } from '@/lib/validations/auth';
+import { signupSchema, type SignupFormData, type UserRole, type WalletType } from '@/lib/validations/auth';
 
 const roles: { value: UserRole; label: string; icon: string; description: string }[] = [
   { value: 'farmer', label: 'Farmer', icon: 'FM', description: 'Manage crops, orders, and financing requests.' },
@@ -31,11 +31,12 @@ export default function SignupPage() {
     formState: { errors },
   } = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),
-    defaultValues: { role: 'farmer', agreeToTerms: false as unknown as true },
+    defaultValues: { role: 'farmer', wallet_type: 'custodial', agreeToTerms: false as unknown as true },
   });
 
   const password = useWatch({ control, name: 'password', defaultValue: '' });
   const selectedRole = useWatch({ control, name: 'role', defaultValue: 'farmer' });
+  const selectedWallet = useWatch({ control, name: 'wallet_type', defaultValue: 'custodial' });
 
   useEffect(() => {
     hydrate();
@@ -49,7 +50,7 @@ export default function SignupPage() {
 
   const onSubmit = async (data: SignupFormData) => {
     clearError();
-    await signup(data.name, data.email, data.password, data.role);
+    await signup(data.name, data.email, data.password, data.role, data.wallet_type, data.stellar_address);
   };
 
   return (
@@ -147,6 +148,68 @@ export default function SignupPage() {
             </p>
           ) : null}
         </div>
+
+        <div>
+          <label className="field-label">Wallet Setup</label>
+          <div className="grid gap-3 sm:grid-cols-2 mt-2">
+            <button
+              type="button"
+              onClick={() => setValue('wallet_type', 'custodial', { shouldValidate: true })}
+              disabled={isLoading}
+              aria-pressed={selectedWallet === 'custodial'}
+              className={`role-card ${selectedWallet === 'custodial' ? 'role-card--active' : 'role-card--idle'}`}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🔒</span>
+                <span className="text-xs font-black uppercase tracking-widest text-[var(--brand-strong)]">Beginner Friendly</span>
+              </div>
+              <p className="mt-3 text-sm font-semibold text-slate-900 dark:text-white">Platform-Managed (Custodial)</p>
+              <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-gray-400">We'll create a secure Stellar wallet for you.</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setValue('wallet_type', 'self-custody', { shouldValidate: true })}
+              disabled={isLoading}
+              aria-pressed={selectedWallet === 'self-custody'}
+              className={`role-card ${selectedWallet === 'self-custody' ? 'role-card--active' : 'role-card--idle'}`}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🔑</span>
+                <span className="text-xs font-black uppercase tracking-widest text-[var(--brand-strong)]">Advanced</span>
+              </div>
+              <p className="mt-3 text-sm font-semibold text-slate-900 dark:text-white">Self-Custody (Freighter)</p>
+              <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-gray-400">Connect your existing Stellar wallet.</p>
+            </button>
+          </div>
+          {errors.wallet_type ? (
+            <p className="mt-2 text-sm text-red-600" role="alert">
+              {errors.wallet_type.message}
+            </p>
+          ) : null}
+        </div>
+        
+        {selectedWallet === 'self-custody' && (
+          <div>
+            <label htmlFor="stellar_address" className="field-label">
+              Stellar Address
+            </label>
+            <input
+              {...register('stellar_address')}
+              id="stellar_address"
+              type="text"
+              aria-invalid={!!errors.stellar_address}
+              aria-describedby={errors.stellar_address ? 'stellar-address-error' : undefined}
+              disabled={isLoading}
+              className="input-field"
+              placeholder="GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+            />
+            {errors.stellar_address ? (
+              <p id="stellar-address-error" className="mt-2 text-sm text-red-600" role="alert">
+                {errors.stellar_address.message}
+              </p>
+            ) : null}
+          </div>
+        )}
 
         <div className="grid gap-5 sm:grid-cols-2">
           <div>

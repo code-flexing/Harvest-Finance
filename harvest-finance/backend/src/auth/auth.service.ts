@@ -14,7 +14,7 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { randomBytes } from 'crypto';
 import { CustomLoggerService } from '../logger/custom-logger.service';
-import { User, UserRole } from '../database/entities/user.entity';
+import { User, UserRole, WalletType } from '../database/entities/user.entity';
 import { UserOAuthLink } from '../database/entities/user-oauth-link.entity';
 const zxcvbn = require('zxcvbn');
 import * as crypto from 'crypto';
@@ -35,6 +35,7 @@ import {
   StellarAuthResponseDto,
   StellarChallengeResponseDto,
 } from './dto/stellar-auth.dto';
+import { CustodialWalletService } from '../wallets/custodial-wallet.service';
 
 @Injectable()
 export class AuthService {
@@ -70,14 +71,22 @@ export class AuthService {
     private configService: ConfigService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private logger: CustomLoggerService,
+    private custodialWalletService: CustodialWalletService,
   ) {}
 
   /**
    * Register a new user
    */
   async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
-    const { email, password, role, full_name, phone_number, stellar_address } =
+    const { email, password, role, full_name, phone_number, stellar_address, use_custodial_wallet } =
       registerDto;
+
+    // Validate: user must supply either a stellar_address OR opt into a custodial wallet
+    if (!stellar_address && !use_custodial_wallet) {
+      throw new BadRequestException(
+        'Please provide a Stellar address or opt into a platform-managed custodial wallet (use_custodial_wallet: true).',
+      );
+    }
 
     // Check if user already exists
     const existingUser = await this.userRepository.findOne({
@@ -102,7 +111,12 @@ export class AuthService {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, this.saltRounds);
 
-    // Create new user
+    // Determine wallet type and Stellar address
+    // Self-custody takes precedence when both fields are supplied.
+    const isSelfCustody = !!stellar_address;
+    const walletType = isSelfCustody ? WalletType.SELF_CUSTODY : WalletType.CUSTODIAL;
+
+    // Create new user (without stellarAddress for custodial — we set it after wallet creation)
     const user = this.userRepository.create({
       email,
       password: hashedPassword,
@@ -110,12 +124,38 @@ export class AuthService {
       firstName,
       lastName,
       phone: phone_number || null,
-      stellarAddress: stellar_address,
+      stellarAddress: stellar_address ?? null,
+      walletType,
       isActive: true,
     });
 
     // Save user
     await this.userRepository.save(user);
+
+    // Create custodial wallet if requested and no self-custody address provided
+    if (!isSelfCustody && use_custodial_wallet) {
+      try {
+        const publicKey = await this.custodialWalletService.createCustodialWallet(
+          user.id,
+          password, // plaintext password — used for key derivation before bcrypt hashing
+        );
+        // Link the generated public key to the user record
+        await this.userRepository.update(user.id, { stellarAddress: publicKey });
+        user.stellarAddress = publicKey;
+        this.logger.log(
+          `Custodial wallet created for new user ${email}: ${publicKey}`,
+          'AuthService',
+        );
+      } catch (err) {
+        // Clean up: delete the partially-created user to keep the DB consistent
+        await this.userRepository.delete(user.id);
+        this.logger.error(
+          `Failed to create custodial wallet for ${email}: ${err.message}`,
+          'AuthService',
+        );
+        throw err;
+      }
+    }
 
     // Generate tokens
     const tokens = await this.generateTokens(user);
@@ -479,6 +519,7 @@ export class AuthService {
         [user.firstName, user.lastName].filter(Boolean).join(' ') || '',
       phone_number: user.phone,
       stellar_address: user.stellarAddress,
+      wallet_type: user.walletType,
     };
   }
 
