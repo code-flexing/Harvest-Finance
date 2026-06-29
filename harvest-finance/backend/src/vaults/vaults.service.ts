@@ -49,6 +49,7 @@ import {
   WithdrawalCompletedEvent,
   PaymentReceivedEvent,
 } from '../domain-events';
+import { WithdrawalQueueService } from './withdrawal-queue.service';
 
 const MAX_SAFE_DEPOSIT = 1e30;
 const LARGE_DEPOSIT_THRESHOLD = 10000;
@@ -75,6 +76,7 @@ export class VaultsService {
     private depositEventService: DepositEventService,
     private readonly feesService: FeesService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly withdrawalQueueService: WithdrawalQueueService,
   ) {}
 
   async getVaultById(vaultId: string): Promise<Vault> {
@@ -1064,16 +1066,43 @@ export class VaultsService {
         userId,
         title: 'Withdrawal Confirmed',
         message: `Your withdrawal of ${amount} from vault ${vault.vaultName} has been confirmed.`,
-        type: NotificationType.WITHDRAWAL, // Fixed: should be WITHDRAWAL, not DEPOSIT
+        type: NotificationType.WITHDRAWAL,
       });
 
+      return {
+        withdrawal: result.withdrawal,
+        vault: result.vault
+          ? this.mapVaultToResponse(result.vault)
+          : this.mapVaultToResponse(vault),
+        feeAmount: exitFee.feeAmount,
+        netAmount: exitFee.netAmount,
+      };
+    }
+
+    // Insufficient liquidity: queue the withdrawal for later processing
+    const queuedWithdrawal = this.withdrawalRepository.create({
+      userId,
+      vaultId,
+      amount,
+      status: WithdrawalStatus.PENDING,
+    });
+
+    const savedQueuedWithdrawal = await this.withdrawalRepository.save(queuedWithdrawal);
+    await this.withdrawalQueueService.enqueueWithdrawal(savedQueuedWithdrawal.id);
+
+    const queuedWithdrawalResult = await this.withdrawalRepository.findOne({
+      where: { id: savedQueuedWithdrawal.id },
+    });
+
+    if (!queuedWithdrawalResult) {
+      throw new NotFoundException('Withdrawal not found after queuing');
+    }
+
     return {
-      withdrawal: result.withdrawal,
-      vault: result.vault
-        ? this.mapVaultToResponse(result.vault)
-        : this.mapVaultToResponse(vault),
-      feeAmount: exitFee.feeAmount,
-      netAmount: exitFee.netAmount,
+      withdrawal: queuedWithdrawalResult,
+      vault: this.mapVaultToResponse(vault),
+      feeAmount: 0,
+      netAmount: amount,
     };
   }
 

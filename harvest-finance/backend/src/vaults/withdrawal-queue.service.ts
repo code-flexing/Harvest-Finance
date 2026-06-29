@@ -112,7 +112,7 @@ export class WithdrawalQueueService {
       where: {
         vaultId: withdrawal.vaultId,
         status: WithdrawalStatus.QUEUED,
-        createdAt: LessThanOrEqual: withdrawal.createdAt,
+        createdAt: LessThanOrEqual(withdrawal.createdAt),
       },
     });
 

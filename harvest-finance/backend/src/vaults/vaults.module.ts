@@ -17,6 +17,7 @@ import { VaultApyHistory } from '../database/entities/vault-apy-history.entity';
 import { InsuranceClaim } from '../database/entities/insurance-claim.entity';
 import { DepositEventService } from './deposit-event.service';
 import { WithdrawalConfirmedHandler } from './events/withdrawal-confirmed.handler';
+import { WithdrawalQueueService } from './withdrawal-queue.service';
 import { StellarModule } from '../stellar/stellar.module';
 import { VaultAccountMonitorService } from './vault-account-monitor.service';
 import { InsuranceFundService } from './insurance-fund.service';
@@ -25,18 +26,33 @@ import { AuthModule } from '../auth/auth.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { CommonModule } from '../common/common.module';
+import { AnalyticsModule } from '../analytics/analytics.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Vault, Deposit, DepositEvent, Withdrawal, VaultReservation, VaultApyHistory, InsuranceClaim]),
+    CqrsModule,
     AuthModule,
     NotificationsModule,
     RealtimeModule,
     CommonModule,
     StellarModule,
+    AnalyticsModule,
   ],
   controllers: [VaultsController, InsuranceFundController],
-  providers: [VaultsService, FeesService, DepositEventService, WithdrawalConfirmedHandler, VaultAccountMonitorService, InsuranceFundService],
+  providers: [
+    VaultsService,
+    FeesService,
+    DepositEventService,
+    WithdrawalConfirmedHandler,
+    WithdrawalQueueService,
+    VaultAccountMonitorService,
+    InsuranceFundService,
+    VaultReadRepository,
+    ...CommandHandlers,
+    ...QueryHandlers,
+    ...EventHandlers,
+  ],
   exports: [VaultsService, DepositEventService, InsuranceFundService],
 })
 export class VaultsModule {}
