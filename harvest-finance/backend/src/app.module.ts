@@ -51,6 +51,7 @@ import {
   Notification,
   Order,
   Reward,
+  Session,
   SorobanEvent,
   Transaction,
   User,
@@ -89,6 +90,7 @@ import { CreateDepositEvents1700000000016 } from './database/migrations/17000000
 import { CreateVaultReservations1700000000018 } from './database/migrations/1700000000018-CreateVaultReservations';
 import { VaultReservation } from './vaults/entities/vault-reservation.entity';
 import { CreateVaultApyHistory1700000000017 } from './database/migrations/1700000000017-CreateVaultApyHistory';
+import { CreateSessionsAndOAuthLinks1700000000022 } from './database/migrations/1700000000022-CreateSessionsAndOAuthLinks';
 import { DomainEventsModule } from './domain-events';
 import { DomainEventHandlersModule } from './common/events';
 import { WebhooksModule } from './webhooks/webhooks.module';
@@ -116,6 +118,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
         entities: [
           User,
           UserOAuthLink,
+          Session,
           Order,
           Transaction,
           Verification,
@@ -153,6 +156,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
           CreateDepositEvents1700000000016,
           CreateVaultReservations1700000000018,
           CreateVaultApyHistory1700000000017,
+          CreateSessionsAndOAuthLinks1700000000022,
         ],
         synchronize: false,
         migrationsRun: false,
