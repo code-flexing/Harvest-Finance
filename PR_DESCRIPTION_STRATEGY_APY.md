@@ -4,7 +4,7 @@
 
 **Click this link to create your Pull Request:**
 
-### https://github.com/daveedAJ/Harvest-Finance/pull/new/feat/strategy-apy-v2
+### https://github.com/daveedAJ/Harvest-Finance/pull/new/feat/strategy-apy-clean
 
 ---
 
@@ -103,6 +103,6 @@ npm run build -- harvest-finance/backend
 
 ## Branch Information
 
-- **Branch**: `feat/strategy-apy-v2`
+- **Branch**: `feat/strategy-apy-clean`
 - **Target**: `main`
 - **Repository**: https://github.com/daveedAJ/Harvest-Finance

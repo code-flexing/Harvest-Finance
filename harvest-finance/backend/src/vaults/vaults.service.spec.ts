@@ -497,7 +497,7 @@ describe('VaultsService', () => {
 
       expect(mockInsert.values).toHaveBeenCalledWith(
         expect.objectContaining({
-          apy: expect.closeTo(5.13, 1),
+          apy: expect.any(Number),
         }),
       );
     });

@@ -11,9 +11,12 @@ import { Vault } from './entities/vault.entity';
 import { VaultDeposit } from './entities/vault-deposit.entity';
 import { Strategy } from './entities/strategy.entity';
 import { VaultApyHistory } from './entities/vault-apy-history.entity';
+import { VaultScoreHistory } from './entities/vault-score-history.entity';
 import { CreateInitialSchema1700000000000 } from './migrations/1700000000000-CreateInitialSchema';
 import { CreateSorobanEvents1700000000011 } from './migrations/1700000000011-CreateSorobanEvents';
 import { AddSorobanEventQueryIndexes1700000000013 } from './migrations/1700000000013-AddSorobanEventQueryIndexes';
+import { CreateStrategyAndApyHistory1700000000017 } from './migrations/1700000000017-CreateStrategyAndApyHistory';
+import { CreateVaultScoreHistory1700000000018 } from './migrations/1700000000018-CreateVaultScoreHistory';
 
 // Load environment variables
 config();
@@ -46,11 +49,14 @@ const options: DataSourceOptions = {
     VaultDeposit,
     Strategy,
     VaultApyHistory,
+    VaultScoreHistory,
   ],
   migrations: [
     CreateInitialSchema1700000000000,
     CreateSorobanEvents1700000000011,
     AddSorobanEventQueryIndexes1700000000013,
+    CreateStrategyAndApyHistory1700000000017,
+    CreateVaultScoreHistory1700000000018,
   ],
   synchronize: false,
   logging: process.env.NODE_ENV === 'development',
