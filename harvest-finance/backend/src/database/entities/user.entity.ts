@@ -119,10 +119,6 @@ export class User {
   @Column({ name: 'email_verified_at', nullable: true })
   emailVerifiedAt: Date | null;
 
-  @Column({ name: 'email_verification_token', nullable: true })
-  @Exclude()
-  emailVerificationToken: string | null;
-
   @OneToMany(() => Session, (session) => session.user)
   sessions: Session[];
 

@@ -16,6 +16,7 @@ import {
 import { DashboardStatsDto } from './dto/dashboard-stats.dto';
 import { CreateVaultDto, UpdateVaultDto } from './dto/vault-crud.dto';
 import { PlatformAnalyticsDto } from './dto/analytics.dto';
+import { AuthService } from '../auth/auth.service';
 
 @Injectable()
 export class AdminService {
@@ -31,6 +32,7 @@ export class AdminService {
     @InjectRepository(Withdrawal)
     private withdrawalRepository: Repository<Withdrawal>,
     private dataSource: DataSource,
+    private authService: AuthService,
   ) {}
 
   /**
@@ -136,6 +138,14 @@ export class AdminService {
     createVaultDto: CreateVaultDto,
     adminId: string,
   ): Promise<Vault> {
+    // Check email verification
+    const isVerified = await this.authService.isEmailVerified(adminId);
+    if (!isVerified) {
+      throw new ForbiddenException(
+        'Email verification is required to create a vault. Please verify your email address.',
+      );
+    }
+
     const vault = this.vaultRepository.create({
       ...createVaultDto,
       ownerId: adminId,

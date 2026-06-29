@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { FarmVaultsService } from './farm-vaults.service';
 
 describe('FarmVaultsService - amount validation', () => {
@@ -7,6 +7,7 @@ describe('FarmVaultsService - amount validation', () => {
   let mockCropRepo: any;
   let mockDataSource: any;
   let mockGateway: any;
+  let mockAuthService: any;
 
   const userId = 'user-1';
   const vaultId = 'vault-1';
@@ -20,12 +21,14 @@ describe('FarmVaultsService - amount validation', () => {
     mockCropRepo = { findOne: jest.fn() };
     mockDataSource = {};
     mockGateway = { emitDeposit: jest.fn(), emitMilestone: jest.fn() };
+    mockAuthService = { isEmailVerified: jest.fn() };
 
     service = new FarmVaultsService(
       mockVaultRepo,
       mockCropRepo,
       mockDataSource,
       mockGateway,
+      mockAuthService,
     );
   });
 
@@ -190,5 +193,85 @@ describe('FarmVaultsService - amount validation', () => {
     await expect(service.withdraw(vaultId, userId, 1)).rejects.toThrow(
       NotFoundException,
     );
+  });
+
+  describe('email verification protection', () => {
+    it('should throw ForbiddenException when unverified user creates vault', async () => {
+      mockAuthService.isEmailVerified.mockResolvedValue(false);
+      mockCropRepo.findOne.mockResolvedValue({
+        id: 'cycle-1',
+        durationDays: 90,
+        yieldRate: 0.05,
+      });
+
+      await expect(
+        service.createVault(userId, {
+          name: 'Test Vault',
+          cropCycleId: 'cycle-1',
+          targetAmount: 1000,
+        }),
+      ).rejects.toThrow(ForbiddenException);
+      await expect(
+        service.createVault(userId, {
+          name: 'Test Vault',
+          cropCycleId: 'cycle-1',
+          targetAmount: 1000,
+        }),
+      ).rejects.toThrow('Email verification is required');
+    });
+
+    it('should throw ForbiddenException when unverified user deposits', async () => {
+      mockAuthService.isEmailVerified.mockResolvedValue(false);
+
+      await expect(service.deposit(vaultId, userId, 100)).rejects.toThrow(
+        ForbiddenException,
+      );
+      await expect(service.deposit(vaultId, userId, 100)).rejects.toThrow(
+        'Email verification is required',
+      );
+    });
+
+    it('should allow verified user to create vault', async () => {
+      mockAuthService.isEmailVerified.mockResolvedValue(true);
+      mockCropRepo.findOne.mockResolvedValue({
+        id: 'cycle-1',
+        durationDays: 90,
+        yieldRate: 0.05,
+      });
+      mockVaultRepo.create.mockReturnValue({
+        userId,
+        name: 'Test Vault',
+        cropCycleId: 'cycle-1',
+        targetAmount: 1000,
+        balance: 0,
+        status: 'ACTIVE',
+      });
+      mockVaultRepo.save.mockImplementation(async (v: any) => v);
+
+      const result = await service.createVault(userId, {
+        name: 'Test Vault',
+        cropCycleId: 'cycle-1',
+        targetAmount: 1000,
+      });
+
+      expect(result).toBeDefined();
+      expect(mockVaultRepo.save).toHaveBeenCalled();
+    });
+
+    it('should allow verified user to deposit', async () => {
+      mockAuthService.isEmailVerified.mockResolvedValue(true);
+      const existing = {
+        id: vaultId,
+        userId,
+        name: 'V',
+        targetAmount: 1000,
+        balance: 10,
+      };
+      mockVaultRepo.findOne.mockResolvedValue(existing);
+      mockVaultRepo.save.mockImplementation(async (v: any) => v);
+
+      const saved = await service.deposit(vaultId, userId, 50);
+      expect(Number(saved.balance)).toBeCloseTo(60);
+    });
   });
 });

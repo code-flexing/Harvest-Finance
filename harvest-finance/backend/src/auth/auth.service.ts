@@ -3,6 +3,7 @@ import {
   ConflictException,
   UnauthorizedException,
   BadRequestException,
+  ForbiddenException,
   Inject,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -46,6 +47,7 @@ export class AuthService {
   private readonly refreshTokenExpiry = '7d';
   private readonly refreshTokenExpiryMs = 7 * 24 * 60 * 60 * 1000; // 7 days
   private readonly resetTokenExpiry = 3600000; // 1 hour in milliseconds
+  private readonly verificationTokenExpiry = '24h'; // 24 hours for email verification
 
   private get maxLoginAttempts(): number {
     return this.configService.get<number>('MAX_LOGIN_ATTEMPTS', 5);
@@ -164,6 +166,20 @@ export class AuthService {
 
     // Generate tokens
     const tokens = await this.generateTokens(user);
+
+    // Generate email verification JWT (expires in 24 hours)
+    const verificationToken = await this.jwtService.signAsync(
+      { sub: user.id, email: user.email, type: 'email_verification' },
+      {
+        expiresIn: this.verificationTokenExpiry,
+        secret:
+          this.configService.get<string>('JWT_SECRET') ||
+          'super_secret_jwt_key',
+      },
+    );
+
+    // Send verification email
+    await this.sendVerificationEmail(user.email, verificationToken);
 
     this.logger.log(`New user registered: ${email}`, 'AuthService');
 
@@ -778,25 +794,110 @@ export class AuthService {
 
   async verifyEmail(token: string) {
     try {
-      const payload = await this.jwtService.verifyAsync(token, { secret: this.configService.get('JWT_SECRET') || 'super_secret_jwt_key' });
-      const user = await this.userRepository.findOne({ where: { id: payload.sub } });
-      if (user) {
-        user.emailVerifiedAt = new Date();
-        await this.userRepository.save(user);
-        return { success: true };
+      const payload = await this.jwtService.verifyAsync(token, {
+        secret: this.configService.get('JWT_SECRET') || 'super_secret_jwt_key',
+      });
+
+      // Ensure this is an email verification token
+      if (payload.type !== 'email_verification') {
+        throw new BadRequestException('Invalid token type');
       }
+
+      const user = await this.userRepository.findOne({ where: { id: payload.sub } });
+      if (!user) {
+        throw new BadRequestException('User not found');
+      }
+
+      // Already verified
+      if (user.emailVerifiedAt) {
+        return { success: true, message: 'Email is already verified' };
+      }
+
+      user.emailVerifiedAt = new Date();
+      await this.userRepository.save(user);
+      return { success: true, message: 'Email verified successfully' };
     } catch (e) {
+      if (e instanceof BadRequestException) {
+        throw e;
+      }
       throw new BadRequestException('Invalid or expired token');
     }
-    throw new BadRequestException('User not found');
   }
 
   async resendVerification(userId: string) {
     const user = await this.userRepository.findOne({ where: { id: userId } });
-    if (!user) throw new BadRequestException('User not found');
-    const token = await this.jwtService.signAsync({ sub: user.id }, { secret: this.configService.get('JWT_SECRET') || 'super_secret_jwt_key', expiresIn: '24h' });
-    this.logger.log(`Resending verification to ${user.email}: ${token}`, 'AuthService');
-    return { success: true };
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    // Already verified
+    if (user.emailVerifiedAt) {
+      throw new BadRequestException('Email is already verified');
+    }
+
+    // Rate limit: 3 requests per hour per user
+    const rateLimitKey = `resend_verification:${userId}`;
+    const currentCount = await this.cacheManager.get<number>(rateLimitKey) || 0;
+    if (currentCount >= 3) {
+      throw new BadRequestException(
+        'Too many verification requests. Please try again in 1 hour.',
+      );
+    }
+
+    const token = await this.jwtService.signAsync(
+      { sub: user.id, email: user.email, type: 'email_verification' },
+      {
+        secret: this.configService.get('JWT_SECRET') || 'super_secret_jwt_key',
+        expiresIn: this.verificationTokenExpiry,
+      },
+    );
+
+    // Increment rate limit counter (TTL 1 hour)
+    await this.cacheManager.set(rateLimitKey, currentCount + 1, 3600);
+
+    await this.sendVerificationEmail(user.email, token);
+    return { success: true, message: 'Verification email sent' };
+  }
+
+  /**
+   * Send email verification link to the user.
+   * In production, replace the logger stub with a real mailer.
+   */
+  private async sendVerificationEmail(
+    email: string,
+    token: string,
+  ): Promise<void> {
+    const verificationLink = `http://localhost:3000/api/v1/auth/verify-email?token=${token}`;
+    const subject = 'Verify your email address';
+    const body = [
+      `Hello,`,
+      '',
+      'Please verify your email address by clicking the link below:',
+      verificationLink,
+      '',
+      'This link will expire in 24 hours.',
+      '',
+      'If you did not create an account, please ignore this email.',
+      '',
+      '— Harvest Finance Team',
+    ].join('\n');
+
+    // TODO: replace with real mail transport (e.g. nodemailer / @nestjs-modules/mailer)
+    this.logger.log(
+      `[VERIFICATION EMAIL] To: ${email} | Subject: ${subject}\n${body}`,
+      'AuthService',
+    );
+  }
+
+  /**
+   * Check if a user's email is verified.
+   */
+  async isEmailVerified(userId: string): Promise<boolean> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['emailVerifiedAt'],
+    });
+    return !!user?.emailVerifiedAt;
   }
 
   async getSessions(userId: string, page: number, limit: number) {
