@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { VaultsService } from './vaults.service';
+import { FeesService } from './fees.service';
 import { ExternalPaymentEventType } from './dto/external-payment-notification.dto';
 import { PaymentReceivedEvent, DepositCompletedEvent, WithdrawalConfirmedEvent, DomainEventNames } from '../domain-events';
 import { User } from '../database/entities/user.entity';
@@ -193,6 +194,7 @@ describe('VaultsService — Yield Strategy Integration', () => {
         { provide: InputSanitizerService, useValue: mockSanitizer },
         { provide: DepositEventService, useValue: mockDepositEventService },
         { provide: EventEmitter2, useValue: mockEventEmitter },
+        FeesService,
       ],
     }).compile();
 

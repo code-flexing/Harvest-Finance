@@ -3,6 +3,7 @@ import {
   Post,
   Get,
   Delete,
+  Patch,
   Param,
   Body,
   Query,
@@ -32,6 +33,7 @@ import { BatchDepositDto } from './dto/batch-deposit.dto';
 import { CloneVaultDto } from './dto/clone-vault.dto';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { ReservationResponseDto } from './dto/reservation-response.dto';
+import { UpdateVaultFeesDto } from './dto/update-vault-fees.dto';
 import {
   BatchDepositResponseDto,
   DepositVaultResponseDto,
@@ -379,8 +381,25 @@ export class VaultsController {
     );
   }
 
-  @Post(':vaultId/request-approval')
+  @Patch(':vaultId/fees')
   @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Configure entry, exit, and performance fees for a vault' })
+  @ApiParam({ name: 'vaultId', description: 'Vault ID (UUID)' })
+  @ApiBody({ type: UpdateVaultFeesDto })
+  @ApiResponse({ status: 200, description: 'Fee configuration updated', type: VaultResponseDto })
+  @ApiResponse({ status: 400, description: 'Fee values exceed platform maximums' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Only vault owner can configure fees' })
+  @ApiResponse({ status: 404, description: 'Vault not found' })
+  async updateVaultFees(
+    @Param('vaultId') vaultId: string,
+    @Body() dto: UpdateVaultFeesDto,
+    @Request() req: any,
+  ): Promise<VaultResponseDto> {
+    return this.vaultsService.updateVaultFees(vaultId, req.user.id, dto);
+  }
+
+  @Post(':vaultId/request-approval')  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request approval from another user for vault operations' })
   @ApiParam({

@@ -3,6 +3,7 @@ import { CqrsModule } from '@nestjs/cqrs';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { VaultsController } from './vaults.controller';
 import { VaultsService } from './vaults.service';
+import { FeesService } from './fees.service';
 import { CommandHandlers } from './cqrs/commands/handlers';
 import { QueryHandlers } from './cqrs/queries/handlers';
 import { EventHandlers } from './cqrs/events/handlers';
@@ -35,7 +36,7 @@ import { CommonModule } from '../common/common.module';
     StellarModule,
   ],
   controllers: [VaultsController, InsuranceFundController],
-  providers: [VaultsService, DepositEventService, WithdrawalConfirmedHandler, VaultAccountMonitorService, InsuranceFundService],
+  providers: [VaultsService, FeesService, DepositEventService, WithdrawalConfirmedHandler, VaultAccountMonitorService, InsuranceFundService],
   exports: [VaultsService, DepositEventService, InsuranceFundService],
 })
 export class VaultsModule {}

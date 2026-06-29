@@ -89,6 +89,7 @@ import { CreateDepositEvents1700000000016 } from './database/migrations/17000000
 import { CreateVaultReservations1700000000018 } from './database/migrations/1700000000018-CreateVaultReservations';
 import { VaultReservation } from './vaults/entities/vault-reservation.entity';
 import { CreateVaultApyHistory1700000000017 } from './database/migrations/1700000000017-CreateVaultApyHistory';
+import { AddVaultFees1700000000019 } from './database/migrations/1700000000019-AddVaultFees';
 import { DomainEventsModule } from './domain-events';
 import { DomainEventHandlersModule } from './common/events';
 import { WebhooksModule } from './webhooks/webhooks.module';
@@ -153,6 +154,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
           CreateDepositEvents1700000000016,
           CreateVaultReservations1700000000018,
           CreateVaultApyHistory1700000000017,
+          AddVaultFees1700000000019,
         ],
         synchronize: false,
         migrationsRun: false,

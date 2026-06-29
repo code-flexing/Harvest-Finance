@@ -7,6 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { VaultsService } from './vaults.service';
+import { FeesService } from './fees.service';
 import { Vault, VaultStatus, VaultType } from '../database/entities/vault.entity';
 import { Deposit, DepositStatus } from '../database/entities/deposit.entity';
 import { VaultApyHistory } from '../database/entities/vault-apy-history.entity';
@@ -178,6 +179,7 @@ describe('VaultsService', () => {
         { provide: ContractCacheService, useValue: mockContractCache },
         { provide: InputSanitizerService, useValue: mockSanitizer },
         { provide: DepositEventService, useValue: mockDepositEventService },
+        FeesService,
       ],
     }).compile();
 

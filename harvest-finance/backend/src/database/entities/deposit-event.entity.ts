@@ -11,6 +11,7 @@ export enum DepositEventType {
   CONFIRMED = 'CONFIRMED',
   FAILED = 'FAILED',
   REFUNDED = 'REFUNDED',
+  FEE_COLLECTED = 'FEE_COLLECTED',
 }
 
 /**
