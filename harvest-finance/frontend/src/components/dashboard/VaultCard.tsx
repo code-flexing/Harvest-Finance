@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Card, CardHeader, CardBody, CardFooter, Button, Badge, Stack, Tooltip, cn } from '@/components/ui';
-import { TrendingUp, Wallet, ArrowUpRight, ArrowDownLeft, Info, ShieldCheck, Activity } from 'lucide-react';
+import { TrendingUp, Wallet, ArrowUpRight, ArrowDownLeft, Info, ShieldCheck, Activity, Award } from 'lucide-react';
 import { StrategyType } from '@/types/vault';
 import { formatI128 } from '@/lib/soroban-i128';
 import { getTermTooltip } from '@/lib/defi-terms';
@@ -22,6 +22,24 @@ export interface VaultProps {
   onDeposit: (vaultId: string) => void;
   onWithdraw: (vaultId: string) => void;
   shares?: number | string;
+  operatorId?: string;
+  operatorScore?: number;
+}
+
+function scoreColor(score: number): string {
+  if (score >= 80) return 'text-emerald-500';
+  if (score >= 60) return 'text-lime-500';
+  if (score >= 40) return 'text-yellow-500';
+  if (score >= 20) return 'text-orange-500';
+  return 'text-red-500';
+}
+
+function scoreBgColor(score: number): string {
+  if (score >= 80) return 'bg-emerald-500/10 border-emerald-500/20';
+  if (score >= 60) return 'bg-lime-500/10 border-lime-500/20';
+  if (score >= 40) return 'bg-yellow-500/10 border-yellow-500/20';
+  if (score >= 20) return 'bg-orange-500/10 border-orange-500/20';
+  return 'bg-red-500/10 border-red-500/20';
 }
 
 export const VaultCard: React.FC<VaultProps> = ({
@@ -37,6 +55,8 @@ export const VaultCard: React.FC<VaultProps> = ({
   onDeposit,
   onWithdraw,
   shares,
+  operatorId,
+  operatorScore,
 }) => {
   return (
     <Card className="group relative h-full overflow-hidden glass-panel glass-rim transition-all duration-500 hover:shadow-[0_20px_50px_rgba(34,197,94,0.15)] hover:-translate-y-1.5 border-emerald-500/10 dark:border-emerald-500/5">
@@ -151,7 +171,20 @@ export const VaultCard: React.FC<VaultProps> = ({
           </div>
         </Button>
       </CardFooter>
-      <div className="px-6 pb-6 pt-0 text-center">
+      <div className="px-6 pb-6 pt-0 flex items-center justify-between">
+        {operatorId != null && operatorScore != null && (
+          <Link
+            href={`/operators/${operatorId}`}
+            className="inline-flex items-center gap-2 text-[10px] font-black text-gray-400 hover:text-harvest-green-600 transition-all uppercase tracking-[0.2em] group/link"
+          >
+            <div className={cn('flex items-center gap-1.5 px-2 py-1 rounded-lg border', scoreBgColor(operatorScore))}>
+              <Award className={cn('w-3 h-3', scoreColor(operatorScore))} />
+              <span className={cn('text-[10px] font-black', scoreColor(operatorScore))}>
+                {Math.round(operatorScore)}
+              </span>
+            </div>
+          </Link>
+        )}
         <Link 
           href={`/strategies/${id}`}
           className="inline-flex items-center justify-center gap-2 text-[10px] font-black text-gray-400 hover:text-harvest-green-600 transition-all uppercase tracking-[0.2em] group/link"
