@@ -47,15 +47,14 @@ describe('isRetryableStellarError', () => {
   });
 
   describe('HTTP 5xx — server / gateway errors', () => {
-    it.each([500, 502, 503, 504, 599])(
-      'retries on HTTP %i',
-      (status) => {
-        expect(isRetryableStellarError({ response: { status } })).toBe(true);
-      },
-    );
+    it.each([500, 502, 503, 504, 599])('retries on HTTP %i', (status) => {
+      expect(isRetryableStellarError({ response: { status } })).toBe(true);
+    });
 
     it('does not retry on HTTP 600 (outside 5xx range)', () => {
-      expect(isRetryableStellarError({ response: { status: 600 } })).toBe(false);
+      expect(isRetryableStellarError({ response: { status: 600 } })).toBe(
+        false,
+      );
     });
   });
 

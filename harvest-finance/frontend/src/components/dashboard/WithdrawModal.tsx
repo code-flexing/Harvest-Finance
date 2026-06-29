@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from '@/lib/i18n';
 import {
   Modal,
   ModalHeader,
@@ -104,7 +104,7 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
 
     setIsLoading(true);
     setError(null);
-    let toastId: React.ReactText | null = null;
+    let toastId: string | number | null = null;
     try {
       const i128Amount = toI128(Number(amount));
 

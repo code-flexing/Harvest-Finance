@@ -19,7 +19,20 @@ config();
  */
 async function main() {
   const args = process.argv.slice(2);
-  const command = args[0] || 'seed';
+
+  // Support both positional commands ("seed", "clear", "reset") and
+  // flag-style arguments ("--reset", "--clear") for ergonomic CLI usage.
+  const hasFlag = (flag: string) => args.includes(`--${flag}`);
+  let command: string;
+  if (hasFlag('reset')) {
+    command = 'reset';
+  } else if (hasFlag('clear')) {
+    command = 'clear';
+  } else if (hasFlag('seed')) {
+    command = 'seed';
+  } else {
+    command = args[0] || 'seed';
+  }
 
   console.log('🚀 Starting Seed CLI...\n');
 
@@ -43,6 +56,7 @@ async function main() {
       default:
         console.error(`Unknown command: ${command}`);
         console.log('Available commands: seed, clear, reset');
+        console.log('Flag equivalents: --seed, --clear, --reset');
         process.exit(1);
     }
 

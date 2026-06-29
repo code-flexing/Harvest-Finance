@@ -123,26 +123,28 @@ describe('InputSanitizerService', () => {
     });
 
     it('rejects a G-address (public key) passed as a contract ID', () => {
-      expect(() =>
-        service.validateContractId(validStellarPublicKey),
-      ).toThrow(BadRequestException);
+      expect(() => service.validateContractId(validStellarPublicKey)).toThrow(
+        BadRequestException,
+      );
     });
 
     it('rejects a 64-character hex string (not a Stellar C-address)', () => {
-      expect(() =>
-        service.validateContractId('a'.repeat(64)),
-      ).toThrow(BadRequestException);
+      expect(() => service.validateContractId('a'.repeat(64))).toThrow(
+        BadRequestException,
+      );
     });
 
     it('rejects an odd-length hex string', () => {
-      expect(() =>
-        service.validateContractId('abc'),
-      ).toThrow(BadRequestException);
+      expect(() => service.validateContractId('abc')).toThrow(
+        BadRequestException,
+      );
     });
 
     it('rejects a string with non-hex, non-base32 characters', () => {
       expect(() =>
-        service.validateContractId('ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ'),
+        service.validateContractId(
+          'ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ',
+        ),
       ).toThrow(BadRequestException);
     });
 
@@ -166,9 +168,7 @@ describe('InputSanitizerService', () => {
     );
 
     it('includes example C-address format in the empty-input error message', () => {
-      expect(() => service.validateContractId('')).toThrow(
-        /C-address format/,
-      );
+      expect(() => service.validateContractId('')).toThrow(/C-address format/);
     });
   });
 

@@ -15,6 +15,10 @@ import type { Cache } from 'cache-manager';
 import { randomBytes } from 'crypto';
 import { CustomLoggerService } from '../logger/custom-logger.service';
 import { User, UserRole } from '../database/entities/user.entity';
+import { UserOAuthLink } from '../database/entities/user-oauth-link.entity';
+const zxcvbn = require('zxcvbn');
+import * as crypto from 'crypto';
+import { Session } from '../database/entities/session.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -39,9 +43,29 @@ export class AuthService {
   private readonly refreshTokenExpiry = '7d';
   private readonly resetTokenExpiry = 3600000; // 1 hour in milliseconds
 
+  private get maxLoginAttempts(): number {
+    return this.configService.get<number>('MAX_LOGIN_ATTEMPTS', 5);
+  }
+
+  private get lockoutWindowMs(): number {
+    return this.configService.get<number>('LOCKOUT_WINDOW_MINUTES', 15) * 60 * 1000;
+  }
+
+  private get lockoutDurationMs(): number {
+    return this.configService.get<number>('LOCKOUT_DURATION_MINUTES', 30) * 60 * 1000;
+  }
+
+  private lockoutAttemptsKey(userId: string): string {
+    return `lockout:attempts:${userId}`;
+  }
+
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(UserOAuthLink)
+    private oauthLinkRepository: Repository<UserOAuthLink>,
+    @InjectRepository(Session)
+    private sessionRepository: Repository<Session>,
     private jwtService: JwtService,
     private configService: ConfigService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
@@ -72,6 +96,8 @@ export class AuthService {
     const nameParts = full_name.trim().split(' ');
     const firstName = nameParts[0];
     const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : null;
+
+    await this.validatePasswordStrength(password);
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, this.saltRounds);
@@ -122,6 +148,7 @@ export class AuthService {
         'phone',
         'stellarAddress',
         'isActive',
+        'lockedUntil',
       ],
     });
 
@@ -141,6 +168,19 @@ export class AuthService {
       throw new UnauthorizedException('Account is deactivated');
     }
 
+    // Check account lockout
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      const remainingMs = user.lockedUntil.getTime() - Date.now();
+      const remainingMin = Math.ceil(remainingMs / 60000);
+      this.logger.warn(
+        `Login attempt for locked account: ${email} (locked for ${remainingMin} more minute(s))`,
+        'AuthService',
+      );
+      throw new UnauthorizedException(
+        `Account is locked due to too many failed login attempts. Try again in ${remainingMin} minute(s).`,
+      );
+    }
+
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
@@ -149,11 +189,15 @@ export class AuthService {
         `Failed login attempt for email (invalid password): ${email}`,
         'AuthService',
       );
+      await this.recordFailedAttempt(user);
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    // Successful login — reset failure counter and clear any expired lock
+    await this.resetLoginAttempts(user.id);
+
     // Update last login
-    await this.userRepository.update(user.id, { lastLogin: new Date() });
+    await this.userRepository.update(user.id, { lastLogin: new Date(), lockedUntil: null });
 
     // Generate tokens
     const tokens = await this.generateTokens(user);
@@ -165,6 +209,43 @@ export class AuthService {
       refresh_token: tokens.refreshToken,
       user: this.mapUserToResponse(user),
     };
+  }
+
+  private async recordFailedAttempt(user: User): Promise<void> {
+    const key = this.lockoutAttemptsKey(user.id);
+    const windowSec = Math.ceil(this.lockoutWindowMs / 1000);
+
+    const current = await this.cacheManager.get<number>(key) ?? 0;
+    const next = current + 1;
+
+    await this.cacheManager.set(key, next, windowSec);
+
+    if (next >= this.maxLoginAttempts) {
+      const lockedUntil = new Date(Date.now() + this.lockoutDurationMs);
+      await this.userRepository.update(user.id, { lockedUntil });
+      await this.cacheManager.del(key);
+
+      this.logger.warn(
+        JSON.stringify({
+          event: 'account_locked',
+          userId: user.id,
+          email: user.email,
+          lockedUntil: lockedUntil.toISOString(),
+          reason: `${this.maxLoginAttempts} consecutive failed login attempts`,
+        }),
+        'AuthService',
+      );
+
+      // In-app notification (email would be sent here if mail service were configured)
+      this.logger.error(
+        `NOTIFY user ${user.email}: account locked until ${lockedUntil.toISOString()}`,
+        'AuthService',
+      );
+    }
+  }
+
+  private async resetLoginAttempts(userId: string): Promise<void> {
+    await this.cacheManager.del(this.lockoutAttemptsKey(userId));
   }
 
   /**
@@ -371,11 +452,17 @@ export class AuthService {
       }),
     ]);
 
-    // Store refresh token in database
+    // Store refresh token in database (Session)
     const hashedRefreshToken = await bcrypt.hash(refreshToken, this.saltRounds);
-    await this.userRepository.update(user.id, {
+    const session = this.sessionRepository.create({
+      user,
       refreshToken: hashedRefreshToken,
+      userAgent: 'Unknown', // Typically passed from request
+      ipAddress: 'Unknown', // Typically passed from request
+      lastUsedAt: new Date(),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
+    await this.sessionRepository.save(session);
 
     return { accessToken, refreshToken };
   }
@@ -393,5 +480,142 @@ export class AuthService {
       phone_number: user.phone,
       stellar_address: user.stellarAddress,
     };
+  }
+
+  /**
+   * Validate or create an OAuth user on callback, linking accounts if email matches.
+   */
+  async validateOrCreateOAuthUser(
+    oauthProvider: string,
+    oauthId: string,
+    email: string,
+    firstName?: string,
+    lastName?: string,
+  ): Promise<User> {
+    // 1. Check if OAuth link already exists
+    let existingLink = await this.oauthLinkRepository.findOne({
+      where: { oauthProvider, oauthId },
+      relations: ['user'],
+    });
+
+    if (existingLink) {
+      // Update last login
+      await this.userRepository.update(existingLink.user.id, { lastLogin: new Date() });
+      return existingLink.user;
+    }
+
+    // 2. Check if a user with the same email exists
+    let user = await this.userRepository.findOne({ where: { email } });
+
+    if (!user) {
+      // Create a new user on first login
+      const randomPassword = randomBytes(16).toString('hex');
+      const hashedPassword = await bcrypt.hash(randomPassword, this.saltRounds);
+
+      user = this.userRepository.create({
+        email,
+        password: hashedPassword,
+        role: UserRole.BUYER, // default role
+        firstName: firstName || null,
+        lastName: lastName || null,
+        isActive: true,
+      });
+
+      user = await this.userRepository.save(user);
+      this.logger.log(`Created new OAuth user: ${email} via ${oauthProvider}`, 'AuthService');
+    } else {
+      this.logger.log(`Linking existing user: ${email} to OAuth provider ${oauthProvider}`, 'AuthService');
+    }
+
+    // 3. Link OAuth provider to the user
+    const link = this.oauthLinkRepository.create({
+      userId: user.id,
+      oauthProvider,
+      oauthId,
+    });
+    await this.oauthLinkRepository.save(link);
+
+    // Update last login
+    await this.userRepository.update(user.id, { lastLogin: new Date() });
+
+    return user;
+  }
+
+  /**
+   * Log in user via OAuth and generate access/refresh tokens.
+   */
+  async loginWithOAuth(user: User): Promise<AuthResponseDto> {
+    const tokens = await this.generateTokens(user);
+    return {
+      access_token: tokens.accessToken,
+      refresh_token: tokens.refreshToken,
+      user: this.mapUserToResponse(user),
+    };
+  }
+
+  async validatePasswordStrength(password: string): Promise<void> {
+    const result = zxcvbn(password);
+    if (result.score < 3 || password.length < 12) {
+      throw new BadRequestException('Password is too weak. Must be at least 12 characters.');
+    }
+    const hash = crypto.createHash('sha1').update(password).digest('hex').toUpperCase();
+    const prefix = hash.slice(0, 5);
+    const suffix = hash.slice(5);
+    try {
+      const response = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`);
+      const text = await response.text();
+      if (text.includes(suffix)) {
+        throw new BadRequestException('Password has been found in a data breach. Please choose another.');
+      }
+    } catch (err) {
+      if (err instanceof BadRequestException) throw err;
+      this.logger.warn('Failed to check HIBP API', 'AuthService');
+    }
+  }
+
+  async verifyEmail(token: string) {
+    try {
+      const payload = await this.jwtService.verifyAsync(token, { secret: this.configService.get('JWT_SECRET') || 'super_secret_jwt_key' });
+      const user = await this.userRepository.findOne({ where: { id: payload.sub } });
+      if (user) {
+        user.emailVerifiedAt = new Date();
+        await this.userRepository.save(user);
+        return { success: true };
+      }
+    } catch (e) {
+      throw new BadRequestException('Invalid or expired token');
+    }
+    throw new BadRequestException('User not found');
+  }
+
+  async resendVerification(userId: string) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) throw new BadRequestException('User not found');
+    const token = await this.jwtService.signAsync({ sub: user.id }, { secret: this.configService.get('JWT_SECRET') || 'super_secret_jwt_key', expiresIn: '24h' });
+    this.logger.log(`Resending verification to ${user.email}: ${token}`, 'AuthService');
+    return { success: true };
+  }
+
+  async getSessions(userId: string, page: number, limit: number) {
+    const [items, total] = await this.sessionRepository.findAndCount({
+      where: { user: { id: userId } },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    return { items, total };
+  }
+
+  async revokeSession(userId: string, sessionId: string) {
+    await this.sessionRepository.delete({ id: sessionId, user: { id: userId } });
+    return { success: true };
+  }
+
+  async revokeAllSessions(userId: string, currentSessionId?: string) {
+    const query = this.sessionRepository.createQueryBuilder().delete().where('user_id = :userId', { userId });
+    if (currentSessionId) {
+      query.andWhere('id != :currentSessionId', { currentSessionId });
+    }
+    await query.execute();
+    return { success: true };
   }
 }

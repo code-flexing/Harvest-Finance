@@ -14,9 +14,11 @@ export {
   InsuranceSubscription,
   SubscriptionStatus,
 } from './insurance-subscription.entity';
+export { InsuranceClaim, InsuranceClaimStatus } from './insurance-claim.entity';
 export { Notification, NotificationType } from './notification.entity';
 export { Order, OrderStatus } from './order.entity';
 export { Reward, RewardStatus } from './reward.entity';
+export { IndexerState } from './indexer-state.entity';
 export { SorobanEvent, SorobanEventType } from './soroban-event.entity';
 export {
   Transaction,
@@ -24,6 +26,7 @@ export {
   TransactionType,
 } from './transaction.entity';
 export { User, UserRole } from './user.entity';
+export { UserOAuthLink } from './user-oauth-link.entity';
 export { Vault, VaultStatus, VaultType } from './vault.entity';
 export { Strategy, CompoundingFrequency, COMPOUNDING_FREQUENCY_N } from './strategy.entity';
 export { VaultApyHistory } from './vault-apy-history.entity';
@@ -32,3 +35,5 @@ export { VaultDeposit } from './vault-deposit.entity';
 export { Verification, VerificationStatus } from './verification.entity';
 export { Withdrawal, WithdrawalStatus } from './withdrawal.entity';
 export { YieldAnalytics } from './yield-analytics.entity';
+export { VaultApyHistory } from './vault-apy-history.entity';
+

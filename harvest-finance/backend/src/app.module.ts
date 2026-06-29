@@ -1,7 +1,8 @@
 import { CacheModule } from '@nestjs/cache-manager';
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { ClassSerializerInterceptor } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -9,7 +10,6 @@ import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { validateEnvironment } from './common/config/env.validation';
 import { buildThrottlerOptions } from './common/config/throttler.config';
 import { CommonModule } from './common/common.module';
 import { RequestValidationMiddleware } from './common/middleware/request-validation.middleware';
@@ -24,7 +24,7 @@ import { HealthModule } from './health/health.module';
 import { OrdersModule } from './orders/orders.module';
 import { VerificationModule } from './verification/verification.module';
 import { DatabaseModule } from './database/database.module';
-import { LoggerMiddleware } from './logger/logger.middleware';
+import { HttpLoggerMiddleware } from './common/middleware/http-logger.middleware';
 import { LoggerModule } from './logger/logger.module';
 import { MultiChainModule } from './multi-chain/multi-chain.module';
 import { PortfolioModule } from './portfolio/portfolio.module';
@@ -33,12 +33,15 @@ import { SorobanModule } from './soroban/soroban.module';
 import { StellarModule } from './stellar/stellar.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { StateSyncModule } from './state-sync/state-sync.module';
+import { PaymentsModule } from './payments/payments.module';
 import { AchievementsModule } from './achievements/achievements.module';
 import { AdminModule } from './admin/admin.module';
 import { InsuranceModule } from './insurance/insurance.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { RewardsModule } from './rewards/rewards.module';
 import { ObservabilityModule } from './observability/observability.module';
+import { AppConfigModule } from './config/config.module'; 
+
 import {
   Achievement,
   CreditScore,
@@ -52,6 +55,7 @@ import {
   Strategy,
   Transaction,
   User,
+  UserOAuthLink,
   Vault,
   VaultApyHistory,
   VaultDeposit,
@@ -59,7 +63,9 @@ import {
   Verification,
   Withdrawal,
   YieldAnalytics,
+  VaultApyHistory,
 } from './database/entities';
+import { IndexerState } from './database/entities/indexer-state.entity';
 import { CommunityPost } from './database/entities/community-post.entity';
 import { CommunityComment } from './database/entities/community-comment.entity';
 import { PostReaction } from './database/entities/post-reaction.entity';
@@ -83,15 +89,24 @@ import { CreateSorobanEvents1700000000011 } from './database/migrations/17000000
 import { CreateYieldAnalytics1700000000012 } from './database/migrations/1700000000012-CreateYieldAnalytics';
 import { AddSorobanEventQueryIndexes1700000000013 } from './database/migrations/1700000000013-AddSorobanEventQueryIndexes';
 import { CreateDepositEvents1700000000016 } from './database/migrations/1700000000016-CreateDepositEvents';
+feat/strategy-apy-clean
 import { CreateStrategyAndApyHistory1700000000017 } from './database/migrations/1700000000017-CreateStrategyAndApyHistory';
 import { CreateVaultScoreHistory1700000000018 } from './database/migrations/1700000000018-CreateVaultScoreHistory';
+
+import { CreateVaultReservations1700000000018 } from './database/migrations/1700000000018-CreateVaultReservations';
+import { VaultReservation } from './vaults/entities/vault-reservation.entity';
+import { CreateVaultApyHistory1700000000017 } from './database/migrations/1700000000017-CreateVaultApyHistory';
+ main
 import { DomainEventsModule } from './domain-events';
+import { DomainEventHandlersModule } from './common/events';
+import { WebhooksModule } from './webhooks/webhooks.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, validate: validateEnvironment }),
+    ConfigModule.forRoot({ isGlobal: true }),
     DomainEventsModule,
     ObservabilityModule,
+    AppConfigModule,
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -107,6 +122,7 @@ import { DomainEventsModule } from './domain-events';
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_NAME'),
         entities: [
+ feat/strategy-apy-clean
            User,
            Order,
            Transaction,
@@ -146,6 +162,51 @@ import { DomainEventsModule } from './domain-events';
            CreateStrategyAndApyHistory1700000000017,
            CreateVaultScoreHistory1700000000018,
          ],
+
+          User,
+          UserOAuthLink,
+          Order,
+          Transaction,
+          Verification,
+          CreditScore,
+          Vault,
+          VaultDeposit,
+          Deposit,
+          DepositEvent,
+          Achievement,
+          Reward,
+          Notification,
+          Withdrawal,
+          CropCycle,
+          FarmVault,
+          InsurancePlan,
+          InsuranceSubscription,
+          SorobanEvent,
+          IndexerState,
+          YieldAnalytics,
+          VaultReservation,
+          VaultApyHistory,
+        ],
+
+       migrations: [
+  CreateInitialSchema1700000000000,
+  CreateAchievements1700000000004,
+  CreateRewards1700000000005,
+  CreateNotifications1700000000006,
+  CreateWithdrawals1700000000007,
+  CreateFarmVaults1700000000008,
+  CreateInsurance1700000000009,
+  AddInsuranceNotificationType1700000000010,
+  CreateSorobanEvents1700000000011,
+  CreateYieldAnalytics1700000000012,
+  AddSorobanEventQueryIndexes1700000000013,
+  CreateDepositEvents1700000000016,
+  CreateStrategyAndApyHistory1700000000017,
+  CreateVaultApyHistory1700000000017,
+  CreateVaultScoreHistory1700000000018,
+  CreateVaultReservations1700000000018,
+],
+ main
         synchronize: false,
         migrationsRun: false,
         logging: configService.get<string>('NODE_ENV') === 'development',
@@ -183,6 +244,8 @@ import { DomainEventsModule } from './domain-events';
     PortfolioModule,
     AnalyticsModule,
     StateSyncModule,
+    WebhooksModule,
+    DomainEventHandlersModule,
   ],
   controllers: [AppController],
   providers: [
@@ -191,12 +254,16 @@ import { DomainEventsModule } from './domain-events';
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ClassSerializerInterceptor,
+    },
   ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
-      .apply(RequestValidationMiddleware, LoggerMiddleware)
+      .apply(RequestValidationMiddleware, HttpLoggerMiddleware)
       .forRoutes('*');
   }
 }

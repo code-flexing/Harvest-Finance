@@ -1,42 +1,51 @@
-"use client";
-import i18n from 'i18next';
-import { initReactI18next } from 'react-i18next';
-import LanguageDetector from 'i18next-browser-languagedetector';
+'use client';
 
-import en from '../../public/locales/en/common.json';
-import es from '../../public/locales/es/common.json';
-import pt from '../../public/locales/pt/common.json';
-import fr from '../../public/locales/fr/common.json';
-import ha from '../../public/locales/ha/common.json';
+import { useTranslations } from 'next-intl';
 
-const isBrowser = typeof window !== 'undefined';
+export function useTranslation() {
+  const t = useTranslations();
 
-const i18nInstance = i18n.use(initReactI18next);
+  let language = 'en';
+  if (typeof window !== 'undefined') {
+    const cookieMatch = document.cookie.match(/(^|;)\s*NEXT_LOCALE\s*=\s*([^;]+)/);
+    language = cookieMatch ? cookieMatch[2] : localStorage.getItem('NEXT_LOCALE') || 'en';
+  }
 
-if (isBrowser) {
-  i18nInstance.use(LanguageDetector);
+  const changeLanguage = (lng: string) => {
+    if (typeof window !== 'undefined') {
+      document.cookie = `NEXT_LOCALE=${lng}; path=/; max-age=31536000; SameSite=Lax`;
+      localStorage.setItem('NEXT_LOCALE', lng);
+      
+      // Persist language preference per logged-in user
+      const userStr = localStorage.getItem('harvest_auth_user');
+      if (userStr) {
+        try {
+          const user = JSON.parse(userStr);
+          if (user && user.id) {
+            localStorage.setItem(`harvest_locale_user_${user.id}`, lng);
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      
+      // Force page reload so that next-intl re-reads the new locale cookie on layout.tsx
+      window.location.reload();
+    }
+  };
+
+  return {
+    t,
+    i18n: {
+      language,
+      changeLanguage,
+    }
+  };
 }
 
-i18nInstance.init({
-    resources: {
-      en: { common: en },
-      es: { common: es },
-      pt: { common: pt },
-      fr: { common: fr },
-      ha: { common: ha }
-    },
-    lng: isBrowser ? undefined : 'en',
-    ns: ['common'],
-    defaultNS: 'common',
-    fallbackLng: 'en',
-    debug: false,
-    interpolation: {
-      escapeValue: false,
-    },
-    detection: {
-      order: ['localStorage', 'cookie', 'navigator'],
-      caches: ['localStorage', 'cookie'],
-    }
-  });
+const defaultI18n = {
+  language: 'en',
+  changeLanguage: () => Promise.resolve(),
+};
 
-export default i18n;
+export default defaultI18n;

@@ -100,7 +100,7 @@ export default function DashboardPage() {
                         )}>
                            <stat.icon className="w-6 h-6" />
                         </div>
-                        <Badge variant="outline" className="text-[9px] font-black tracking-[0.2em] uppercase border-gray-100 dark:border-white/5 opacity-50">Realtime</Badge>
+                        <Badge variant="default" className="text-[9px] font-black tracking-[0.2em] uppercase border-gray-100 dark:border-white/5 opacity-50">Realtime</Badge>
                      </div>
                      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-400 mb-1">{stat.label}</p>
                      <p className="text-3xl font-black text-gray-900 dark:text-white tracking-tighter">{stat.value}</p>

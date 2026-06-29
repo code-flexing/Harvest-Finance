@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '@/lib/i18n';
 import { Button, Container, Inline, ThemeToggle } from '@/components/ui';
 import { Leaf, Menu } from 'lucide-react';
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher';

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '@/lib/i18n';
 import { Globe } from 'lucide-react';
 
 export const LanguageSwitcher: React.FC = () => {
@@ -18,7 +18,8 @@ export const LanguageSwitcher: React.FC = () => {
 
   const languages = [
     { code: 'en', name: t('languages.en') },
-    { code: 'fr', name: t('languages.fr') },
+    { code: 'yo', name: t('languages.yo') },
+    { code: 'ig', name: t('languages.ig') },
     { code: 'ha', name: t('languages.ha') },
   ];
 
