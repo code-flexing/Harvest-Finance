@@ -115,6 +115,16 @@ export class AdminController {
     return this.adminService.updateUserStatus(id, body.isActive);
   }
 
+  @Post('users/:id/unlock')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Manually unlock a locked user account' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiResponse({ status: 200, description: 'Account unlocked successfully' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async unlockUser(@Param('id') id: string): Promise<{ message: string }> {
+    return this.adminService.unlockUser(id);
+  }
+
   @Get('users/activity')
   @ApiOperation({ summary: 'Get all user transactions/deposits' })
   @ApiResponse({ status: 200 })

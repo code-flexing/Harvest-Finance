@@ -27,15 +27,22 @@ export class SeedService implements OnModuleInit {
   }
 
   /**
-   * Seed the database with test data
+   * Seed the database with test data.
    *
-   * Creates realistic users, vaults, deposits, and vault deposit balances.
+   * Idempotent: clears any existing seed data before inserting fresh records so
+   * this method can be called multiple times without accumulating duplicates.
+   *
+   * Covers all enum variants:
+   *  - UserRole:       FARMER, BUYER, INSPECTOR, ADMIN
+   *  - VaultStatus:    ACTIVE, INACTIVE, FROZEN, FULL_CAPACITY
+   *  - DepositStatus:  CONFIRMED, PENDING, FAILED, REFUNDED
+   *  - WithdrawalStatus: CONFIRMED, PENDING, FAILED
    */
   async seed(): Promise<void> {
     this.logger.log('Starting database seeding...');
 
     try {
-      // Clear existing seed data first
+      // Clear existing seed data first (makes the operation idempotent)
       await clearSeedData(this.dataSource);
 
       // Generate new seed data

@@ -41,6 +41,12 @@ const activityConfig: Record<
     bgColor: "bg-amber-50",
     label: "Withdrawal",
   },
+  yield_compounded: {
+    icon: Sparkles,
+    color: "text-indigo-600",
+    bgColor: "bg-indigo-50",
+    label: "Yield Compounded",
+  },
   milestone: {
     icon: Trophy,
     color: "text-purple-600",

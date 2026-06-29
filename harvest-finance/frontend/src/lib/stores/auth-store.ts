@@ -62,6 +62,19 @@ function loadFromStorage(): { token: string | null; user: User | null } {
   return { token, user };
 }
 
+function applyUserLocale(userId: string) {
+  if (typeof window === 'undefined') return;
+  const savedLocale = localStorage.getItem(`harvest_locale_user_${userId}`);
+  if (savedLocale) {
+    const currentCookie = document.cookie.match(/(^|;)\s*NEXT_LOCALE\s*=\s*([^;]+)/)?.[2];
+    if (currentCookie !== savedLocale) {
+      document.cookie = `NEXT_LOCALE=${savedLocale}; path=/; max-age=31536000; SameSite=Lax`;
+      localStorage.setItem('NEXT_LOCALE', savedLocale);
+      window.location.reload();
+    }
+  }
+}
+
 export const useAuthStore = create<AuthStore>((set) => ({
   user: null,
   token: null,
@@ -81,6 +94,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       const normalizedUser = { ...user, role: normalizeRole(user.role) };
       saveToStorage(access_token, normalizedUser);
       set({ user: normalizedUser, token: access_token, isAuthenticated: true, isLoading: false });
+      applyUserLocale(normalizedUser.id);
     } catch (err: any) {
       set({
         isLoading: false,
@@ -103,6 +117,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       const normalizedUser = { ...user, role: normalizeRole(user.role) };
       saveToStorage(access_token, normalizedUser);
       set({ user: normalizedUser, token: access_token, isAuthenticated: true, isLoading: false });
+      applyUserLocale(normalizedUser.id);
     } catch (err: any) {
       set({
         isLoading: false,
@@ -213,6 +228,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       
       saveToStorage(access_token, normalizedUser);
       set({ user: normalizedUser, token: access_token, isAuthenticated: true, isLoading: false });
+      applyUserLocale(normalizedUser.id);
     } catch (err: any) {
       set({
         isLoading: false,
@@ -240,6 +256,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
     const { token, user } = loadFromStorage();
     if (token && user) {
       set({ token, user, isAuthenticated: true });
+      applyUserLocale(user.id);
     }
   },
 }));

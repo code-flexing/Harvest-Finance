@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { I18nInitializer } from "@/components/layout/I18nInitializer";
+import { NextIntlClientProvider } from 'next-intl';
+import { cookies } from 'next/headers';
 import { MilestoneToastContainer } from "@/components/dashboard/MilestoneToast";
 import ReactToastProvider from '@/components/ui/ReactToastProvider';
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
@@ -48,13 +49,23 @@ export const viewport: Viewport = {
   themeColor: '#2f7a42',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const cookieStore = await cookies();
+  const locale = cookieStore.get('NEXT_LOCALE')?.value || 'en';
+
+  let messages;
+  try {
+    messages = (await import(`../messages/${locale}.json`)).default;
+  } catch (error) {
+    messages = (await import(`../messages/en.json`)).default;
+  }
+
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <head>
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
@@ -64,19 +75,20 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <I18nInitializer />
-        <ThemeProvider>
-          <QueryProvider>
-            <ServiceWorkerRegistration />
-            <a href="#main-content" className="skip-link">
-              Skip to main content
-            </a>
-            {children}
-            <MilestoneToastContainer />
-            <ReactToastProvider />
-            <ConnectionStatus />
-          </QueryProvider>
-        </ThemeProvider>
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <ThemeProvider>
+            <QueryProvider>
+              <ServiceWorkerRegistration />
+              <a href="#main-content" className="skip-link">
+                Skip to main content
+              </a>
+              {children}
+              <MilestoneToastContainer />
+              <ReactToastProvider />
+              <ConnectionStatus />
+            </QueryProvider>
+          </ThemeProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Delete,
   Param,
   Body,
   Query,
@@ -27,15 +28,22 @@ import { GetVaultBalanceQuery } from './cqrs/queries/get-vault-balance.query';
 import { GetVaultTransactionsQuery } from './cqrs/queries/get-vault-transactions.query';
 import { DepositDto } from './dto/deposit.dto';
 import { BatchDepositDto } from './dto/batch-deposit.dto';
+import { CloneVaultDto } from './dto/clone-vault.dto';
+import { CreateReservationDto } from './dto/create-reservation.dto';
+import { ReservationResponseDto } from './dto/reservation-response.dto';
 import {
   BatchDepositResponseDto,
   DepositVaultResponseDto,
   VaultResponseDto,
+  PaginatedVaultsResponseDto,
 } from './dto/vault-response.dto';
+import { PaginationQueryDto } from './dto/pagination-query.dto';
 import { DepositEventResponseDto } from './dto/deposit-event-response.dto';
 import { ScoreBreakdownDto } from './dto/score-breakdown.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ScoringService } from '../analytics/scoring.service';
+import { RiskService } from '../analytics/risk.service';
+import { WithdrawalQueueService } from './withdrawal-queue.service';
 
 @ApiTags('Vaults')
 @Controller({
@@ -212,6 +220,40 @@ export class VaultsController {
     return this.vaultsService.getVaultDepositEventHistory(vaultId);
   }
 
+  @Post(':vaultId/clone')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Clone vault configuration from an existing template vault',
+  })
+  @ApiParam({
+    name: 'vaultId',
+    description: 'Source vault ID (UUID) to copy configuration from',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiBody({ type: CloneVaultDto, required: false })
+  @ApiResponse({
+    status: 201,
+    description: 'Vault cloned successfully',
+    type: VaultResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Only vault owner can clone',
+  })
+  @ApiResponse({ status: 404, description: 'Vault not found' })
+  async cloneVault(
+    @Param('vaultId') vaultId: string,
+    @Body() cloneVaultDto: CloneVaultDto,
+    @Request() req: any,
+  ): Promise<VaultResponseDto> {
+    return this.vaultsService.cloneVaultFromTemplate(
+      vaultId,
+      req.user.id,
+      cloneVaultDto?.vaultName,
+    );
+  }
+
   @Get('my-vaults')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get all vaults for authenticated user' })
@@ -259,10 +301,12 @@ export class VaultsController {
   @ApiResponse({
     status: 200,
     description: 'Public vaults retrieved successfully',
-    type: [VaultResponseDto],
+    type: PaginatedVaultsResponseDto,
   })
-  async getPublicVaults(): Promise<VaultResponseDto[]> {
-    return this.vaultsService.getPublicVaults();
+  async getPublicVaults(
+    @Query() query: PaginationQueryDto,
+  ): Promise<PaginatedVaultsResponseDto> {
+    return this.vaultsService.getPublicVaults(query);
   }
 
   @Get('metadata')
@@ -483,5 +527,53 @@ export class VaultsController {
     @Request() req: any,
   ): Promise<VaultResponseDto> {
     return this.vaultsService.resumeVault(vaultId, req.user.id);
+  }
+
+  @Post(':vaultId/reservations')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Create a capacity reservation for a specific depositor' })
+  @ApiParam({ name: 'vaultId', description: 'Vault ID (UUID)' })
+  @ApiBody({ type: CreateReservationDto })
+  @ApiResponse({ status: 201, description: 'Reservation created', type: ReservationResponseDto })
+  @ApiResponse({ status: 400, description: 'Insufficient capacity or invalid expiry' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Only vault owner can create reservations' })
+  @ApiResponse({ status: 404, description: 'Vault not found' })
+  async createReservation(
+    @Param('vaultId') vaultId: string,
+    @Body() dto: CreateReservationDto,
+    @Request() req: any,
+  ): Promise<ReservationResponseDto> {
+    return this.vaultsService.createReservation(vaultId, req.user.id, dto);
+  }
+
+  @Get(':vaultId/reservations')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'List all active reservations for a vault' })
+  @ApiParam({ name: 'vaultId', description: 'Vault ID (UUID)' })
+  @ApiResponse({ status: 200, description: 'Active reservations', type: [ReservationResponseDto] })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Only vault owner can view reservations' })
+  @ApiResponse({ status: 404, description: 'Vault not found' })
+  async getVaultReservations(
+    @Param('vaultId') vaultId: string,
+    @Request() req: any,
+  ): Promise<ReservationResponseDto[]> {
+    return this.vaultsService.getVaultReservations(vaultId, req.user.id);
+  }
+
+  @Delete(':vaultId/reservations/:reservationId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Cancel a vault capacity reservation' })
+  @ApiParam({ name: 'vaultId', description: 'Vault ID (UUID)' })
+  @ApiParam({ name: 'reservationId', description: 'Reservation ID (UUID)' })
+  @ApiResponse({ status: 204, description: 'Reservation cancelled' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Only vault owner can cancel reservations' })
+  @ApiResponse({ status: 404, description: 'Reservation or vault not found' })
+  async cancelReservation(
+    @Param('vaultId') vaultId: string,
+    @Param('reservationId') reservationId: string,
+    @Request() req: any,
+  ): Promise<void> {
+    return this.vaultsService.cancelReservation(vaultId, reservationId, req.user.id);
   }
 }

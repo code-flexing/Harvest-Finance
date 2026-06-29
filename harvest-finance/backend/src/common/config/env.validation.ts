@@ -46,6 +46,12 @@ export function validateEnvironment(
       THROTTLE_LIMIT: num({ default: 100 }),
       LOG_LEVEL: str({ choices: logLevels, default: 'info' }),
       LOG_PRETTY: bool({ default: false, devDefault: true }),
+      WEBHOOK_PAYMENTS_HMAC_SECRET: str({
+        devDefault: 'dev-webhook-payments-secret',
+      }),
+      WEBHOOK_CHAIN_EVENTS_HMAC_SECRET: str({
+        devDefault: 'dev-webhook-chain-events-secret',
+      }),
     },
     {
       reporter: ({ errors }) => {

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from '@/lib/i18n';
 import {
   Modal,
   ModalHeader,
@@ -118,7 +118,7 @@ export const DepositModal: React.FC<DepositModalProps> = ({
     setIsLoading(true);
     setError(null);
 
-    let toastId: React.ReactText | null = null;
+    let toastId: string | number | null = null;
     try {
       if (typeof navigator !== "undefined" && !navigator.onLine) {
         enqueueOfflineAction({

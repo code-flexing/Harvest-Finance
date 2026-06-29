@@ -1,7 +1,7 @@
 # Multi-chain data bridge
 
 A thin abstraction so Harvest's yield reporting can grow beyond Stellar without
-a refactor. Today only `StellarYieldAdapter` is wired.
+a refactor. `StellarYieldAdapter` and `SolanaYieldAdapter` are registered.
 
 ## Adding a new chain adapter
 
