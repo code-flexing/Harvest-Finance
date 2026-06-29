@@ -63,7 +63,6 @@ import {
   Verification,
   Withdrawal,
   YieldAnalytics,
-  VaultApyHistory,
 } from './database/entities';
 import { IndexerState } from './database/entities/indexer-state.entity';
 import { CommunityPost } from './database/entities/community-post.entity';
@@ -89,14 +88,11 @@ import { CreateSorobanEvents1700000000011 } from './database/migrations/17000000
 import { CreateYieldAnalytics1700000000012 } from './database/migrations/1700000000012-CreateYieldAnalytics';
 import { AddSorobanEventQueryIndexes1700000000013 } from './database/migrations/1700000000013-AddSorobanEventQueryIndexes';
 import { CreateDepositEvents1700000000016 } from './database/migrations/1700000000016-CreateDepositEvents';
-feat/strategy-apy-clean
 import { CreateStrategyAndApyHistory1700000000017 } from './database/migrations/1700000000017-CreateStrategyAndApyHistory';
 import { CreateVaultScoreHistory1700000000018 } from './database/migrations/1700000000018-CreateVaultScoreHistory';
 
 import { CreateVaultReservations1700000000018 } from './database/migrations/1700000000018-CreateVaultReservations';
 import { VaultReservation } from './vaults/entities/vault-reservation.entity';
-import { CreateVaultApyHistory1700000000017 } from './database/migrations/1700000000017-CreateVaultApyHistory';
- main
 import { DomainEventsModule } from './domain-events';
 import { DomainEventHandlersModule } from './common/events';
 import { WebhooksModule } from './webhooks/webhooks.module';
@@ -122,47 +118,6 @@ import { WebhooksModule } from './webhooks/webhooks.module';
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_NAME'),
         entities: [
- feat/strategy-apy-clean
-           User,
-           Order,
-           Transaction,
-           Verification,
-           CreditScore,
-           Vault,
-           VaultDeposit,
-           Deposit,
-           DepositEvent,
-           Achievement,
-           Reward,
-           Notification,
-           Withdrawal,
-           CropCycle,
-           FarmVault,
-           InsurancePlan,
-           InsuranceSubscription,
-           SorobanEvent,
-           YieldAnalytics,
-           Strategy,
-           VaultApyHistory,
-           VaultScoreHistory,
-         ],
-        migrations: [
-           CreateInitialSchema1700000000000,
-           CreateAchievements1700000000004,
-           CreateRewards1700000000005,
-           CreateNotifications1700000000006,
-           CreateWithdrawals1700000000007,
-           CreateFarmVaults1700000000008,
-           CreateInsurance1700000000009,
-           AddInsuranceNotificationType1700000000010,
-           CreateSorobanEvents1700000000011,
-           CreateYieldAnalytics1700000000012,
-           AddSorobanEventQueryIndexes1700000000013,
-           CreateDepositEvents1700000000016,
-           CreateStrategyAndApyHistory1700000000017,
-           CreateVaultScoreHistory1700000000018,
-         ],
-
           User,
           UserOAuthLink,
           Order,
@@ -184,29 +139,28 @@ import { WebhooksModule } from './webhooks/webhooks.module';
           SorobanEvent,
           IndexerState,
           YieldAnalytics,
-          VaultReservation,
+          Strategy,
           VaultApyHistory,
+          VaultScoreHistory,
+          VaultReservation,
         ],
-
-       migrations: [
-  CreateInitialSchema1700000000000,
-  CreateAchievements1700000000004,
-  CreateRewards1700000000005,
-  CreateNotifications1700000000006,
-  CreateWithdrawals1700000000007,
-  CreateFarmVaults1700000000008,
-  CreateInsurance1700000000009,
-  AddInsuranceNotificationType1700000000010,
-  CreateSorobanEvents1700000000011,
-  CreateYieldAnalytics1700000000012,
-  AddSorobanEventQueryIndexes1700000000013,
-  CreateDepositEvents1700000000016,
-  CreateStrategyAndApyHistory1700000000017,
-  CreateVaultApyHistory1700000000017,
-  CreateVaultScoreHistory1700000000018,
-  CreateVaultReservations1700000000018,
-],
- main
+        migrations: [
+          CreateInitialSchema1700000000000,
+          CreateAchievements1700000000004,
+          CreateRewards1700000000005,
+          CreateNotifications1700000000006,
+          CreateWithdrawals1700000000007,
+          CreateFarmVaults1700000000008,
+          CreateInsurance1700000000009,
+          AddInsuranceNotificationType1700000000010,
+          CreateSorobanEvents1700000000011,
+          CreateYieldAnalytics1700000000012,
+          AddSorobanEventQueryIndexes1700000000013,
+          CreateDepositEvents1700000000016,
+          CreateStrategyAndApyHistory1700000000017,
+          CreateVaultScoreHistory1700000000018,
+          CreateVaultReservations1700000000018,
+        ],
         synchronize: false,
         migrationsRun: false,
         logging: configService.get<string>('NODE_ENV') === 'development',

@@ -1,3 +1,35 @@
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  OneToMany,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Index,
+} from 'typeorm';
+import { Strategy, CompoundingFrequency, COMPOUNDING_FREQUENCY_N } from './strategy.entity';
+import { User } from './user.entity';
+import { Deposit } from './deposit.entity';
+import { VaultApproval } from './vault-approval.entity';
+
+export enum VaultType {
+  CROP_PRODUCTION = 'CROP_PRODUCTION',
+  EQUIPMENT_FINANCING = 'EQUIPMENT_FINANCING',
+  LAND_ACQUISITION = 'LAND_ACQUISITION',
+  INSURANCE_FUND = 'INSURANCE_FUND',
+  EMERGENCY_FUND = 'EMERGENCY_FUND',
+}
+
+export enum VaultStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  FROZEN = 'FROZEN',
+  FULL_CAPACITY = 'FULL_CAPACITY',
+  SUSPENDED = 'SUSPENDED',
+}
+
 @Entity('vaults')
 @Index('idx_vaults_owner', ['ownerId'])
 @Index('idx_vaults_type', ['type'])

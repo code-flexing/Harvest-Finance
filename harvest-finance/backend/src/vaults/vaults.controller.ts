@@ -42,8 +42,6 @@ import { DepositEventResponseDto } from './dto/deposit-event-response.dto';
 import { ScoreBreakdownDto } from './dto/score-breakdown.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ScoringService } from '../analytics/scoring.service';
-import { RiskService } from '../analytics/risk.service';
-import { WithdrawalQueueService } from './withdrawal-queue.service';
 
 @ApiTags('Vaults')
 @Controller({

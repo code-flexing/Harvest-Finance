@@ -32,8 +32,8 @@ export { Strategy, CompoundingFrequency, COMPOUNDING_FREQUENCY_N } from './strat
 export { VaultApyHistory } from './vault-apy-history.entity';
 export { VaultScoreHistory } from './vault-score-history.entity';
 export { VaultDeposit } from './vault-deposit.entity';
+export { VaultApproval } from './vault-approval.entity';
 export { Verification, VerificationStatus } from './verification.entity';
 export { Withdrawal, WithdrawalStatus } from './withdrawal.entity';
 export { YieldAnalytics } from './yield-analytics.entity';
-export { VaultApyHistory } from './vault-apy-history.entity';
 
