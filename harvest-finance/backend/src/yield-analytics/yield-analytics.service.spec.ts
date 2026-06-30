@@ -160,8 +160,8 @@ describe('YieldAnalyticsService', () => {
 
   describe('calculateDailyApy', () => {
     it('should calculate daily APY correctly', () => {
-      const currentPrice = 1052631578947368421n; // 1.0526...
-      const previousPrice = 1050000000000000000n; // 1.05
+      const currentPrice = 1001781213014022000n; // 1.00178...
+      const previousPrice = 1000000000000000000n; // 1.00
 
       const calculateDailyApy = (service as any).calculateDailyApy.bind(
         service,

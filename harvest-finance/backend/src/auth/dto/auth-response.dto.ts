@@ -52,6 +52,20 @@ export class UserResponseDto {
     description: 'Stellar address',
   })
   stellar_address?: string | null;
+
+  /**
+   * Indicates how the Stellar wallet is managed.
+   * - `none`         – no wallet linked yet.
+   * - `self-custody` – user supplied their own wallet address (e.g. Freighter).
+   * - `custodial`    – platform-generated and encrypted wallet; user can export the key.
+   */
+  @Expose()
+  @ApiPropertyOptional({
+    example: 'custodial',
+    enum: ['none', 'self-custody', 'custodial'],
+    description: 'Wallet custody type',
+  })
+  wallet_type?: string | null;
 }
 
 /** Response shape returned after a successful login or token refresh. */

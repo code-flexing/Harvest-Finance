@@ -5,6 +5,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { SorobanEvent } from '../../database/entities/soroban-event.entity';
 import { IndexerState } from '../../database/entities/indexer-state.entity';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { DataSource } from 'typeorm';
 import axios from 'axios';
 
 jest.mock('axios');
@@ -67,7 +68,7 @@ describe('SorobanIndexerService - Cursor Persistence', () => {
       if (typeof chain[key] === 'function') {
         const original = chain[key];
         chain[key] = jest.fn((...args: any[]) => {
-          const r = original(...args);
+          const r = original.apply(chain, args);
           return r === chain ? chain : r;
         });
       }
@@ -93,6 +94,7 @@ describe('SorobanIndexerService - Cursor Persistence', () => {
 
     mockIndexerStateRepository = {
       findOne: jest.fn().mockResolvedValue(stateOnDisk),
+      find: jest.fn().mockResolvedValue(stateOnDisk ? [stateOnDisk] : []),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -125,6 +127,12 @@ describe('SorobanIndexerService - Cursor Persistence', () => {
         {
           provide: CACHE_MANAGER,
           useValue: mockCacheManager,
+        },
+        {
+          provide: DataSource,
+          useValue: {
+            transaction: jest.fn().mockImplementation(async (cb: any) => cb(mockQueryRunner.manager)),
+          },
         },
       ],
     }).compile();
@@ -218,6 +226,7 @@ describe('SorobanIndexerService - Cursor Persistence', () => {
             useValue: mockIndexerStateRepository,
           },
           { provide: CACHE_MANAGER, useValue: mockCacheManager },
+          { provide: DataSource, useValue: { transaction: jest.fn().mockImplementation(async (cb: any) => cb(mockQueryRunner.manager)) } },
         ],
       }).compile();
 
@@ -353,7 +362,6 @@ describe('SorobanIndexerService - Cursor Persistence', () => {
 
       await service.runOnce();
 
-      // The RPC post body should include pagination.cursor but NOT startLedger.
       const postedBody = mockAxios.post.mock.calls[0][1];
       expect(postedBody.params.pagination).toEqual(
         expect.objectContaining({ cursor: 'stored-cursor-abc' }),

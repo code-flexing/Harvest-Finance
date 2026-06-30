@@ -38,6 +38,7 @@ import { InputSanitizerService } from '../common/sanitization/input-sanitizer.se
 import { VaultApproval } from '../database/entities/vault-approval.entity';
 import { User } from '../database/entities/user.entity';
 import { DepositEventService } from './deposit-event.service';
+import { WithdrawalQueueService } from './withdrawal-queue.service';
 import { DepositEventResponseDto } from './dto/deposit-event-response.dto';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import {
@@ -72,6 +73,7 @@ export class VaultsService {
     private sanitizer: InputSanitizerService,
     private depositEventService: DepositEventService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly withdrawalQueueService: WithdrawalQueueService,
   ) {}
 
   async getVaultById(vaultId: string): Promise<Vault> {
@@ -235,6 +237,10 @@ export class VaultsService {
     }
 
     const userTotalDeposits = await this.getUserTotalDeposits(userId);
+
+    if (result.vault) {
+      await this.withdrawalQueueService.processQueue(vaultId, Number(result.vault.totalDeposits));
+    }
 
     this.logger.log(
       `Deposit of ${amount} initiated for vault ${vaultId} by user ${userId}`,
@@ -450,6 +456,8 @@ export class VaultsService {
       }
 
       if (r.vault) {
+        await this.withdrawalQueueService.processQueue(r.vault.id, Number(r.vault.totalDeposits));
+
         this.vaultGateway.emitDeposit({
           vaultId: r.vault.id,
           vaultName: r.vault.vaultName,

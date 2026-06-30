@@ -8,6 +8,8 @@ import {
 import { Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
+import { DataSource } from 'typeorm';
+import { IndexerState } from '../../database/entities/indexer-state.entity';
 
 describe('SorobanIndexerService - Filter handling', () => {
   let module: TestingModule;
@@ -88,8 +90,10 @@ describe('SorobanIndexerService - Filter handling', () => {
       providers: [
         SorobanIndexerService,
         { provide: getRepositoryToken(SorobanEvent), useValue: mockRepo },
+        { provide: getRepositoryToken(IndexerState), useValue: { findOne: jest.fn(), find: jest.fn() } },
         { provide: ConfigService, useValue: mockConfig },
         { provide: 'CACHE_MANAGER', useValue: mockCache },
+        { provide: DataSource, useValue: { transaction: jest.fn().mockImplementation(async (cb: any) => cb({})) } },
       ],
     }).compile();
 

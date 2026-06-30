@@ -8,6 +8,7 @@ import {
   JoinColumn,
   Index,
 } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { User } from './user.entity';
 
 /**
@@ -19,6 +20,8 @@ import { User } from './user.entity';
 @Entity('sessions')
 @Index('idx_sessions_user_id', ['user'])
 @Index('idx_sessions_expires_at', ['expiresAt'])
+@Index('idx_sessions_family_id', ['familyId'])
+@Index('idx_sessions_user_id_revoked', ['user', 'isRevoked'])
 export class Session {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -34,6 +37,28 @@ export class Session {
   /** Raw User-Agent header captured at login time. */
   @Column({ name: 'user_agent', type: 'varchar', nullable: true })
   userAgent: string | null;
+  /**
+   * Groups all tokens issued from a single login event (token rotation chain).
+   * If any revoked token in the family is replayed, the entire family is revoked.
+   */
+  @Column({ name: 'family_id', type: 'uuid' })
+  familyId: string;
+
+  /**
+   * True once the token has been consumed (rotated) or explicitly revoked.
+   */
+  @Column({ name: 'is_revoked', default: false })
+  isRevoked: boolean;
+
+  /**
+   * UUID of the session record that replaced this one after rotation.
+   * Null until this token is consumed by a /auth/refresh call.
+   */
+  @Column({ name: 'replaced_by', type: 'uuid', nullable: true })
+  replacedBy: string | null;
+
+  @Column({ name: 'user_agent', nullable: true })
+  userAgent: string;
 
   /** Client IP address captured at login time. */
   @Column({ name: 'ip_address', type: 'varchar', nullable: true })

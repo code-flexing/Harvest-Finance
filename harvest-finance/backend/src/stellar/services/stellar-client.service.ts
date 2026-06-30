@@ -110,7 +110,7 @@ export class StellarClientService implements OnModuleInit, OnModuleDestroy {
 
   /** Fetch fee statistics from Horizon. */
   async feeStats(context = 'feeStats'): Promise<StellarSdk.Horizon.HorizonApi.FeeStatsResponse> {
-    return this.call(context, () => this.server.feeStats());
+    return this.call(context, () => this.server.feeStats().call());
   }
 
   /** Execute an operation through the circuit breaker. */

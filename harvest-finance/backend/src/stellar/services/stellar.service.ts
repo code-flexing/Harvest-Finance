@@ -141,6 +141,17 @@ export class StellarService implements OnModuleInit {
     }
   }
 
+  private getPositiveIntegerConfig(key: string, fallback: number): number {
+    const val = this.configService.get<string>(key);
+    if (!val) return fallback;
+    const parsed = parseInt(val, 10);
+    if (isNaN(parsed) || parsed <= 0) {
+      this.logger.warn(`Invalid config for ${key}: ${val}. Using fallback ${fallback}`);
+      return fallback;
+    }
+    return parsed;
+  }
+
   /**
    * Returns a paginated slice of transactions for a Stellar account.
    * Wraps Horizon's cursor-based pagination with simple skip/limit semantics
@@ -1118,6 +1129,7 @@ export class StellarService implements OnModuleInit {
       if (err instanceof FeeCapExceededException) {
         throw err;
       }
+      console.error('Error in getBaseFee:', err);
       this.logger.warn('Could not fetch fee stats, using default 100 stroops');
       return '100';
     }
@@ -1258,5 +1270,5 @@ export class StellarService implements OnModuleInit {
   ): Promise<StellarSdk.Horizon.HorizonApi.SubmitTransactionResponse> {
     return this.client.submitTransaction(transaction, context);
   }
-  }
 }
+

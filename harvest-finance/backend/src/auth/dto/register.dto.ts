@@ -6,6 +6,8 @@ import {
   Matches,
   IsEnum,
   IsNotEmpty,
+  IsOptional,
+  IsBoolean,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserRole } from '../../database/entities/user.entity';
@@ -97,14 +99,34 @@ export class RegisterDto {
 
   /**
    * The user's Stellar blockchain public key (56-character G... address).
-   * Used to link the account to on-chain operations such as vault deposits.
+   * Required when `use_custodial_wallet` is false or not supplied.
+   * Optional when `use_custodial_wallet` is true — the platform will generate a wallet.
    */
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: 'GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
-    description: 'Stellar blockchain address',
+    description:
+      'Stellar blockchain address. Required for self-custody wallets; omit when use_custodial_wallet is true.',
   })
+  @IsOptional()
   @IsString({ message: 'Stellar address must be a string' })
   @MaxLength(56, { message: 'Stellar address must not exceed 56 characters' })
-  @IsNotEmpty({ message: 'Stellar address is required' })
-  stellar_address: string;
+  stellar_address?: string;
+
+  /**
+   * When true, the platform will generate and securely manage a Stellar wallet
+   * on the user's behalf. The private key is encrypted with the user's password
+   * and can be exported at any time for self-custody migration.
+   *
+   * If both `use_custodial_wallet` and `stellar_address` are provided,
+   * `stellar_address` takes precedence (self-custody).
+   */
+  @ApiPropertyOptional({
+    example: true,
+    description:
+      'Set to true to have the platform generate a custodial Stellar wallet. ' +
+      'Ideal for users new to crypto who do not have a Freighter wallet yet.',
+  })
+  @IsOptional()
+  @IsBoolean({ message: 'use_custodial_wallet must be a boolean' })
+  use_custodial_wallet?: boolean;
 }

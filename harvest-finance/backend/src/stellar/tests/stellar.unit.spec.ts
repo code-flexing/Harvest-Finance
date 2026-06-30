@@ -4,6 +4,7 @@ import { StellarService } from '../services/stellar.service';
 import { SecretsService } from '../../common/secrets/secrets.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CustomLoggerService } from '../../logger/custom-logger.service';
+import { StellarClientService } from '../services/stellar-client.service';
 
 describe('StellarService (unit)', () => {
   let service: StellarService;
@@ -12,6 +13,7 @@ describe('StellarService (unit)', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         StellarService,
+        { provide: StellarClientService, useValue: {} },
         {
           provide: SecretsService,
           useValue: {
