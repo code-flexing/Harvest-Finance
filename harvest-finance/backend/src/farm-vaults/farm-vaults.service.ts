@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -11,6 +12,7 @@ import {
 } from '../database/entities/farm-vault.entity';
 import { CropCycle } from '../database/entities/crop-cycle.entity';
 import { VaultGateway } from '../realtime/vault.gateway';
+import { AuthService } from '../auth/auth.service';
 
 @Injectable()
 export class FarmVaultsService {
@@ -21,12 +23,21 @@ export class FarmVaultsService {
     private cropCycleRepository: Repository<CropCycle>,
     private dataSource: DataSource,
     private vaultGateway: VaultGateway,
+    private authService: AuthService,
   ) {}
 
   async createVault(
     userId: string,
     data: { name: string; cropCycleId: string; targetAmount: number },
   ) {
+    // Check email verification
+    const isVerified = await this.authService.isEmailVerified(userId);
+    if (!isVerified) {
+      throw new ForbiddenException(
+        'Email verification is required to create a vault. Please verify your email address.',
+      );
+    }
+
     const cropCycle = await this.cropCycleRepository.findOne({
       where: { id: data.cropCycleId },
     });
@@ -48,6 +59,14 @@ export class FarmVaultsService {
   }
 
   async deposit(vaultId: string, userId: string, amount: number) {
+    // Check email verification
+    const isVerified = await this.authService.isEmailVerified(userId);
+    if (!isVerified) {
+      throw new ForbiddenException(
+        'Email verification is required to make deposits. Please verify your email address.',
+      );
+    }
+
     if (amount <= 0) {
       throw new BadRequestException('Deposit amount must be greater than 0');
     }

@@ -7,6 +7,7 @@ import {
   HttpCode,
   HttpStatus,
   Get,
+  Query,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import type { Request } from 'express';
@@ -405,12 +406,32 @@ export class AuthController {
   }
 
   @Get('verify-email')
+  @ApiOperation({
+    summary: 'Verify email address',
+    description: 'Verifies a user\'s email address using the JWT token sent via email. The token expires in 24 hours.',
+  })
+  @ApiResponse({ status: 200, description: 'Email verified successfully', schema: { type: 'object', properties: { success: { type: 'boolean' }, message: { type: 'string' } } } })
+  @ApiResponse({ status: 400, description: 'Invalid or expired token' })
   async verifyEmail(@Query('token') token: string) {
     return this.authService.verifyEmail(token);
   }
 
   @Post('resend-verification')
   @UseGuards(JwtAuthGuard)
+  @UseGuards(RateLimitGuard)
+  @RateLimit({
+    limit: 3,
+    ttl: 3600,
+    message: 'Too many verification requests. Please try again in 1 hour.',
+  })
+  @ApiOperation({
+    summary: 'Resend verification email',
+    description: 'Resends the email verification link. Only available for unverified users. Rate limited to 3 requests per hour.',
+  })
+  @ApiResponse({ status: 200, description: 'Verification email sent', schema: { type: 'object', properties: { success: { type: 'boolean' }, message: { type: 'string' } } } })
+  @ApiResponse({ status: 400, description: 'User not found or already verified' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
   async resendVerification(@Req() req) {
     return this.authService.resendVerification(req.user.id);
   }

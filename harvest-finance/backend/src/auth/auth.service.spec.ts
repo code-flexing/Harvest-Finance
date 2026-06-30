@@ -12,12 +12,18 @@ import { AuthService } from './auth.service';
 import { CustomLoggerService } from '../logger/custom-logger.service';
 import { User, UserRole } from '../database/entities/user.entity';
 import { UserOAuthLink } from '../database/entities/user-oauth-link.entity';
+import { Session } from '../database/entities/session.entity';
+import { SecurityEvent } from '../database/entities/security-event.entity';
 
 // Mock bcrypt
 jest.mock('bcrypt', () => ({
   compare: jest.fn(),
   hash: jest.fn(),
 }));
+
+// Mock fetch for HIBP API
+const mockFetch = jest.fn();
+(global as any).fetch = mockFetch;
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -96,6 +102,18 @@ describe('AuthService', () => {
           useValue: mockUserRepository,
         },
         {
+          provide: getRepositoryToken(UserOAuthLink),
+          useValue: { findOne: jest.fn(), save: jest.fn() },
+        },
+        {
+          provide: getRepositoryToken(Session),
+          useValue: { find: jest.fn(), create: jest.fn(), save: jest.fn(), update: jest.fn() },
+        },
+        {
+          provide: getRepositoryToken(SecurityEvent),
+          useValue: { create: jest.fn(), save: jest.fn() },
+        },
+        {
           provide: JwtService,
           useValue: mockJwtService,
         },
@@ -112,8 +130,8 @@ describe('AuthService', () => {
           useValue: mockLogger,
         },
         {
-          provide: getRepositoryToken(UserOAuthLink),
-          useValue: { findOne: jest.fn(), save: jest.fn() },
+          provide: 'CustodialWalletService',
+          useValue: { createCustodialWallet: jest.fn() },
         },
       ],
     }).compile();
@@ -124,7 +142,7 @@ describe('AuthService', () => {
   describe('register', () => {
     const registerDto = {
       email: 'newuser@example.com',
-      password: 'SecurePass123!',
+      password: 'SecurePass123!@',
       role: UserRole.FARMER,
       full_name: 'John Doe',
       phone_number: '+1234567890',
@@ -168,7 +186,7 @@ describe('AuthService', () => {
   describe('login', () => {
     const loginDto = {
       email: 'test@example.com',
-      password: 'SecurePass123!',
+      password: 'SecurePass123!@',
     };
 
     it('should throw UnauthorizedException if user not found', async () => {
@@ -278,7 +296,7 @@ describe('AuthService', () => {
   describe('resetPassword', () => {
     const resetPasswordDto = {
       token: 'valid_token',
-      new_password: 'NewSecurePass123!',
+      new_password: 'NewSecurePass123!@',
     };
 
     it('should throw BadRequestException when no active (non-expired) tokens exist', async () => {
@@ -358,7 +376,7 @@ describe('AuthService', () => {
   });
 
   describe('account lockout', () => {
-    const loginDto = { email: 'test@example.com', password: 'WrongPass!' };
+     const loginDto = { email: 'test@example.com', password: 'WrongPass123!' };
 
     it('should throw UnauthorizedException when account is locked', async () => {
       const lockedUser = {
@@ -441,6 +459,327 @@ describe('AuthService', () => {
         mockUser.id,
         expect.objectContaining({ lockedUntil: null }),
       );
+    });
+  });
+
+  describe('email verification', () => {
+    const verificationToken = 'valid_verification_token';
+
+    beforeEach(() => {
+      mockJwtService.verifyAsync.mockReset();
+      mockJwtService.signAsync.mockReset();
+      mockUserRepository.findOne.mockReset();
+      mockUserRepository.save.mockReset();
+      mockCacheManager.get.mockReset();
+      mockCacheManager.set.mockReset();
+      mockLogger.log.mockReset();
+    });
+
+    describe('verifyEmail', () => {
+      it('should verify email with valid token', async () => {
+        mockJwtService.verifyAsync.mockResolvedValue({
+          sub: mockUser.id,
+          email: mockUser.email,
+          type: 'email_verification',
+        });
+        mockUserRepository.findOne.mockResolvedValue({
+          ...mockUser,
+          emailVerifiedAt: null,
+        });
+        mockUserRepository.save.mockResolvedValue({
+          ...mockUser,
+          emailVerifiedAt: new Date(),
+        });
+
+        const result = await service.verifyEmail(verificationToken);
+
+        expect(result).toHaveProperty('success', true);
+        expect(mockUserRepository.save).toHaveBeenCalledWith(
+          expect.objectContaining({
+            emailVerifiedAt: expect.any(Date),
+          }),
+        );
+      });
+
+      it('should return success if email is already verified', async () => {
+        mockJwtService.verifyAsync.mockResolvedValue({
+          sub: mockUser.id,
+          email: mockUser.email,
+          type: 'email_verification',
+        });
+        mockUserRepository.findOne.mockResolvedValue({
+          ...mockUser,
+          emailVerifiedAt: new Date('2024-01-01'),
+        });
+
+        const result = await service.verifyEmail(verificationToken);
+
+        expect(result).toHaveProperty('success', true);
+        expect(result).toHaveProperty(
+          'message',
+          'Email is already verified',
+        );
+        expect(mockUserRepository.save).not.toHaveBeenCalled();
+      });
+
+      it('should throw BadRequestException for invalid token type', async () => {
+        mockJwtService.verifyAsync.mockResolvedValue({
+          sub: mockUser.id,
+          email: mockUser.email,
+          type: 'access_token',
+        });
+
+        await expect(service.verifyEmail(verificationToken)).rejects.toThrow(
+          BadRequestException,
+        );
+      });
+
+      it('should throw BadRequestException for non-existent user', async () => {
+        mockJwtService.verifyAsync.mockResolvedValue({
+          sub: 'non-existent-id',
+          email: 'nonexistent@example.com',
+          type: 'email_verification',
+        });
+        mockUserRepository.findOne.mockResolvedValue(null);
+
+        await expect(service.verifyEmail(verificationToken)).rejects.toThrow(
+          BadRequestException,
+        );
+      });
+
+      it('should throw BadRequestException for expired/invalid JWT', async () => {
+        mockJwtService.verifyAsync.mockRejectedValue(new Error('Token expired'));
+
+        await expect(service.verifyEmail(verificationToken)).rejects.toThrow(
+          BadRequestException,
+        );
+      });
+    });
+
+    describe('resendVerification', () => {
+      it('should send verification email for unverified user', async () => {
+        mockUserRepository.findOne.mockResolvedValue({
+          ...mockUser,
+          emailVerifiedAt: null,
+        });
+        mockJwtService.signAsync.mockResolvedValue('new_verification_token');
+        mockCacheManager.get.mockResolvedValue(0);
+        mockCacheManager.set.mockResolvedValue(undefined);
+
+        const result = await service.resendVerification(mockUser.id);
+
+        expect(result).toHaveProperty('success', true);
+        expect(mockJwtService.signAsync).toHaveBeenCalledWith(
+          expect.objectContaining({
+            sub: mockUser.id,
+            email: mockUser.email,
+            type: 'email_verification',
+          }),
+          expect.objectContaining({
+            expiresIn: '24h',
+          }),
+        );
+        expect(mockCacheManager.set).toHaveBeenCalledWith(
+          `resend_verification:${mockUser.id}`,
+          1,
+          3600,
+        );
+      });
+
+      it('should throw BadRequestException if user is already verified', async () => {
+        mockUserRepository.findOne.mockResolvedValue({
+          ...mockUser,
+          emailVerifiedAt: new Date('2024-01-01'),
+        });
+
+        await expect(
+          service.resendVerification(mockUser.id),
+        ).rejects.toThrow(BadRequestException);
+        expect(mockJwtService.signAsync).not.toHaveBeenCalled();
+      });
+
+      it('should throw BadRequestException if user not found', async () => {
+        mockUserRepository.findOne.mockResolvedValue(null);
+
+        await expect(
+          service.resendVerification('non-existent-id'),
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      it('should enforce rate limit of 3 requests per hour', async () => {
+        mockUserRepository.findOne.mockResolvedValue({
+          ...mockUser,
+          emailVerifiedAt: null,
+        });
+        mockCacheManager.get.mockResolvedValue(3); // Already at limit
+
+        await expect(
+          service.resendVerification(mockUser.id),
+        ).rejects.toThrow(BadRequestException);
+        expect(mockJwtService.signAsync).not.toHaveBeenCalled();
+      });
+
+      it('should allow request when under rate limit', async () => {
+        mockUserRepository.findOne.mockResolvedValue({
+          ...mockUser,
+          emailVerifiedAt: null,
+        });
+        mockJwtService.signAsync.mockResolvedValue('new_token');
+        mockCacheManager.get.mockResolvedValue(2); // Under limit
+        mockCacheManager.set.mockResolvedValue(undefined);
+
+        const result = await service.resendVerification(mockUser.id);
+
+        expect(result).toHaveProperty('success', true);
+        expect(mockCacheManager.set).toHaveBeenCalledWith(
+          `resend_verification:${mockUser.id}`,
+          3,
+          3600,
+        );
+      });
+    });
+
+    describe('isEmailVerified', () => {
+      it('should return true for verified user', async () => {
+        mockUserRepository.findOne.mockResolvedValue({
+          id: mockUser.id,
+          emailVerifiedAt: new Date('2024-01-01'),
+        });
+
+        const result = await service.isEmailVerified(mockUser.id);
+
+        expect(result).toBe(true);
+      });
+
+      it('should return false for unverified user', async () => {
+        mockUserRepository.findOne.mockResolvedValue({
+          id: mockUser.id,
+          emailVerifiedAt: null,
+        });
+
+        const result = await service.isEmailVerified(mockUser.id);
+
+        expect(result).toBe(false);
+      });
+
+      it('should return false for non-existent user', async () => {
+       mockUserRepository.findOne.mockResolvedValue(null);
+
+       const result = await service.isEmailVerified('non-existent-id');
+
+       expect(result).toBe(false);
+     });
+   });
+ });
+
+ describe('validatePasswordStrength', () => {
+    beforeEach(() => {
+      (global as any).fetch = jest.fn();
+      mockLogger.warn.mockReset();
+    });
+
+    it('should accept a valid password with all requirements', async () => {
+      (global as any).fetch.mockResolvedValue({
+        ok: true,
+        text: async () => 'CBA4E4E1:1\nABC123:2',
+      });
+
+      // Should not throw
+      await expect(
+        service.validatePasswordStrength('ValidPass123!@'),
+      ).resolves.toBeUndefined();
+    });
+
+    it('should reject passwords shorter than 12 characters', async () => {
+      await expect(
+        service.validatePasswordStrength('Short1!'),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.validatePasswordStrength('Short1!'),
+      ).rejects.toThrow('Password must be at least 12 characters long');
+    });
+
+    it('should reject passwords missing uppercase letter', async () => {
+      await expect(
+        service.validatePasswordStrength('alllowercase123!@'),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.validatePasswordStrength('alllowercase123!@'),
+      ).rejects.toThrow('Password must contain at least one uppercase letter');
+    });
+
+    it('should reject passwords missing lowercase letter', async () => {
+      await expect(
+        service.validatePasswordStrength('ALLUPPERCASE123!@'),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.validatePasswordStrength('ALLUPPERCASE123!@'),
+      ).rejects.toThrow('Password must contain at least one lowercase letter');
+    });
+
+    it('should reject passwords missing digit', async () => {
+      await expect(
+        service.validatePasswordStrength('NoDigitsHere!@'),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.validatePasswordStrength('NoDigitsHere!@'),
+      ).rejects.toThrow('Password must contain at least one digit');
+    });
+
+    it('should reject passwords missing special character', async () => {
+      await expect(
+        service.validatePasswordStrength('NoSpecialChar123'),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.validatePasswordStrength('NoSpecialChar123'),
+      ).rejects.toThrow(
+        'Password must contain at least one special character (@$!%*?&)',
+      );
+    });
+
+    it('should reject breached passwords found in HIBP database', async () => {
+      // Mock a breached password response
+      // The hash of "password" is "CBFDAC6008F9CAB4083784CBD1874F76618D2A97"
+      // We mock the API to return the suffix "DAC6008F9CAB4083784CBD1874F76618D2A97"
+      (global as any).fetch.mockResolvedValue({
+        ok: true,
+        text: async () => 'DAC6008F9CAB4083784CBD1874F76618D2A97:1000000',
+      });
+
+      // This password will pass all local checks but fail HIBP
+      await expect(
+        service.validatePasswordStrength('Password123!@'),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.validatePasswordStrength('Password123!@'),
+      ).rejects.toThrow(
+        'Password has been found in a data breach. Please choose a stronger password.',
+      );
+    });
+
+    it('should not block registration when HIBP API fails', async () => {
+      (global as any).fetch.mockRejectedValue(new Error('Network error'));
+
+      // Should not throw - HIBP failure is logged but doesn't block
+      await expect(
+        service.validatePasswordStrength('ValidPass123!@'),
+      ).resolves.toBeUndefined();
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'Failed to check HIBP API',
+        'AuthService',
+      );
+    });
+
+    it('should not block registration when HIBP API returns non-OK status', async () => {
+      (global as any).fetch.mockResolvedValue({
+        ok: false,
+        status: 500,
+      });
+
+      // Should not throw - HIBP failure is logged but doesn't block
+      await expect(
+        service.validatePasswordStrength('ValidPass123!@'),
+      ).resolves.toBeUndefined();
     });
   });
 });

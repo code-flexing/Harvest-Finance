@@ -14,6 +14,7 @@ import {
 import { User } from './user.entity';
 import { Deposit } from './deposit.entity';
 import { VaultApproval } from './vault-approval.entity';
+import { Strategy, CompoundingFrequency, COMPOUNDING_FREQUENCY_N } from './strategy.entity';
 
 export enum VaultType {
   CROP_PRODUCTION = 'CROP_PRODUCTION',
@@ -71,10 +72,6 @@ export enum VaultStatus {
   /** totalDeposits >= maxCapacity. Set automatically by the deposit service.
    *  Transitions back to ACTIVE once enough funds are withdrawn to free capacity. */
   FULL_CAPACITY = 'FULL_CAPACITY',
-
-  /** Vault's linked Stellar account has been merged (account no longer exists on-chain).
-   *  All operations are blocked. Set automatically by VaultAccountMonitorService. */
-  SUSPENDED = 'SUSPENDED',
 }
 
 @Entity('vaults')
@@ -82,8 +79,6 @@ export enum VaultStatus {
 @Index('idx_vaults_type', ['type'])
 @Index('idx_vaults_status', ['status'])
 export class Vault {
-  @Column({ name: 'strategy_score', type: 'float', default: 0, nullable: true })
-  strategyScore: number | null;
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -117,17 +112,6 @@ export class Vault {
   @Column({ type: 'decimal', precision: 18, scale: 8, default: 0 })
   interestRate: number;
 
-  @Column({ type: 'decimal', precision: 5, scale: 4, default: 0.5 })
-  depositorConcentrationThreshold: number;
-
-  @Column({
-    name: 'compounding_frequency',
-    type: 'varchar',
-    length: 20,
-    default: 'daily',
-  })
-  compoundingFrequency: 'daily' | 'weekly' | 'monthly';
-
   @Column({
     type: 'timestamp with time zone',
     name: 'maturity_date',
@@ -154,8 +138,15 @@ export class Vault {
   @Column({ name: 'current_approvals', type: 'int', default: 0 })
   currentApprovals: number;
 
-  @Column({ name: 'stellar_account_address', length: 56, nullable: true, default: null })
-  stellarAccountAddress: string | null;
+  @Column({ name: 'strategy_score', type: 'int', default: 0 })
+  strategyScore: number;
+
+  @Column({ name: 'strategy_id', type: 'uuid', nullable: true })
+  strategyId: string | null;
+
+  @ManyToOne(() => Strategy, { onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'strategy_id' })
+  strategy: Strategy | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
@@ -172,6 +163,19 @@ export class Vault {
 
   @OneToMany(() => VaultApproval, (approval) => approval.vault)
   approvals: VaultApproval[];
+
+  get apr(): number {
+    return Number(this.interestRate);
+  }
+
+  get apy(): number {
+    const apr = Number(this.interestRate);
+    if (apr === 0) return 0;
+    const frequency = this.strategy?.compoundingFrequency ?? CompoundingFrequency.DAILY;
+    const n = COMPOUNDING_FREQUENCY_N[frequency];
+    const decimalApr = apr / 100;
+    return Math.pow(1 + decimalApr / n, n) - 1;
+  }
 
   get availableCapacity(): number {
     return Number(this.maxCapacity) - Number(this.totalDeposits);

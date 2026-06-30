@@ -36,24 +36,24 @@ export class RegisterDto {
   email: string;
 
   /**
-   * Plaintext password chosen by the user.
-   * Must be 8–32 characters and satisfy PASSWORD_REGEX complexity rules.
-   * Stored as a bcrypt hash — never persisted in plaintext.
-   */
-  @ApiProperty({
-    example: 'SecurePass123!',
-    description:
-      'Password must contain at least 8 characters, uppercase, lowercase, number, and special character',
-  })
-  @IsString({ message: 'Password must be a string' })
-  @MinLength(8, { message: 'Password must be at least 8 characters long' })
-  @MaxLength(32, { message: 'Password must not exceed 32 characters' })
-  @Matches(PASSWORD_REGEX, {
-    message:
-      'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
-  })
-  @IsNotEmpty({ message: 'Password is required' })
-  password: string;
+    * Plaintext password chosen by the user.
+    * Must be 12–32 characters and satisfy PASSWORD_REGEX complexity rules.
+    * Stored as a bcrypt hash — never persisted in plaintext.
+    */
+   @ApiProperty({
+     example: 'SecurePass123!',
+     description:
+       'Password must contain at least 12 characters, uppercase, lowercase, number, and special character',
+   })
+   @IsString({ message: 'Password must be a string' })
+   @MinLength(12, { message: 'Password must be at least 12 characters long' })
+   @MaxLength(32, { message: 'Password must not exceed 32 characters' })
+   @Matches(PASSWORD_REGEX, {
+     message:
+       'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
+   })
+   @IsNotEmpty({ message: 'Password is required' })
+   password: string;
 
   /**
    * The platform role assigned to the new account.
