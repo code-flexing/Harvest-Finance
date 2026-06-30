@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException } from '@nestjs/common';
 import { VaultsService } from './vaults.service';
 import { Vault } from './entities/vault.entity';
+import { VaultRepository } from './vault.repository';
 
 // ---------------------------------------------------------------------------
 // Mock repository factory
@@ -22,9 +22,10 @@ const mockVault = (overrides: Partial<Vault> = {}): Vault => ({
 });
 
 const mockRepository = () => ({
-  find: jest.fn(),
-  findOne: jest.fn(),
+  findAll: jest.fn(),
+  findById: jest.fn(),
   save: jest.fn(),
+  findLeaderboard: jest.fn(),
 });
 
 // ---------------------------------------------------------------------------
@@ -39,12 +40,12 @@ describe('VaultsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         VaultsService,
-        { provide: getRepositoryToken(Vault), useFactory: mockRepository },
+        { provide: VaultRepository, useFactory: mockRepository },
       ],
     }).compile();
 
     service = module.get<VaultsService>(VaultsService);
-    repo = module.get(getRepositoryToken(Vault));
+    repo = module.get(VaultRepository);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -54,7 +55,7 @@ describe('VaultsService', () => {
   describe('findAll()', () => {
     it('returns all vaults as response DTOs', async () => {
       const vaults = [mockVault(), mockVault({ id: 'vault-uuid-2', name: 'Vault 2' })];
-      repo.find.mockResolvedValue(vaults);
+      repo.findAll.mockResolvedValue(vaults);
 
       const result = await service.findAll();
 
@@ -69,7 +70,7 @@ describe('VaultsService', () => {
   describe('findOne()', () => {
     it('returns a single vault with watermark fields', async () => {
       const vault = mockVault();
-      repo.findOne.mockResolvedValue(vault);
+      repo.findById.mockResolvedValue(vault);
 
       const result = await service.findOne('vault-uuid-1');
 
@@ -79,7 +80,7 @@ describe('VaultsService', () => {
     });
 
     it('throws NotFoundException when vault does not exist', async () => {
-      repo.findOne.mockResolvedValue(null);
+      repo.findById.mockResolvedValue(null);
 
       await expect(service.findOne('non-existent')).rejects.toThrow(NotFoundException);
     });
@@ -89,14 +90,14 @@ describe('VaultsService', () => {
 
   describe('deposit()', () => {
     it('throws NotFoundException when vault does not exist', async () => {
-      repo.findOne.mockResolvedValue(null);
+      repo.findById.mockResolvedValue(null);
 
       await expect(service.deposit('non-existent', '100')).rejects.toThrow(NotFoundException);
     });
 
     it('updates totalAssets after deposit', async () => {
       const vault = mockVault({ totalAssets: '1000.000000000000000000', tvlAtHighWatermark: '1000.000000000000000000' });
-      repo.findOne.mockResolvedValue(vault);
+      repo.findById.mockResolvedValue(vault);
       repo.save.mockImplementation(async (v) => v);
 
       const result = await service.deposit('vault-uuid-1', '500');
@@ -109,7 +110,7 @@ describe('VaultsService', () => {
         totalAssets: '1000.000000000000000000',
         tvlAtHighWatermark: '1000.000000000000000000',
       });
-      repo.findOne.mockResolvedValue(vault);
+      repo.findById.mockResolvedValue(vault);
       repo.save.mockImplementation(async (v) => v);
 
       const before = new Date();
@@ -128,7 +129,7 @@ describe('VaultsService', () => {
         tvlAtHighWatermark: '2000.000000000000000000',
         watermarkAchievedAt: new Date('2024-01-01T00:00:00.000Z'),
       });
-      repo.findOne.mockResolvedValue(vault);
+      repo.findById.mockResolvedValue(vault);
       repo.save.mockImplementation(async (v) => v);
 
       const result = await service.deposit('vault-uuid-1', '100');
@@ -144,7 +145,7 @@ describe('VaultsService', () => {
         tvlAtHighWatermark: '1000.000000000000000000',
         watermarkAchievedAt: new Date('2024-01-01T00:00:00.000Z'),
       });
-      repo.findOne.mockResolvedValue(vault);
+      repo.findById.mockResolvedValue(vault);
       repo.save.mockImplementation(async (v) => v);
 
       const result = await service.deposit('vault-uuid-1', '100');
@@ -160,7 +161,7 @@ describe('VaultsService', () => {
         watermarkAchievedAt: null,
       });
 
-      repo.findOne.mockImplementation(async () => currentVault);
+      repo.findById.mockImplementation(async () => currentVault);
       repo.save.mockImplementation(async (v) => {
         currentVault = { ...v };
         return currentVault;
@@ -186,7 +187,7 @@ describe('VaultsService', () => {
         tvlAtHighWatermark: '0.000000000000000000',
         watermarkAchievedAt: null,
       });
-      repo.findOne.mockResolvedValue(vault);
+      repo.findById.mockResolvedValue(vault);
       repo.save.mockImplementation(async (v) => v);
 
       const result = await service.deposit('vault-uuid-1', '250');
@@ -205,7 +206,7 @@ describe('VaultsService', () => {
         mockVault({ id: '2', name: 'Mid Vault', tvlAtHighWatermark: '2000.000000000000000000' }),
         mockVault({ id: '3', name: 'Low Vault', tvlAtHighWatermark: '500.000000000000000000' }),
       ];
-      repo.find.mockResolvedValue(vaults);
+      repo.findLeaderboard.mockResolvedValue(vaults);
 
       const result = await service.getLeaderboard();
 
@@ -217,7 +218,7 @@ describe('VaultsService', () => {
     });
 
     it('each entry includes rank, id, name, tvlAtHighWatermark, watermarkAchievedAt, totalAssets', async () => {
-      repo.find.mockResolvedValue([mockVault()]);
+      repo.findLeaderboard.mockResolvedValue([mockVault()]);
 
       const result = await service.getLeaderboard();
 
@@ -231,7 +232,7 @@ describe('VaultsService', () => {
     });
 
     it('returns empty array when no vaults exist', async () => {
-      repo.find.mockResolvedValue([]);
+      repo.findLeaderboard.mockResolvedValue([]);
 
       const result = await service.getLeaderboard();
 
