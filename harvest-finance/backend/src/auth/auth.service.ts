@@ -576,54 +576,57 @@ export class AuthService {
   }
 
   /**
-   * Reset password
-   */
-  async resetPassword(
-    resetPasswordDto: ResetPasswordDto,
-  ): Promise<{ success: boolean; message: string }> {
-    const { token, new_password } = resetPasswordDto;
+    * Reset password
+    */
+   async resetPassword(
+     resetPasswordDto: ResetPasswordDto,
+   ): Promise<{ success: boolean; message: string }> {
+     const { token, new_password } = resetPasswordDto;
 
-    // Find users with active reset tokens
-    const activeUsers = await this.userRepository.find({
-      where: {
-        resetPasswordExpires: MoreThan(new Date()),
-      },
-      select: ['id', 'password', 'resetPasswordToken', 'resetPasswordExpires'],
-    });
+     // Validate password strength before processing
+     await this.validatePasswordStrength(new_password);
 
-    let user: User | null = null;
-    for (const u of activeUsers) {
-      if (
-        u.resetPasswordToken &&
-        (await bcrypt.compare(token, u.resetPasswordToken))
-      ) {
-        user = u;
-        break;
-      }
-    }
+     // Find users with active reset tokens
+     const activeUsers = await this.userRepository.find({
+       where: {
+         resetPasswordExpires: MoreThan(new Date()),
+       },
+       select: ['id', 'password', 'resetPasswordToken', 'resetPasswordExpires'],
+     });
 
-    if (!user) {
-      throw new BadRequestException('Invalid or expired reset token');
-    }
+     let user: User | null = null;
+     for (const u of activeUsers) {
+       if (
+         u.resetPasswordToken &&
+         (await bcrypt.compare(token, u.resetPasswordToken))
+       ) {
+         user = u;
+         break;
+       }
+     }
 
-    // Hash new password
-    const hashedPassword = await bcrypt.hash(new_password, this.saltRounds);
+     if (!user) {
+       throw new BadRequestException('Invalid or expired reset token');
+     }
 
-    // Update password and clear reset token
-    await this.userRepository.update(user.id, {
-      password: hashedPassword,
-      resetPasswordToken: null,
-      resetPasswordExpires: null,
-    });
+     // Hash new password
+     const hashedPassword = await bcrypt.hash(new_password, this.saltRounds);
 
-    // Invalidate all sessions by blacklisting current token
-    // (in production, you'd implement a more comprehensive session invalidation)
+     // Update password and clear reset token
+     await this.userRepository.update(user.id, {
+       password: hashedPassword,
+       resetPasswordToken: null,
+       resetPasswordExpires: null,
+     });
 
-    return {
-      success: true,
-      message: 'Password reset successfully',
-    };
-  }
+     // Invalidate all sessions by blacklisting current token
+     // (in production, you'd implement a more comprehensive session invalidation)
+
+     return {
+       success: true,
+       message: 'Password reset successfully',
+     };
+   }
 
   /**
    * Validate user (for JWT strategy)
@@ -773,18 +776,73 @@ export class AuthService {
   }
 
   async validatePasswordStrength(password: string): Promise<void> {
-    const result = zxcvbn(password);
-    if (result.score < 3 || password.length < 12) {
-      throw new BadRequestException('Password is too weak. Must be at least 12 characters.');
+    // Check minimum length (12 characters)
+    if (password.length < 12) {
+      throw new BadRequestException(
+        'Password must be at least 12 characters long',
+      );
     }
+
+    // Check for at least one uppercase letter
+    if (!/[A-Z]/.test(password)) {
+      throw new BadRequestException(
+        'Password must contain at least one uppercase letter',
+      );
+    }
+
+    // Check for at least one lowercase letter
+    if (!/[a-z]/.test(password)) {
+      throw new BadRequestException(
+        'Password must contain at least one lowercase letter',
+      );
+    }
+
+    // Check for at least one digit
+    if (!/\d/.test(password)) {
+      throw new BadRequestException(
+        'Password must contain at least one digit',
+      );
+    }
+
+    // Check for at least one special character
+    if (!/[@$!%*?&]/.test(password)) {
+      throw new BadRequestException(
+        'Password must contain at least one special character (@$!%*?&)',
+      );
+    }
+
+    // Check HIBP (Have I Been Pwned) using k-anonymity model
+    // SHA-1 hash the password
     const hash = crypto.createHash('sha1').update(password).digest('hex').toUpperCase();
     const prefix = hash.slice(0, 5);
     const suffix = hash.slice(5);
+
     try {
-      const response = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`);
+      // Only send the first 5 characters of the hash to the API
+      const response = await fetch(
+        `https://api.pwnedpasswords.com/range/${prefix}`,
+        {
+          headers: {
+            'User-Agent': 'Harvest-Finance-Security',
+          },
+        },
+      );
+
+      if (!response.ok) {
+        this.logger.warn(
+          `HIBP API returned status ${response.status}`,
+          'AuthService',
+        );
+        return; // Don't block registration if HIBP is unavailable
+      }
+
       const text = await response.text();
-      if (text.includes(suffix)) {
-        throw new BadRequestException('Password has been found in a data breach. Please choose another.');
+      // Compare suffixes locally - the API returns lines in format "SUFFIX:COUNT"
+      const suffixes = text.split('\n').map((line) => line.split(':')[0]);
+      if (suffixes.includes(suffix)) {
+        throw new BadRequestException(
+          'Password has been found in a data breach. Please choose a stronger password.',
+        );
       }
     } catch (err) {
       if (err instanceof BadRequestException) throw err;

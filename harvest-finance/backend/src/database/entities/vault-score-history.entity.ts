@@ -9,11 +9,11 @@ import {
 } from 'typeorm';
 import { Vault } from './vault.entity';
 
-@Entity('vault_apy_history')
-@Index('idx_vault_apy_history_vault_date', ['vaultId', 'snapshotDate'], {
+@Entity('vault_score_history')
+@Index('idx_vault_score_history_vault_date', ['vaultId', 'snapshotDate'], {
   unique: true,
 })
-export class VaultApyHistory {
+export class VaultScoreHistory {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -24,8 +24,20 @@ export class VaultApyHistory {
   @JoinColumn({ name: 'vault_id' })
   vault: Vault;
 
-  @Column({ type: 'decimal', precision: 18, scale: 8 })
-  apy: number;
+  @Column({ type: 'int' })
+  strategyScore: number;
+
+  @Column({ type: 'int' })
+  apyScore: number;
+
+  @Column({ type: 'int' })
+  tvlStabilityScore: number;
+
+  @Column({ type: 'int' })
+  drawdownScore: number;
+
+  @Column({ type: 'int' })
+  operatorScore: number;
 
   @Column({ name: 'snapshot_date', type: 'date' })
   snapshotDate: Date;
