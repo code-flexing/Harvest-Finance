@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { VaultsController } from './vaults.controller';
 import { VaultsService } from './vaults.service';
 import { FeesService } from './fees.service';
+import { SimulationService } from './simulation.service';
 import { CommandHandlers } from './cqrs/commands/handlers';
 import { QueryHandlers } from './cqrs/queries/handlers';
 import { EventHandlers } from './cqrs/events/handlers';
@@ -43,6 +44,7 @@ import { AnalyticsModule } from '../analytics/analytics.module';
   providers: [
     VaultsService,
     FeesService,
+    SimulationService,
     DepositEventService,
     WithdrawalConfirmedHandler,
     WithdrawalQueueService,
@@ -53,6 +55,6 @@ import { AnalyticsModule } from '../analytics/analytics.module';
     ...QueryHandlers,
     ...EventHandlers,
   ],
-  exports: [VaultsService, DepositEventService, WithdrawalQueueService, InsuranceFundService],
+  exports: [VaultsService, FeesService, SimulationService, DepositEventService, WithdrawalQueueService, InsuranceFundService],
 })
 export class VaultsModule {}
