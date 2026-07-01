@@ -3,27 +3,23 @@ import {
   NotFoundException,
   Logger,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { Vault } from './entities/vault.entity';
 import { VaultLeaderboardEntryDto, VaultResponseDto } from './dto/vault-response.dto';
+import { VaultRepository } from './vault.repository';
 
 @Injectable()
 export class VaultsService {
   private readonly logger = new Logger(VaultsService.name);
 
   constructor(
-    @InjectRepository(Vault)
-    private readonly vaultRepository: Repository<Vault>,
+    private readonly vaultRepository: VaultRepository,
   ) {}
 
   /**
    * Retrieve all vaults including their TVL watermark fields.
    */
   async findAll(): Promise<VaultResponseDto[]> {
-    const vaults = await this.vaultRepository.find({
-      order: { createdAt: 'DESC' },
-    });
+    const vaults = await this.vaultRepository.findAll();
     return vaults.map(this.toResponseDto);
   }
 
@@ -33,7 +29,7 @@ export class VaultsService {
    * @throws NotFoundException if the vault does not exist
    */
   async findOne(id: string): Promise<VaultResponseDto> {
-    const vault = await this.vaultRepository.findOne({ where: { id } });
+    const vault = await this.vaultRepository.findById(id);
     if (!vault) {
       throw new NotFoundException(`Vault with id ${id} not found`);
     }
@@ -56,7 +52,7 @@ export class VaultsService {
    * @throws NotFoundException if the vault does not exist
    */
   async deposit(vaultId: string, amount: string): Promise<VaultResponseDto> {
-    const vault = await this.vaultRepository.findOne({ where: { id: vaultId } });
+    const vault = await this.vaultRepository.findById(vaultId);
     if (!vault) {
       throw new NotFoundException(`Vault with id ${vaultId} not found`);
     }
@@ -93,9 +89,7 @@ export class VaultsService {
    * @returns Ranked list of vaults with watermark data
    */
   async getLeaderboard(): Promise<VaultLeaderboardEntryDto[]> {
-    const vaults = await this.vaultRepository.find({
-      order: { tvlAtHighWatermark: 'DESC' },
-    });
+    const vaults = await this.vaultRepository.findLeaderboard();
 
     return vaults.map((vault, index) => ({
       rank: index + 1,
