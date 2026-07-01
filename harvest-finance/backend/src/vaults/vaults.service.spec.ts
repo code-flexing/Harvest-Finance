@@ -16,6 +16,8 @@ import {
   Withdrawal,
   WithdrawalStatus,
 } from '../database/entities/withdrawal.entity';
+import { Strategy, CompoundingFrequency } from '../database/entities/strategy.entity';
+import { VaultApyHistory } from '../database/entities/vault-apy-history.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CustomLoggerService } from '../logger/custom-logger.service';
 import { VaultGateway } from '../realtime/vault.gateway';
@@ -156,14 +158,20 @@ describe('VaultsService', () => {
     getVaultDepositHistory: jest.fn().mockResolvedValue([]),
     mapEventToResponse: jest.fn((event) => event),
   };
+const mockStrategyRepository = {
+  findOne: jest.fn(),
+};
 
-  // Helper: build a query builder stub that returns a given total
-  const buildQB = (total: string | null) => ({
-    select: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    getRawOne: jest.fn().mockResolvedValue({ total }),
-  });
+const mockApyHistoryRepository = {
+  createQueryBuilder: jest.fn(),
+};
+
+const buildQB = (total: string | null) => ({
+  select: jest.fn().mockReturnThis(),
+  where: jest.fn().mockReturnThis(),
+  andWhere: jest.fn().mockReturnThis(),
+  getRawOne: jest.fn().mockResolvedValue({ total }),
+});
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -758,6 +766,190 @@ describe('VaultsService', () => {
       expect(total).toBe(0);
     });
   });
+
+  describe('calculateApy', () => {
+    it('should calculate APY with daily compounding', () => {
+      const apy = service.calculateApy(5, CompoundingFrequency.DAILY);
+      // APY = (1 + 0.05/365)^365 - 1 ≈ 5.127%
+      expect(apy).toBeCloseTo(5.13, 1);
+    });
+
+    it('should calculate APY with weekly compounding', () => {
+      const apy = service.calculateApy(5, CompoundingFrequency.WEEKLY);
+      // APY = (1 + 0.05/52)^52 - 1 ≈ 5.116%
+      expect(apy).toBeCloseTo(5.12, 1);
+    });
+
+    it('should calculate APY with monthly compounding', () => {
+      const apy = service.calculateApy(5, CompoundingFrequency.MONTHLY);
+      // APY = (1 + 0.05/12)^12 - 1 ≈ 5.116%
+      expect(apy).toBeCloseTo(5.12, 1);
+    });
+
+    it('should return 0 for zero APR', () => {
+      const apy = service.calculateApy(0, CompoundingFrequency.DAILY);
+      expect(apy).toBe(0);
+    });
+
+    it('should default to daily compounding when no frequency provided', () => {
+      const apy = service.calculateApy(5);
+      const apyDaily = service.calculateApy(5, CompoundingFrequency.DAILY);
+      expect(apy).toBe(apyDaily);
+    });
+
+    it('should handle high APR values', () => {
+      const apy = service.calculateApy(100, CompoundingFrequency.DAILY);
+      // APY = (1 + 1/365)^365 - 1 ≈ 171.4%
+      expect(apy).toBeGreaterThan(171);
+      expect(apy).toBeLessThan(172);
+    });
+  });
+
+  describe('mapVaultToResponse — APY integration', () => {
+    it('should include apr and apy in the response', () => {
+      const vault = {
+        ...mockVault,
+        interestRate: 5,
+        strategy: null,
+      } as any;
+
+      const response = service.mapVaultToResponse(vault);
+
+      expect(response.apr).toBe(5);
+      expect(response.apy).toBeCloseTo(5.13, 1);
+      expect(response.interestRate).toBe(5);
+    });
+
+    it('should use vault strategy compounding frequency for APY', () => {
+      const vault = {
+        ...mockVault,
+        interestRate: 5,
+        strategy: { compoundingFrequency: CompoundingFrequency.MONTHLY },
+      } as any;
+
+      const response = service.mapVaultToResponse(vault);
+
+      expect(response.apr).toBe(5);
+      expect(response.apy).toBeCloseTo(5.12, 1);
+    });
+
+    it('should fallback to daily compounding when no strategy', () => {
+      const vault = {
+        ...mockVault,
+        interestRate: 5,
+        strategy: null,
+      } as any;
+
+      const response = service.mapVaultToResponse(vault);
+
+      expect(response.apy).toBeCloseTo(5.13, 1);
+    });
+  });
+
+  describe('recordApySnapshot', () => {
+    it('should create an APY history snapshot for a vault', async () => {
+      const vault = {
+        ...mockVault,
+        interestRate: 5,
+        strategy: null,
+      } as any;
+
+      mockVaultRepository.findOne.mockResolvedValue(vault);
+      mockApyHistoryRepository.createQueryBuilder.mockReturnValue({
+        insert: jest.fn().mockReturnThis(),
+        into: jest.fn().mockReturnThis(),
+        values: jest.fn().mockReturnThis(),
+        orIgnore: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({}),
+      });
+
+      await service.recordApySnapshot('vault-1');
+
+      expect(mockApyHistoryRepository.createQueryBuilder).toHaveBeenCalled();
+    });
+
+    it('should store correct APY value in snapshot', async () => {
+      const vault = {
+        ...mockVault,
+        interestRate: 5,
+        strategy: null,
+      } as any;
+
+      mockVaultRepository.findOne.mockResolvedValue(vault);
+
+      const mockInsert = {
+        insert: jest.fn().mockReturnThis(),
+        into: jest.fn().mockReturnThis(),
+        values: jest.fn().mockReturnThis(),
+        orIgnore: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({}),
+      };
+
+      mockApyHistoryRepository.createQueryBuilder.mockReturnValue(mockInsert);
+
+      await service.recordApySnapshot('vault-1');
+
+      expect(mockInsert.values).toHaveBeenCalledWith(
+        expect.objectContaining({
+          apy: expect.any(Number),
+        }),
+      );
+    });
+
+    it('should not throw when vault does not exist', async () => {
+      mockVaultRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.recordApySnapshot('nonexistent'),
+      ).resolves.not.toThrow();
+    });
+  });
+
+  describe('getApyHistory', () => {
+    it('should return APY history from database', async () => {
+      const mockHistory = [
+        {
+          id: '1',
+          vaultId: 'vault-1',
+          apy: 5.13,
+          snapshotDate: new Date('2024-01-01'),
+          createdAt: new Date(),
+        },
+      ];
+
+      const mockQB = {
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue(mockHistory),
+      };
+
+      mockApyHistoryRepository.createQueryBuilder.mockReturnValue(mockQB);
+
+      const result = await service.getApyHistory('vault-1', '30d');
+
+      expect(result).toHaveLength(1);
+      expect(result[0].apy).toBe(5.13);
+      expect(result[0].vaultId).toBe('vault-1');
+    });
+
+    it('should filter by vaultId when provided', async () => {
+      const mockQB = {
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([]),
+      };
+
+      mockApyHistoryRepository.createQueryBuilder.mockReturnValue(mockQB);
+
+      await service.getApyHistory('vault-1', '30d');
+
+      expect(mockQB.andWhere).toHaveBeenCalledWith(
+        'history.vaultId = :vaultId',
+        { vaultId: 'vault-1' },
+      );
+    });
 
   // ---------------------------------------------------------------------------
   // getUserVaults
@@ -1380,5 +1572,6 @@ describe('VaultsService', () => {
         expect(result.data[0].availableCapacity).toBe(6000);
       });
     });
+
   });
 });

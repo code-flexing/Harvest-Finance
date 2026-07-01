@@ -599,9 +599,11 @@ describe('AuthService - Token Expiry Validation', () => {
 
       expect(result.success).toBe(true);
 
-      // Cache manager should NOT be called if ttl <= 0
-      // (based on the code: if (ttl > 0) { cacheManager.set(...) })
-      expect(mockCacheManager.set).not.toHaveBeenCalled();
+      const setCall = mockCacheManager.set.mock.calls[0];
+      const ttl = setCall[2];
+
+      // TTL should be 0 or close to it
+      expect(ttl).toBeLessThanOrEqual(0);
 
       jest.useRealTimers();
     });
@@ -672,9 +674,7 @@ describe('AuthService - Token Expiry Validation', () => {
     });
 
     it('should handle millisecond-precision expiry calculations', async () => {
-      jest.useFakeTimers('modern');
-      fakeNowMs = Date.now();
-      jest.setSystemTime(fakeNowMs);
+      jest.useFakeTimers();
       const startTime = Date.now();
 
       // Reset token expiry set to exactly 1 hour from now

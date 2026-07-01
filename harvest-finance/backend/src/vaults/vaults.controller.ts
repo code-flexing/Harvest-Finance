@@ -46,8 +46,7 @@ import { SimulateDepositDto } from './dto/simulate-deposit.dto';
 import { SimulateStrategyChangeDto } from './dto/simulate-strategy-change.dto';
 import { SimulationResultDto } from './dto/simulation-result.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RiskService } from '../analytics/risk.service';
-import { WithdrawalQueueService } from './withdrawal-queue.service';
+import { ScoringService } from '../analytics/scoring.service';
 
 @ApiTags('Vaults')
 @Controller({
@@ -401,6 +400,26 @@ export class VaultsController {
     @Query('timeRange') timeRange: string = '30d',
   ): Promise<any[]> {
     return this.vaultsService.getApyHistory(vaultId, timeRange);
+  }
+
+  @Get(':vaultId/score-breakdown')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get strategy score breakdown for a vault' })
+  @ApiParam({
+    name: 'vaultId',
+    description: 'Vault ID (UUID)',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Score breakdown retrieved successfully',
+    type: ScoreBreakdownDto,
+  })
+  @ApiResponse({ status: 404, description: 'Vault not found' })
+  async getVaultScoreBreakdown(
+    @Param('vaultId') vaultId: string,
+  ): Promise<ScoreBreakdownDto> {
+    return this.scoringService.getVaultScoreBreakdown(vaultId);
   }
 
   @Post(':vaultId/multi-signature-config')

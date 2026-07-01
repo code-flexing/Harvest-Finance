@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 import { TypeOrmModule } from '@nestjs/typeorm';
+
 import { VaultsController } from './vaults.controller';
 import { VaultsService } from './vaults.service';
 import { FeesService } from './fees.service';
@@ -8,21 +9,28 @@ import { SimulationService } from './simulation.service';
 import { CommandHandlers } from './cqrs/commands/handlers';
 import { QueryHandlers } from './cqrs/queries/handlers';
 import { EventHandlers } from './cqrs/events/handlers';
+
 import { VaultReadRepository } from './read/vault-read.repository';
+
 import { Vault } from '../database/entities/vault.entity';
 import { Deposit } from '../database/entities/deposit.entity';
 import { DepositEvent } from '../database/entities/deposit-event.entity';
 import { Withdrawal } from '../database/entities/withdrawal.entity';
-import { VaultReservation } from './entities/vault-reservation.entity';
+import { Strategy } from '../database/entities/strategy.entity';
 import { VaultApyHistory } from '../database/entities/vault-apy-history.entity';
+import { VaultScoreHistory } from '../database/entities/vault-score-history.entity';
+import { VaultReservation } from './entities/vault-reservation.entity';
 import { InsuranceClaim } from '../database/entities/insurance-claim.entity';
+
 import { DepositEventService } from './deposit-event.service';
 import { WithdrawalConfirmedHandler } from './events/withdrawal-confirmed.handler';
-import { StellarModule } from '../stellar/stellar.module';
 import { VaultAccountMonitorService } from './vault-account-monitor.service';
 import { WithdrawalQueueService } from './withdrawal-queue.service';
 import { InsuranceFundService } from './insurance-fund.service';
 import { InsuranceFundController } from './insurance-fund.controller';
+
+import { StellarModule } from '../stellar/stellar.module';
+import { AnalyticsModule } from '../analytics/analytics.module';
 import { AuthModule } from '../auth/auth.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { RealtimeModule } from '../realtime/realtime.module';

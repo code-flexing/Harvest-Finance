@@ -2,15 +2,14 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  ManyToOne,
+  JoinColumn,
+  OneToMany,
   CreateDateColumn,
   UpdateDateColumn,
   Index,
-  JoinColumn,
-  ManyToOne,
-  OneToMany,
-  OneToOne,
-  ManyToMany,
 } from 'typeorm';
+import { Strategy, CompoundingFrequency, COMPOUNDING_FREQUENCY_N } from './strategy.entity';
 import { User } from './user.entity';
 import { Deposit } from './deposit.entity';
 import { VaultApproval } from './vault-approval.entity';
@@ -23,57 +22,11 @@ export enum VaultType {
   EMERGENCY_FUND = 'EMERGENCY_FUND',
 }
 
-/**
- * Lifecycle states for a Vault and the valid transitions between them.
- *
- * State transition table:
- * ┌────────────────┬──────────────────────────────────────────────────────────────────┐
- * │ From           │ To (trigger)                                                     │
- * ├────────────────┼──────────────────────────────────────────────────────────────────┤
- * │ ACTIVE         │ → INACTIVE      (owner deactivates / vault expires at maturity)  │
- * │ ACTIVE         │ → FROZEN        (admin freezes due to compliance or dispute)     │
- * │ ACTIVE         │ → FULL_CAPACITY (totalDeposits >= maxCapacity, see isFullCapacity)│
- * │ INACTIVE       │ → ACTIVE        (owner re-activates the vault)                   │
- * │ FROZEN         │ → ACTIVE        (admin unfreezes after issue is resolved)         │
- * │ FULL_CAPACITY  │ → ACTIVE        (a deposit is withdrawn, freeing space)           │
- * └────────────────┴──────────────────────────────────────────────────────────────────┘
- *
- * ASCII diagram:
- *
- *                 ┌──────────────────────────────────────┐
- *                 │                                      ▼
- *   deactivate  INACTIVE ◄──── ACTIVE ────► FROZEN  (admin freeze)
- *   re-activate   │              ▲  │                    │
- *                 └──────────────┘  └──► FULL_CAPACITY   │ (admin unfreeze)
- *                                         │              │
- *                                         └──────────────┘
- *                                    (withdrawal frees space)
- *
- * Notes:
- *  - FULL_CAPACITY is set automatically; it is NOT a manual admin action.
- *  - FROZEN takes precedence — a frozen vault cannot accept deposits even
- *    if capacity is available.
- *  - Transitions to FROZEN are always permitted regardless of current state
- *    to allow emergency intervention.
- */
 export enum VaultStatus {
-  /** Vault is open and accepting deposits up to maxCapacity. */
   ACTIVE = 'ACTIVE',
-
-  /** Vault has been deactivated by its owner or reached its maturityDate.
-   *  No new deposits are accepted; existing funds remain accessible. */
   INACTIVE = 'INACTIVE',
-
-  /** Vault is locked by an administrator (e.g. compliance review or dispute).
-   *  All deposit and withdrawal operations are blocked until unfrozen. */
   FROZEN = 'FROZEN',
-
-  /** totalDeposits >= maxCapacity. Set automatically by the deposit service.
-   *  Transitions back to ACTIVE once enough funds are withdrawn to free capacity. */
   FULL_CAPACITY = 'FULL_CAPACITY',
-
-  /** Vault's linked Stellar account has been merged (account no longer exists on-chain).
-   *  All operations are blocked. Set automatically by VaultAccountMonitorService. */
   SUSPENDED = 'SUSPENDED',
 }
 
@@ -82,8 +35,6 @@ export enum VaultStatus {
 @Index('idx_vaults_type', ['type'])
 @Index('idx_vaults_status', ['status'])
 export class Vault {
-  @Column({ name: 'strategy_score', type: 'float', default: 0, nullable: true })
-  strategyScore: number | null;
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -116,6 +67,14 @@ export class Vault {
 
   @Column({ type: 'decimal', precision: 18, scale: 8, default: 0 })
   interestRate: number;
+
+  @Column({
+    name: 'strategy_score',
+    type: 'float',
+    default: 0,
+    nullable: true,
+  })
+  strategyScore: number | null;
 
   @Column({ type: 'decimal', precision: 5, scale: 4, default: 0.5 })
   depositorConcentrationThreshold: number;
@@ -154,7 +113,19 @@ export class Vault {
   @Column({ name: 'current_approvals', type: 'int', default: 0 })
   currentApprovals: number;
 
-  @Column({ name: 'stellar_account_address', length: 56, nullable: true, default: null })
+  @Column({ name: 'strategy_id', type: 'uuid', nullable: true })
+  strategyId: string | null;
+
+  @ManyToOne(() => Strategy, { onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'strategy_id' })
+  strategy: Strategy | null;
+
+  @Column({
+    name: 'stellar_account_address',
+    length: 56,
+    nullable: true,
+    default: null,
+  })
   stellarAccountAddress: string | null;
 
   @Column({ name: 'entry_fee_bps', type: 'int', default: 0 })
@@ -186,13 +157,34 @@ export class Vault {
   @OneToMany(() => VaultApproval, (approval) => approval.vault)
   approvals: VaultApproval[];
 
+  get apr(): number {
+    return Number(this.interestRate);
+  }
+
+  get apy(): number {
+    const apr = Number(this.interestRate);
+    if (apr === 0) return 0;
+
+    const frequency =
+      this.strategy?.compoundingFrequency ??
+      CompoundingFrequency.DAILY;
+
+    const n = COMPOUNDING_FREQUENCY_N[frequency];
+    const decimalApr = apr / 100;
+
+    return Math.pow(1 + decimalApr / n, n) - 1;
+  }
+
   get availableCapacity(): number {
     return Number(this.maxCapacity) - Number(this.totalDeposits);
   }
 
   get utilizationPercentage(): number {
     if (Number(this.maxCapacity) === 0) return 0;
-    return (Number(this.totalDeposits) / Number(this.maxCapacity)) * 100;
+
+    return (
+      (Number(this.totalDeposits) / Number(this.maxCapacity)) * 100
+    );
   }
 
   get isFullCapacity(): boolean {
@@ -200,7 +192,10 @@ export class Vault {
   }
 
   get requiresApproval(): boolean {
-    return this.requiresMultiSignature && this.currentApprovals < this.approvalThreshold;
+    return (
+      this.requiresMultiSignature &&
+      this.currentApprovals < this.approvalThreshold
+    );
   }
 
   get approvalStatus(): string {

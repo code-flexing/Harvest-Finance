@@ -1,5 +1,6 @@
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { config } from 'dotenv';
+
 import { User } from './entities/user.entity';
 import { UserOAuthLink } from './entities/user-oauth-link.entity';
 import { Session } from './entities/session.entity';
@@ -13,6 +14,9 @@ import { SorobanEvent } from './entities/soroban-event.entity';
 import { IndexerState } from './entities/indexer-state.entity';
 import { Vault } from './entities/vault.entity';
 import { VaultDeposit } from './entities/vault-deposit.entity';
+import { Strategy } from './entities/strategy.entity';
+import { VaultApyHistory } from './entities/vault-apy-history.entity';
+import { VaultScoreHistory } from './entities/vault-score-history.entity';
 import { VaultApproval } from './entities/vault-approval.entity';
 import { Withdrawal } from './entities/withdrawal.entity';
 import { Achievement } from './entities/achievement.entity';
@@ -32,6 +36,7 @@ import { CoopListing } from './entities/coop-listing.entity';
 import { CoopOrder } from './entities/coop-order.entity';
 import { CoopReview } from './entities/coop-review.entity';
 import { VaultReservation } from '../vaults/entities/vault-reservation.entity';
+
 import { CreateInitialSchema1700000000000 } from './migrations/1700000000000-CreateInitialSchema';
 import { CreateAchievements1700000000004 } from './migrations/1700000000004-CreateAchievements';
 import { CreateRewards1700000000005 } from './migrations/1700000000005-CreateRewards';
@@ -44,6 +49,8 @@ import { CreateSorobanEvents1700000000011 } from './migrations/1700000000011-Cre
 import { CreateYieldAnalytics1700000000012 } from './migrations/1700000000012-CreateYieldAnalytics';
 import { AddSorobanEventQueryIndexes1700000000013 } from './migrations/1700000000013-AddSorobanEventQueryIndexes';
 import { CreateDepositEvents1700000000016 } from './migrations/1700000000016-CreateDepositEvents';
+import { CreateStrategyAndApyHistory1700000000017 } from './migrations/1700000000017-CreateStrategyAndApyHistory';
+import { CreateVaultScoreHistory1700000000018 } from './migrations/1700000000018-CreateVaultScoreHistory';
 import { CreateVaultReservations1700000000018 } from './migrations/1700000000018-CreateVaultReservations';
 import { CreateSessionsAndOAuthLinks1700000000022 } from './migrations/1700000000022-CreateSessionsAndOAuthLinks';
 
@@ -70,6 +77,7 @@ const options: DataSourceOptions = {
   username: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'password',
   database: process.env.DB_NAME || 'harvest_finance',
+
   entities: [
     User,
     UserOAuthLink,
@@ -80,6 +88,9 @@ const options: DataSourceOptions = {
     CreditScore,
     Vault,
     VaultDeposit,
+    Strategy,
+    VaultApyHistory,
+    VaultScoreHistory,
     VaultApproval,
     VaultReservation,
     Deposit,
@@ -93,6 +104,7 @@ const options: DataSourceOptions = {
     InsurancePlan,
     InsuranceSubscription,
     SorobanEvent,
+    IndexerState,
     YieldAnalytics,
     CommunityPost,
     CommunityComment,
@@ -103,6 +115,7 @@ const options: DataSourceOptions = {
     CoopOrder,
     CoopReview,
   ],
+
   migrations: [
     CreateInitialSchema1700000000000,
     CreateAchievements1700000000004,
@@ -116,9 +129,12 @@ const options: DataSourceOptions = {
     CreateYieldAnalytics1700000000012,
     AddSorobanEventQueryIndexes1700000000013,
     CreateDepositEvents1700000000016,
+    CreateStrategyAndApyHistory1700000000017,
+    CreateVaultScoreHistory1700000000018,
     CreateVaultReservations1700000000018,
     CreateSessionsAndOAuthLinks1700000000022,
   ],
+
   // synchronize must remain false in all non-test environments.
   // Use `npm run migration:run` to apply schema changes safely.
   synchronize: isTestEnv,
