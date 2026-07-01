@@ -51,6 +51,7 @@ import {
   Notification,
   Order,
   Reward,
+  Session,
   SorobanEvent,
   Strategy,
   Transaction,
@@ -90,10 +91,14 @@ import { AddSorobanEventQueryIndexes1700000000013 } from './database/migrations/
 import { CreateDepositEvents1700000000016 } from './database/migrations/1700000000016-CreateDepositEvents';
 import { CreateStrategyAndApyHistory1700000000017 } from './database/migrations/1700000000017-CreateStrategyAndApyHistory';
 import { CreateVaultScoreHistory1700000000018 } from './database/migrations/1700000000018-CreateVaultScoreHistory';
-import { AddEmailVerificationToUsers1700000000023 } from './database/migrations/1700000000023-AddEmailVerificationToUsers';
 
 import { CreateVaultReservations1700000000018 } from './database/migrations/1700000000018-CreateVaultReservations';
 import { VaultReservation } from './vaults/entities/vault-reservation.entity';
+import { Session } from './database/entities/session.entity';
+import { SecurityEvent } from './database/entities/security-event.entity';
+import { CreateVaultApyHistory1700000000017 } from './database/migrations/1700000000017-CreateVaultApyHistory';
+import { CreateSessionsAndOAuthLinks1700000000022 } from './database/migrations/1700000000022-CreateSessionsAndOAuthLinks';
+import { AddRefreshTokenRotation1700000000022 } from './database/migrations/1700000000022-AddRefreshTokenRotation';
 import { DomainEventsModule } from './domain-events';
 import { DomainEventHandlersModule } from './common/events';
 import { WebhooksModule } from './webhooks/webhooks.module';
@@ -121,6 +126,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
         entities: [
           User,
           UserOAuthLink,
+          Session,
           Order,
           Transaction,
           Verification,
@@ -161,7 +167,11 @@ import { WebhooksModule } from './webhooks/webhooks.module';
           CreateStrategyAndApyHistory1700000000017,
           CreateVaultScoreHistory1700000000018,
           CreateVaultReservations1700000000018,
-          AddEmailVerificationToUsers1700000000023,
+          AddDepositorConcentrationThreshold1700000000022,
+          CreateVaultApyHistory1700000000017,
+          CreateSessionsAndOAuthLinks1700000000022,
+          CreateCustodialWallets1700000000021,
+          AddRefreshTokenRotation1700000000022,
         ],
         synchronize: false,
         migrationsRun: false,

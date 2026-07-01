@@ -21,6 +21,7 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
+import { EmailTemplatingService } from '../notifications/email/email-templating.service';
 import { DashboardStatsDto } from './dto/dashboard-stats.dto';
 import { PlatformAnalyticsDto } from './dto/analytics.dto';
 import { CreateVaultDto, UpdateVaultDto } from './dto/vault-crud.dto';
@@ -39,7 +40,10 @@ import { UserRole } from '../database/entities/user.entity';
 @Roles(UserRole.ADMIN)
 @ApiBearerAuth()
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly emailTemplatingService: EmailTemplatingService,
+  ) {}
 
   @Get('stats')
   @ApiOperation({ summary: 'Get overall dashboard metrics' })
@@ -130,5 +134,22 @@ export class AdminController {
   @ApiResponse({ status: 200 })
   async getUserActivity(): Promise<any[]> {
     return this.adminService.getUserActivity();
+  }
+
+  @Get('email-preview/:templateName')
+  @ApiOperation({ summary: 'Preview email template in browser' })
+  @ApiParam({
+    name: 'templateName',
+    description: 'Email template name',
+    enum: ['welcome', 'deposit-confirmed', 'withdrawal-complete', 'security-alert'],
+  })
+  @ApiResponse({ status: 200, description: 'Email preview HTML' })
+  @ApiResponse({ status: 404, description: 'Template not found' })
+  async previewEmailTemplate(
+    @Param('templateName') templateName: string,
+  ): Promise<{ html: string; subject: string }> {
+    return this.emailTemplatingService.renderPreview(
+      templateName as any,
+    );
   }
 }

@@ -1,93 +1,3 @@
-import { ApiProperty } from '@nestjs/swagger';
-import {
-  Vault,
-  VaultType,
-  VaultStatus,
-} from '../../database/entities/vault.entity';
-import { Deposit } from '../../database/entities/deposit.entity';
-
-export class VaultResponseDto {
-  @ApiProperty({
-    example: '123e4567-e89b-12d3-a456-426614174000',
-    description: 'Vault unique identifier',
-  })
-  id: string;
-
-  @ApiProperty({
-    example: '123e4567-e89b-12d3-a456-426614174000',
-    description: 'Vault owner ID',
-  })
-  ownerId: string;
-
-  @ApiProperty({
-    enum: VaultType,
-    example: 'CROP_PRODUCTION',
-    description: 'Type of vault',
-  })
-  type: VaultType;
-
-  @ApiProperty({
-    enum: VaultStatus,
-    example: 'ACTIVE',
-    description: 'Current status of vault',
-  })
-  status: VaultStatus;
-
-  @ApiProperty({
-    example: 'My Crop Production Vault',
-    description: 'Vault name',
-  })
-  vaultName: string;
-
-  @ApiProperty({
-    example: 'Vault for financing wheat production',
-    description: 'Vault description',
-    required: false,
-  })
-  description: string | null;
-
-  @ApiProperty({
-    example: 'HVF',
-    description: 'Vault symbol',
-  })
-  symbol: string;
-
-  @ApiProperty({
-    example: 'XLM/USDC',
-    description: 'Vault asset pair',
-  })
-  assetPair: string;
-
-  @ApiProperty({
-    example: 50000.5,
-    description: 'Total deposits in vault',
-  })
-  totalDeposits: number;
-
-  @ApiProperty({
-    example: 100000.0,
-    description: 'Maximum vault capacity',
-  })
-  maxCapacity: number;
-
-  @ApiProperty({
-    example: 50000.5,
-    description: 'Available capacity remaining',
-  })
-  availableCapacity: number;
-
-  @ApiProperty({
-    example: 50.05,
-    description: 'Vault utilization percentage',
-  })
-  utilizationPercentage: number;
-
-  @ApiProperty({
-    example: 5.5,
-    description: 'Annual interest rate (APR)',
-  })
-  interestRate: number;
-
   @ApiProperty({
     example: 5.65,
     description: 'Annual Percentage Rate (APR)',
@@ -155,6 +65,18 @@ export class VaultResponseDto {
     description: 'Last update date',
   })
   updatedAt: Date;
+
+  @ApiProperty({ example: 50, description: 'Entry fee in basis points' })
+  entryFeeBps: number;
+
+  @ApiProperty({ example: 50, description: 'Exit fee in basis points' })
+  exitFeeBps: number;
+
+  @ApiProperty({ example: 1000, description: 'Performance fee in basis points' })
+  performanceFeeBps: number;
+
+  @ApiProperty({ example: 'GXXX...', description: 'Fee recipient address', required: false, nullable: true })
+  feeAddress: string | null;
 }
 
 export class DepositResponseDto {
@@ -228,6 +150,12 @@ export class DepositVaultResponseDto {
     description: "User's total deposits across all vaults",
   })
   userTotalDeposits: number;
+
+  @ApiProperty({ example: 5.0, description: 'Fee amount deducted' })
+  feeAmount: number;
+
+  @ApiProperty({ example: 995.0, description: 'Net amount credited after fee deduction' })
+  netAmount: number;
 }
 
 export class BatchDepositResponseDto {
