@@ -123,6 +123,12 @@ export class User {
   @Exclude()
   emailVerificationToken: string | null;
 
+  @Column({ name: 'phone_number', nullable: true })
+  phoneNumber: string | null;
+
+  @Column({ name: 'phone_verified_at', nullable: true })
+  phoneVerifiedAt: Date | null;
+
   @OneToMany(() => Session, (session) => session.user)
   sessions: Session[];
 
@@ -135,6 +141,20 @@ export class User {
 
   @Column({ name: 'locked_until', nullable: true, default: null })
   lockedUntil: Date | null;
+
+  @Column({
+    name: 'notification_preferences',
+    type: 'jsonb',
+    nullable: true,
+    default: () => `'{
+      "depositConfirmed": {"email": true, "sms": false, "push": true, "inApp": true},
+      "withdrawalCompleted": {"email": true, "sms": false, "push": true, "inApp": true},
+      "vaultPaused": {"email": true, "sms": true, "push": true, "inApp": true},
+      "securityAlert": {"email": true, "sms": true, "push": true, "inApp": true},
+      "yieldMilestone": {"email": true, "sms": false, "push": true, "inApp": true}
+    }'::jsonb`,
+  })
+  notificationPreferences: Record<string, any> | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

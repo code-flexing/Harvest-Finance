@@ -18,9 +18,9 @@ import { VaultApyHistory } from '../database/entities/vault-apy-history.entity';
 import { InsuranceClaim } from '../database/entities/insurance-claim.entity';
 import { DepositEventService } from './deposit-event.service';
 import { WithdrawalConfirmedHandler } from './events/withdrawal-confirmed.handler';
-import { WithdrawalQueueService } from './withdrawal-queue.service';
 import { StellarModule } from '../stellar/stellar.module';
 import { VaultAccountMonitorService } from './vault-account-monitor.service';
+import { WithdrawalQueueService } from './withdrawal-queue.service';
 import { InsuranceFundService } from './insurance-fund.service';
 import { InsuranceFundController } from './insurance-fund.controller';
 import { AuthModule } from '../auth/auth.module';
@@ -47,8 +47,8 @@ import { AnalyticsModule } from '../analytics/analytics.module';
     SimulationService,
     DepositEventService,
     WithdrawalConfirmedHandler,
-    WithdrawalQueueService,
     VaultAccountMonitorService,
+    WithdrawalQueueService,
     InsuranceFundService,
     VaultReadRepository,
     ...CommandHandlers,
