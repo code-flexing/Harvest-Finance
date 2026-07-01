@@ -162,6 +162,18 @@ export class VaultResponseDto {
     description: 'Last update date',
   })
   updatedAt: Date;
+
+  @ApiProperty({ example: 50, description: 'Entry fee in basis points' })
+  entryFeeBps: number;
+
+  @ApiProperty({ example: 50, description: 'Exit fee in basis points' })
+  exitFeeBps: number;
+
+  @ApiProperty({ example: 1000, description: 'Performance fee in basis points' })
+  performanceFeeBps: number;
+
+  @ApiProperty({ example: 'GXXX...', description: 'Fee recipient address', required: false, nullable: true })
+  feeAddress: string | null;
 }
 
 export class DepositResponseDto {
@@ -235,6 +247,12 @@ export class DepositVaultResponseDto {
     description: "User's total deposits across all vaults",
   })
   userTotalDeposits: number;
+
+  @ApiProperty({ example: 5.0, description: 'Fee amount deducted' })
+  feeAmount: number;
+
+  @ApiProperty({ example: 995.0, description: 'Net amount credited after fee deduction' })
+  netAmount: number;
 }
 
 export class BatchDepositResponseDto {

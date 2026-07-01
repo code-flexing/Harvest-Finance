@@ -3,6 +3,7 @@ import { CqrsModule } from '@nestjs/cqrs';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { VaultsController } from './vaults.controller';
 import { VaultsService } from './vaults.service';
+import { FeesService } from './fees.service';
 import { SimulationService } from './simulation.service';
 import { CommandHandlers } from './cqrs/commands/handlers';
 import { QueryHandlers } from './cqrs/queries/handlers';
@@ -26,6 +27,7 @@ import { AuthModule } from '../auth/auth.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { CommonModule } from '../common/common.module';
+import { AnalyticsModule } from '../analytics/analytics.module';
 
 @Module({
   imports: [
@@ -36,21 +38,23 @@ import { CommonModule } from '../common/common.module';
     RealtimeModule,
     CommonModule,
     StellarModule,
+    AnalyticsModule,
   ],
   controllers: [VaultsController, InsuranceFundController],
   providers: [
     VaultsService,
+    FeesService,
     SimulationService,
     DepositEventService,
     WithdrawalConfirmedHandler,
     VaultAccountMonitorService,
     WithdrawalQueueService,
     InsuranceFundService,
+    VaultReadRepository,
     ...CommandHandlers,
     ...QueryHandlers,
     ...EventHandlers,
-    VaultReadRepository,
   ],
-  exports: [VaultsService, SimulationService, DepositEventService, WithdrawalQueueService, InsuranceFundService],
+  exports: [VaultsService, FeesService, SimulationService, DepositEventService, WithdrawalQueueService, InsuranceFundService],
 })
 export class VaultsModule {}

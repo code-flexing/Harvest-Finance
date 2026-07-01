@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { VaultsService } from './vaults.service';
+import { FeesService } from './fees.service';
 import { WithdrawalQueueService } from './withdrawal-queue.service';
 import { ExternalPaymentEventType } from './dto/external-payment-notification.dto';
 import { PaymentReceivedEvent, DepositCompletedEvent, WithdrawalConfirmedEvent, DomainEventNames } from '../domain-events';
@@ -210,6 +211,11 @@ describe('VaultsService — Yield Strategy Integration', () => {
         { provide: DepositEventService, useValue: mockDepositEventService },
         { provide: WithdrawalQueueService, useValue: { processQueue: jest.fn().mockResolvedValue(undefined) } },
         { provide: EventEmitter2, useValue: mockEventEmitter },
+        FeesService,
+        {
+          provide: WithdrawalQueueService,
+          useValue: { processWithdrawalQueue: jest.fn().mockResolvedValue(undefined), enqueueWithdrawal: jest.fn().mockResolvedValue(undefined) },
+        },
       ],
     }).compile();
 

@@ -168,6 +168,7 @@ import { CreateCustodialWallets1700000000021 } from './database/migrations/17000
           CreateVaultApyHistory1700000000017,
           CreateSessionsAndOAuthLinks1700000000022,
           CreateCustodialWallets1700000000021,
+          AddRefreshTokenRotation1700000000022,
         ],
         synchronize: false,
         migrationsRun: false,

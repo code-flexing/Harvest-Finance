@@ -7,6 +7,8 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { VaultsService } from './vaults.service';
+import { FeesService } from './fees.service';
+import { WithdrawalQueueService } from './withdrawal-queue.service';
 import { Vault, VaultStatus, VaultType } from '../database/entities/vault.entity';
 import { Deposit, DepositStatus } from '../database/entities/deposit.entity';
 import { VaultApyHistory } from '../database/entities/vault-apy-history.entity';
@@ -193,7 +195,11 @@ describe('VaultsService', () => {
         { provide: ContractCacheService, useValue: mockContractCache },
         { provide: InputSanitizerService, useValue: mockSanitizer },
         { provide: DepositEventService, useValue: mockDepositEventService },
-        { provide: WithdrawalQueueService, useValue: {} },
+        FeesService,
+        {
+          provide: WithdrawalQueueService,
+          useValue: { processWithdrawalQueue: jest.fn().mockResolvedValue(undefined), enqueueWithdrawal: jest.fn().mockResolvedValue(undefined) },
+        },
       ],
     }).compile();
 
