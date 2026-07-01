@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
-import { useVaultRealtime } from '../hooks/useVaultRealtime';
+import { useVaultRealtime } from '@/hooks/useVaultRealtime';
 import { io, Socket } from 'socket.io-client';
 
 // Mock socket.io-client

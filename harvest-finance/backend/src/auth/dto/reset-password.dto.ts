@@ -30,22 +30,22 @@ export class ResetPasswordDto {
   token: string;
 
   /**
-   * The user's desired new password.
-   * Must satisfy the same complexity rules as registration (8–32 chars,
-   * upper/lower/digit/special). Replaces the existing bcrypt hash on success.
-   */
-  @ApiProperty({
-    example: 'NewSecurePass123!',
-    description:
-      'New password must contain at least 8 characters, uppercase, lowercase, number, and special character',
-  })
-  @IsString({ message: 'Password must be a string' })
-  @MinLength(8, { message: 'Password must be at least 8 characters long' })
-  @MaxLength(32, { message: 'Password must not exceed 32 characters' })
-  @Matches(PASSWORD_REGEX, {
-    message:
-      'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
-  })
-  @IsNotEmpty({ message: 'Password is required' })
-  new_password: string;
+    * The user's desired new password.
+    * Must satisfy the same complexity rules as registration (12–32 chars,
+    * upper/lower/digit/special). Replaces the existing bcrypt hash on success.
+    */
+   @ApiProperty({
+     example: 'NewSecurePass123!',
+     description:
+       'New password must contain at least 12 characters, uppercase, lowercase, number, and special character',
+   })
+   @IsString({ message: 'Password must be a string' })
+   @MinLength(12, { message: 'Password must be at least 12 characters long' })
+   @MaxLength(32, { message: 'Password must not exceed 32 characters' })
+   @Matches(PASSWORD_REGEX, {
+     message:
+       'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
+   })
+   @IsNotEmpty({ message: 'Password is required' })
+   new_password: string;
 }

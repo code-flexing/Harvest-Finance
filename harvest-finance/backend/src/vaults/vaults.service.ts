@@ -3,10 +3,10 @@ import {
   NotFoundException,
   BadRequestException,
   UnauthorizedException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, FindOptionsWhere, LessThan, MoreThan } from 'typeorm';
-import { Cron } from '@nestjs/schedule';
+import { Repository, DataSource } from 'typeorm';
 import { Vault, VaultStatus } from '../database/entities/vault.entity';
 import { Deposit, DepositStatus } from '../database/entities/deposit.entity';
 import { VaultApyHistory } from '../database/entities/vault-apy-history.entity';
@@ -30,12 +30,9 @@ import {
   DepositVaultResponseDto,
   VaultResponseDto,
   DepositResponseDto,
-  PaginatedVaultsResponseDto,
 } from './dto/vault-response.dto';
-import { PaginationQueryDto } from './dto/pagination-query.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationHelper } from '../notifications/notification.helper';
-import { NotificationType } from '../database/entities/notification.entity';
 import { CustomLoggerService } from '../logger/custom-logger.service';
 import { VaultGateway } from '../realtime/vault.gateway';
 import { ContractCacheService } from '../common/cache/contract-cache.service';
@@ -80,7 +77,7 @@ export class VaultsService {
     private depositEventService: DepositEventService,
     private readonly feesService: FeesService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly withdrawalQueueService: WithdrawalQueueService,
+    private authService: AuthService,
   ) {}
 
   /**
@@ -137,6 +134,14 @@ export class VaultsService {
   ): Promise<DepositVaultResponseDto> {
     const { userId, amount, idempotencyKey } = depositDto;
 
+    // Check email verification
+    const isVerified = await this.authService.isEmailVerified(userId);
+    if (!isVerified) {
+      throw new ForbiddenException(
+        'Email verification is required to make deposits. Please verify your email address.',
+      );
+    }
+
     if (idempotencyKey) {
       const existingDeposit = await this.depositRepository.findOne({
         where: { idempotencyKey, userId },
@@ -180,35 +185,12 @@ export class VaultsService {
       throw new BadRequestException('Vault has reached maximum capacity');
     }
 
-    // Check if the depositor has an active reservation for this vault.
-    const depositorAddress = await this.getDepositorWalletAddress(userId);
-    const reservation = depositorAddress
-      ? await this.reservationRepository.findOne({
-          where: {
-            vaultId,
-            walletAddress: depositorAddress,
-            isActive: true,
-            expiresAt: MoreThan(new Date()),
-          },
-        })
-      : null;
-
-    if (reservation) {
-      // Reserved depositor: enforce amount <= reservedAmount
-      if (amount > Number(reservation.reservedAmount)) {
-        throw new BadRequestException(
-          `Deposit amount exceeds your reserved allocation. Reserved: ${reservation.reservedAmount}`,
-        );
-      }
-    } else {
-      // Public depositor: available capacity excludes all active reservations
-      const totalReserved = await this.getTotalActiveReservedAmount(vaultId);
-      const publicCapacity = vault.availableCapacity - totalReserved;
-      if (amount > publicCapacity) {
-        throw new BadRequestException(
-          `Deposit amount exceeds available public vault capacity. Available: ${publicCapacity}`,
-        );
-      }
+    // Verify if the requested deposit amount is within the available capacity of the vault.
+    // The available capacity is derived from the formula: availableCapacity = maxCapacity - totalDeposits.
+    if (amount > vault.availableCapacity) {
+      throw new BadRequestException(
+        `Deposit amount exceeds available vault capacity. Available: ${vault.availableCapacity}`,
+      );
     }
 
     const deposit = this.depositRepository.create({
@@ -279,16 +261,6 @@ export class VaultsService {
       return { deposit: savedDeposit, vault: updatedVault };
     });
 
-    // Process withdrawal queue after successful deposit
-    try {
-      await this.withdrawalQueueService.processWithdrawalQueue(vaultId);
-    } catch (error) {
-      this.logger.error(
-        `Error processing withdrawal queue for vault ${vaultId} after deposit:`,
-        error,
-      );
-    }
-
     if (amount >= LARGE_DEPOSIT_THRESHOLD) {
       await this.notificationsService.create(
         NotificationHelper.largeDepositAlert({
@@ -298,20 +270,39 @@ export class VaultsService {
       );
     }
 
+    const confirmedDeposit = await this.confirmDeposit(result.deposit.id);
+
     const userTotalDeposits = await this.getUserTotalDeposits(userId);
 
-    if (result.vault) {
-      await this.withdrawalQueueService.processQueue(vaultId, Number(result.vault.totalDeposits));
-    }
-
     this.logger.log(
-      `Deposit of ${amount} initiated for vault ${vaultId} by user ${userId}`,
+      `Deposit of ${amount} confirmed into vault ${vaultId} by user ${userId}`,
       'VaultsService',
+    );
+
+    this.vaultGateway.emitDeposit({
+      vaultId,
+      vaultName: vault.vaultName,
+      asset: vault.type,
+      amount,
+      userId,
+      newBalance: result.vault ? Number(result.vault.totalDeposits) : 0,
+    });
+
+    this.eventEmitter.emit(
+      DomainEventNames.DEPOSIT_COMPLETED,
+      new DepositCompletedEvent(
+        confirmedDeposit.id,
+        userId,
+        vaultId,
+        amount,
+        vault.vaultName,
+        result.vault ? Number(result.vault.totalDeposits) : 0,
+      ),
     );
 
     return {
       vault: result.vault ? this.mapVaultToResponse(result.vault) : null,
-      deposit: this.mapDepositToResponse(result.deposit),
+      deposit: this.mapDepositToResponse(confirmedDeposit),
       userTotalDeposits,
       feeAmount: entryFee.feeAmount,
       netAmount: entryFee.netAmount,
@@ -322,6 +313,14 @@ export class VaultsService {
     userId: string,
     dto: BatchDepositDto,
   ): Promise<{ results: DepositVaultResponseDto[]; userTotalDeposits: number }> {
+    // Check email verification
+    const isVerified = await this.authService.isEmailVerified(userId);
+    if (!isVerified) {
+      throw new ForbiddenException(
+        'Email verification is required to make deposits. Please verify your email address.',
+      );
+    }
+
     const deposits = dto.deposits ?? [];
     if (deposits.length === 0) {
       throw new BadRequestException('At least one deposit is required');
@@ -524,8 +523,6 @@ export class VaultsService {
       }
 
       if (r.vault) {
-        await this.withdrawalQueueService.processQueue(r.vault.id, Number(r.vault.totalDeposits));
-
         this.vaultGateway.emitDeposit({
           vaultId: r.vault.id,
           vaultName: r.vault.vaultName,
@@ -553,32 +550,6 @@ export class VaultsService {
   }
 
   private async confirmDeposit(depositId: string): Promise<Deposit> {
-    const { deposit } = await this.applyExternalPaymentNotification({
-      depositId,
-      eventType: ExternalPaymentEventType.PAYMENT_CONFIRMED,
-      transactionHash: `mock_tx_${Date.now()}`,
-      stellarTransactionId: `mock_stellar_${Date.now()}`,
-      externalEventId: `internal_confirm_${depositId}`,
-    });
-    return deposit;
-  }
-
-  /**
-   * Applies payment status updates from external webhook providers.
-   */
-  async applyExternalPaymentNotification(params: {
-    depositId: string;
-    eventType: ExternalPaymentEventType;
-    transactionHash: string;
-    stellarTransactionId?: string | null;
-    externalEventId: string;
-    occurredAt?: Date;
-  }): Promise<{
-    deposit: Deposit;
-    status: DepositStatus;
-    duplicate: boolean;
-  }> {
-    const depositId = this.sanitizer.validateUUID(params.depositId);
     const deposit = await this.depositRepository.findOne({
       where: { id: depositId },
     });
@@ -587,206 +558,49 @@ export class VaultsService {
       throw new NotFoundException('Deposit not found');
     }
 
-    if (params.eventType === ExternalPaymentEventType.PAYMENT_CONFIRMED) {
-      if (deposit.status === DepositStatus.CONFIRMED) {
-        return {
-          deposit,
-          status: deposit.status,
-          duplicate: true,
-        };
-      }
-
-      const confirmedAt = params.occurredAt ?? new Date();
-      const stellarTransactionId = params.stellarTransactionId ?? null;
-
-      await this.depositRepository.update(depositId, {
-        status: DepositStatus.CONFIRMED,
-        confirmedAt,
-        transactionHash: params.transactionHash,
-        ...(stellarTransactionId != null ? { stellarTransactionId } : {}),
-      });
-
-      await this.depositEventService.appendEvent({
-        depositId,
-        userId: deposit.userId,
-        vaultId: deposit.vaultId,
-        eventType: DepositEventType.CONFIRMED,
-        amount: Number(deposit.amount),
-        transactionHash: params.transactionHash,
-        stellarTransactionId,
-        idempotencyKey: deposit.idempotencyKey,
-        payload: {
-          status: DepositStatus.CONFIRMED,
-          confirmedAt: confirmedAt.toISOString(),
-          externalEventId: params.externalEventId,
-        },
-      });
-
-      const updatedDeposit = await this.depositRepository.findOne({
-        where: { id: depositId },
-      });
-
-      if (!updatedDeposit) {
-        throw new NotFoundException('Deposit not found after confirmation');
-      }
-
-      await this.notificationsService.create(
-        NotificationHelper.depositConfirmed({
-          userId: updatedDeposit.userId,
-          amount: updatedDeposit.amount,
-          vaultId: updatedDeposit.vaultId,
-        }),
-      );
-
-      return {
-        deposit: updatedDeposit,
-        status: DepositStatus.CONFIRMED,
-        duplicate: false,
-      };
-    }
-
-    if (deposit.status === DepositStatus.FAILED) {
-      return {
-        deposit,
-        status: deposit.status,
-        duplicate: true,
-      };
-    }
+    const stellarTransactionId: string | null = `mock_stellar_${Date.now()}`;
+    const transactionHash = `mock_tx_${Date.now()}`;
+    const confirmedAt = new Date();
 
     await this.depositRepository.update(depositId, {
-      status: DepositStatus.FAILED,
-      transactionHash: params.transactionHash,
-      ...(params.stellarTransactionId != null
-        ? { stellarTransactionId: params.stellarTransactionId }
-        : {}),
+      status: DepositStatus.CONFIRMED,
+      confirmedAt,
+      transactionHash,
+      ...(stellarTransactionId != null ? { stellarTransactionId } : {}),
     });
 
     await this.depositEventService.appendEvent({
       depositId,
       userId: deposit.userId,
       vaultId: deposit.vaultId,
-      eventType: DepositEventType.FAILED,
+      eventType: DepositEventType.CONFIRMED,
       amount: Number(deposit.amount),
-      transactionHash: params.transactionHash,
-      stellarTransactionId: params.stellarTransactionId ?? null,
+      transactionHash,
+      stellarTransactionId,
       idempotencyKey: deposit.idempotencyKey,
       payload: {
-        status: DepositStatus.FAILED,
-        externalEventId: params.externalEventId,
+        status: DepositStatus.CONFIRMED,
+        confirmedAt: confirmedAt.toISOString(),
       },
     });
 
-    const failedDeposit = await this.depositRepository.findOne({
+    const updatedDeposit = await this.depositRepository.findOne({
       where: { id: depositId },
     });
 
-    if (!failedDeposit) {
-      throw new NotFoundException('Deposit not found after failure update');
+    if (!updatedDeposit) {
+      throw new NotFoundException('Deposit not found after confirmation');
     }
 
-    return {
-      deposit: failedDeposit,
-      status: DepositStatus.FAILED,
-      duplicate: false,
-    };
-  }
+    await this.notificationsService.create(
+      NotificationHelper.depositConfirmed({
+        userId: updatedDeposit.userId,
+        amount: updatedDeposit.amount,
+        vaultId: updatedDeposit.vaultId,
+      }),
+    );
 
-  /**
-   * Applies payment status updates for withdrawals from external webhook providers.
-   */
-  async applyExternalWithdrawalNotification(params: {
-    withdrawalId: string;
-    eventType: ExternalPaymentEventType;
-    transactionHash: string;
-    stellarTransactionId?: string | null;
-    externalEventId: string;
-    occurredAt?: Date;
-  }): Promise<{
-    withdrawal: Withdrawal;
-    status: WithdrawalStatus;
-    duplicate: boolean;
-  }> {
-    const withdrawalId = this.sanitizer.validateUUID(params.withdrawalId);
-    const withdrawal = await this.withdrawalRepository.findOne({
-      where: { id: withdrawalId },
-      relations: ['vault'],
-    });
-
-    if (!withdrawal) {
-      throw new NotFoundException('Withdrawal not found');
-    }
-
-    if (params.eventType === ExternalPaymentEventType.PAYMENT_CONFIRMED) {
-      if (withdrawal.status === WithdrawalStatus.CONFIRMED) {
-        return {
-          withdrawal,
-          status: withdrawal.status,
-          duplicate: true,
-        };
-      }
-
-      const confirmedAt = params.occurredAt ?? new Date();
-
-      await this.withdrawalRepository.update(withdrawalId, {
-        status: WithdrawalStatus.CONFIRMED,
-        confirmedAt,
-        transactionHash: params.transactionHash,
-      });
-
-      const updatedWithdrawal = await this.withdrawalRepository.findOne({
-        where: { id: withdrawalId },
-        relations: ['vault'],
-      });
-
-      if (!updatedWithdrawal) {
-        throw new NotFoundException('Withdrawal not found after confirmation');
-      }
-
-      // Emit an async event for post-confirmation work (notifications, realtime, downstream domain events).
-      this.eventEmitter.emit(
-        DomainEventNames.WITHDRAWAL_CONFIRMED,
-        new WithdrawalConfirmedEvent(
-          updatedWithdrawal.id,
-          updatedWithdrawal.userId,
-          updatedWithdrawal.vaultId,
-          Number(updatedWithdrawal.amount),
-          updatedWithdrawal.vault.vaultName,
-          Number(updatedWithdrawal.vault.totalDeposits),
-          updatedWithdrawal.transactionHash,
-          updatedWithdrawal.confirmedAt ?? new Date(),
-        ),
-      );
-
-      return {
-        withdrawal: updatedWithdrawal,
-        status: WithdrawalStatus.CONFIRMED,
-        duplicate: false,
-      };
-    }
-
-    if (withdrawal.status === WithdrawalStatus.FAILED) {
-      return {
-        withdrawal,
-        status: withdrawal.status,
-        duplicate: true,
-      };
-    }
-
-    await this.withdrawalRepository.update(withdrawalId, {
-      status: WithdrawalStatus.FAILED,
-      transactionHash: params.transactionHash,
-    });
-
-    const failedWithdrawal = await this.withdrawalRepository.findOne({
-      where: { id: withdrawalId },
-      relations: ['vault'],
-    });
-
-    return {
-      withdrawal: failedWithdrawal!,
-      status: WithdrawalStatus.FAILED,
-      duplicate: false,
-    };
+    return updatedDeposit;
   }
 
   async getDepositEventHistory(
@@ -848,104 +662,14 @@ export class VaultsService {
     return vaults.map((vault) => this.mapVaultToResponse(vault));
   }
 
-  /**
-   * Creates a new vault by deep-copying configuration from an existing vault.
-   * Financial state (deposits, approvals, balances) is reset on the clone.
-   */
-  async cloneVaultFromTemplate(
-    sourceVaultId: string,
-    userId: string,
-    vaultName?: string,
-  ): Promise<VaultResponseDto> {
-    const sanitizedSourceId = this.sanitizer.validateUUID(sourceVaultId);
-    const sourceVault = await this.vaultRepository.findOne({
-      where: { id: sanitizedSourceId },
+  async getPublicVaults(): Promise<VaultResponseDto[]> {
+    const vaults = await this.vaultRepository.find({
+      where: { isPublic: true },
+      relations: ['deposits'],
+      order: { createdAt: 'DESC' },
     });
 
-    if (!sourceVault) {
-      throw new NotFoundException('Vault not found');
-    }
-
-    if (sourceVault.ownerId !== userId) {
-      throw new UnauthorizedException(
-        'Only the vault owner can clone this vault',
-      );
-    }
-
-    const resolvedName = (vaultName?.trim() ||
-      `${sourceVault.vaultName} (Copy)`).slice(0, 100);
-
-    if (!resolvedName) {
-      throw new BadRequestException('Vault name is required');
-    }
-
-    const clonedVault = this.vaultRepository.create({
-      ownerId: userId,
-      type: sourceVault.type,
-      status: VaultStatus.ACTIVE,
-      vaultName: resolvedName,
-      description: sourceVault.description,
-      symbol: sourceVault.symbol,
-      assetPair: sourceVault.assetPair,
-      totalDeposits: 0,
-      maxCapacity: sourceVault.maxCapacity,
-      interestRate: sourceVault.interestRate,
-      compoundingFrequency: sourceVault.compoundingFrequency || 'daily',
-      maturityDate: sourceVault.maturityDate,
-      lockPeriodEnd: sourceVault.lockPeriodEnd,
-      isPublic: sourceVault.isPublic,
-      requiresMultiSignature: sourceVault.requiresMultiSignature,
-      approvalThreshold: sourceVault.approvalThreshold,
-      currentApprovals: 0,
-    });
-
-    const saved = await this.vaultRepository.save(clonedVault);
-    return this.mapVaultToResponse(saved);
-  }
-
-  async getPublicVaults(
-    query: PaginationQueryDto,
-  ): Promise<PaginatedVaultsResponseDto> {
-    const limit = query.limit ?? 20;
-    const skip = query.skip ?? 0;
-
-    const where: FindOptionsWhere<Vault> = { isPublic: true };
-    if (query.cursor) {
-      where.createdAt = LessThan(new Date(query.cursor));
-    }
-
-    const [vaults, total] = await Promise.all([
-      this.vaultRepository.find({
-        where,
-        relations: ['deposits'],
-        order: { createdAt: 'DESC' },
-        skip: query.cursor ? 0 : skip,
-        take: limit + 1,
-      }),
-      this.vaultRepository.count({ where: { isPublic: true } }),
-    ]);
-
-    const hasMore = vaults.length > limit;
-    if (hasMore) {
-      vaults.pop();
-    }
-
-    const data = await Promise.all(
-      vaults.map(async (vault) => {
-        const dto = this.mapVaultToResponse(vault);
-        const totalReserved = await this.getTotalActiveReservedAmount(vault.id);
-        return {
-          ...dto,
-          availableCapacity: Math.max(0, dto.availableCapacity - totalReserved),
-        };
-      }),
-    );
-
-    return {
-      data,
-      total,
-      hasMore,
-    };
+    return vaults.map((vault) => this.mapVaultToResponse(vault));
   }
 
   async getVaultsMetadata(): Promise<any[]> {
@@ -959,18 +683,6 @@ export class VaultsService {
       symbol: v.symbol,
       assetPair: v.assetPair,
     }));
-  }
-
-  calculateApy(apr: number, frequency: 'daily' | 'weekly' | 'monthly'): number {
-    let n = 365;
-    if (frequency === 'weekly') {
-      n = 52;
-    } else if (frequency === 'monthly') {
-      n = 12;
-    }
-    const aprDecimal = apr / 100;
-    const apyDecimal = Math.pow(1 + aprDecimal / n, n) - 1;
-    return Math.round(apyDecimal * 100 * 100) / 100;
   }
 
   mapVaultToResponse(vault: Vault): VaultResponseDto {
@@ -1081,8 +793,8 @@ export class VaultsService {
         status: WithdrawalStatus.PENDING,
       });
 
-      const result = await this.dataSource.transaction(async (manager) => {
-        const savedWithdrawal = await manager.save(withdrawal);
+    const result = await this.dataSource.transaction(async (manager) => {
+      const savedWithdrawal = await manager.save(withdrawal);
 
         // Log exit fee collection in the deposit_events audit log
         if (exitFee.feeAmount > 0) {
@@ -1107,37 +819,41 @@ export class VaultsService {
 
         await manager.decrement(Vault, { id: vaultId }, 'totalDeposits', amount);
 
-        const updatedVault = await manager.findOne(Vault, {
-          where: { id: vaultId },
-        });
-
-        if (updatedVault && updatedVault.status === VaultStatus.FULL_CAPACITY) {
-          await manager.update(
-            Vault,
-            { id: vaultId },
-            { status: VaultStatus.ACTIVE },
-          );
-          updatedVault.status = VaultStatus.ACTIVE;
-        }
-
-        return { withdrawal: savedWithdrawal, vault: updatedVault };
+      const updatedVault = await manager.findOne(Vault, {
+        where: { id: vaultId },
       });
 
-      await this.withdrawalRepository.update(result.withdrawal.id, {
-        status: WithdrawalStatus.CONFIRMED,
-        confirmedAt: new Date(),
-        transactionHash: `mock_withdraw_tx_${Date.now()}`,
-      });
-
-      const confirmedWithdrawal = await this.withdrawalRepository.findOne({
-        where: { id: result.withdrawal.id },
-      });
-
-      if (!confirmedWithdrawal) {
-        throw new NotFoundException('Withdrawal not found after confirmation');
+      if (updatedVault && updatedVault.status === VaultStatus.FULL_CAPACITY) {
+        await manager.update(
+          Vault,
+          { id: vaultId },
+          { status: VaultStatus.ACTIVE },
+        );
+        updatedVault.status = VaultStatus.ACTIVE;
       }
 
-      await this.notificationsService.create({
+      return { withdrawal: savedWithdrawal, vault: updatedVault };
+    });
+
+    await this.withdrawalRepository.update(result.withdrawal.id, {
+      status: WithdrawalStatus.CONFIRMED,
+      confirmedAt: new Date(),
+      transactionHash: `mock_withdraw_tx_${Date.now()}`,
+    });
+
+    const confirmedWithdrawal = await this.withdrawalRepository.findOne({
+      where: { id: result.withdrawal.id },
+    });
+
+    if (!confirmedWithdrawal) {
+      throw new NotFoundException('Withdrawal not found after confirmation');
+    }
+
+    // Emit an async event for post-confirmation work (notifications, realtime, downstream domain events).
+    this.eventEmitter.emit(
+      DomainEventNames.WITHDRAWAL_CONFIRMED,
+      new WithdrawalConfirmedEvent(
+        confirmedWithdrawal.id,
         userId,
         title: 'Withdrawal Confirmed',
         message: `Your withdrawal of ${amount} from vault ${vault.vaultName} has been confirmed.`,
@@ -1194,41 +910,11 @@ export class VaultsService {
     };
   }
 
-  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
-  async recordDailyApySnapshots(): Promise<void> {
-    this.logger.log('Recording daily APY snapshots...', 'VaultsService');
-    const vaults = await this.vaultRepository.find({
-      where: { status: VaultStatus.ACTIVE },
-    });
-
-    for (const vault of vaults) {
-      const apr = Number(vault.interestRate);
-      const apy = this.calculateApy(apr, vault.compoundingFrequency || 'daily');
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      // Check if snapshot already exists for today to avoid duplicates
-      const exists = await this.vaultApyHistoryRepository.findOne({
-        where: { vaultId: vault.id, date: today },
-      });
-
-      if (!exists) {
-        const historyRecord = this.vaultApyHistoryRepository.create({
-          vaultId: vault.id,
-          date: today,
-          apy,
-        });
-        await this.vaultApyHistoryRepository.save(historyRecord);
-      }
-    }
-    this.logger.log('Finished recording daily APY snapshots.', 'VaultsService');
-  }
-
   async getApyHistory(
     vaultId?: string,
     timeRange: string = '30d',
   ): Promise<any[]> {
+    // Calculate date range
     const now = new Date();
     let daysBack = 30;
 
@@ -1240,7 +926,7 @@ export class VaultsService {
         daysBack = 90;
         break;
       case 'all':
-        daysBack = 365;
+        daysBack = 365; // Approximate 1 year
         break;
       default:
         daysBack = 30;
@@ -1261,15 +947,16 @@ export class VaultsService {
 
     const queryBuilder = this.vaultApyHistoryRepository
       .createQueryBuilder('history')
-      .where('history.date >= :startDate', { startDate: startDate.toISOString().split('T')[0] });
+      .where('history.snapshotDate >= :startDate', {
+        startDate: startDate.toISOString().split('T')[0],
+      })
+      .orderBy('history.snapshotDate', 'ASC');
 
     if (vaultId) {
-      queryBuilder.andWhere('history.vaultId = :vaultId', { vaultId });
+      query.andWhere('history.vaultId = :vaultId', { vaultId });
     }
 
-    const records = await queryBuilder
-      .orderBy('history.date', 'ASC')
-      .getMany();
+    const rows = await query.getMany();
 
     if (records.length > 0) {
       return records.map(r => ({
@@ -1312,7 +999,7 @@ export class VaultsService {
     const vault = await this.getVaultById(vaultId);
 
     // Only vault owner or admin can update multi-signature config
-    if (vault.ownerId !== userId && !(await this.isCurrentUserAdmin(userId))) {
+    if (vault.ownerId !== userId && !this.isCurrentUserAdmin(userId)) {
       throw new UnauthorizedException('Only vault owner or admin can update multi-signature configuration');
     }
 
@@ -1359,7 +1046,7 @@ export class VaultsService {
     const vault = await this.getVaultById(vaultId);
 
     // Only vault owner or admin can request approvals
-    if (vault.ownerId !== userId && !(await this.isCurrentUserAdmin(userId))) {
+    if (vault.ownerId !== userId && !this.isCurrentUserAdmin(userId)) {
       throw new UnauthorizedException('Only vault owner or admin can request approvals');
     }
 
@@ -1456,7 +1143,7 @@ export class VaultsService {
     const vault = await this.getVaultById(vaultId);
 
     // Only vault owner or admin can pause vault
-    if (vault.ownerId !== userId && !(await this.isCurrentUserAdmin(userId))) {
+    if (vault.ownerId !== userId && !this.isCurrentUserAdmin(userId)) {
       throw new UnauthorizedException('Only vault owner or admin can pause vault');
     }
 
@@ -1478,7 +1165,7 @@ export class VaultsService {
     const vault = await this.getVaultById(vaultId);
 
     // Only vault owner or admin can resume vault
-    if (vault.ownerId !== userId && !(await this.isCurrentUserAdmin(userId))) {
+    if (vault.ownerId !== userId && !this.isCurrentUserAdmin(userId)) {
       throw new UnauthorizedException('Only vault owner or admin can resume vault');
     }
 
@@ -1496,132 +1183,6 @@ export class VaultsService {
     return this.mapVaultToResponse(updatedVault);
   }
 
-  async createReservation(
-    vaultId: string,
-    ownerId: string,
-    dto: CreateReservationDto,
-  ): Promise<ReservationResponseDto> {
-    const vault = await this.getVaultById(vaultId);
-
-    if (vault.ownerId !== ownerId && !(await this.isCurrentUserAdmin(ownerId))) {
-      throw new UnauthorizedException('Only the vault owner can create reservations');
-    }
-
-    if (vault.status !== VaultStatus.ACTIVE) {
-      throw new BadRequestException('Cannot create reservation for an inactive vault');
-    }
-
-    const expiresAt = new Date(dto.expiresAt);
-    if (expiresAt <= new Date()) {
-      throw new BadRequestException('Reservation expiry must be in the future');
-    }
-
-    const totalReserved = await this.getTotalActiveReservedAmount(vaultId);
-    if (dto.reservedAmount > vault.availableCapacity - totalReserved) {
-      throw new BadRequestException(
-        `Reservation amount exceeds available public capacity. Available: ${vault.availableCapacity - totalReserved}`,
-      );
-    }
-
-    const reservation = this.reservationRepository.create({
-      vaultId,
-      walletAddress: dto.walletAddress,
-      reservedAmount: dto.reservedAmount,
-      expiresAt,
-      isActive: true,
-    });
-
-    const saved = await this.reservationRepository.save(reservation);
-    return this.mapReservationToResponse(saved);
-  }
-
-  async getVaultReservations(
-    vaultId: string,
-    ownerId: string,
-  ): Promise<ReservationResponseDto[]> {
-    const vault = await this.getVaultById(vaultId);
-
-    if (vault.ownerId !== ownerId && !(await this.isCurrentUserAdmin(ownerId))) {
-      throw new UnauthorizedException('Only the vault owner can view reservations');
-    }
-
-    const reservations = await this.reservationRepository.find({
-      where: { vaultId, isActive: true },
-      order: { createdAt: 'DESC' },
-    });
-
-    return reservations.map((r) => this.mapReservationToResponse(r));
-  }
-
-  async cancelReservation(
-    vaultId: string,
-    reservationId: string,
-    ownerId: string,
-  ): Promise<void> {
-    const vault = await this.getVaultById(vaultId);
-
-    if (vault.ownerId !== ownerId && !(await this.isCurrentUserAdmin(ownerId))) {
-      throw new UnauthorizedException('Only the vault owner can cancel reservations');
-    }
-
-    const reservation = await this.reservationRepository.findOne({
-      where: { id: reservationId, vaultId },
-    });
-
-    if (!reservation) {
-      throw new NotFoundException('Reservation not found');
-    }
-
-    await this.reservationRepository.update(reservationId, { isActive: false });
-  }
-
-  private async getTotalActiveReservedAmount(vaultId: string): Promise<number> {
-    const result = await this.reservationRepository
-      .createQueryBuilder('r')
-      .select('SUM(r.reservedAmount)', 'total')
-      .where('r.vaultId = :vaultId', { vaultId })
-      .andWhere('r.isActive = true')
-      .andWhere('r.expiresAt > :now', { now: new Date() })
-      .getRawOne();
-
-    return result?.total ? parseFloat(result.total) : 0;
-  }
-
-  private async getDepositorWalletAddress(userId: string): Promise<string | null> {
-    const user = await this.dataSource.getRepository(User).findOne({
-      where: { id: userId },
-      select: ['stellarAddress'],
-    });
-    return user?.stellarAddress ?? null;
-  }
-
-  private mapReservationToResponse(reservation: VaultReservation): ReservationResponseDto {
-    return {
-      id: reservation.id,
-      vaultId: reservation.vaultId,
-      walletAddress: reservation.walletAddress,
-      reservedAmount: Number(reservation.reservedAmount),
-      expiresAt: reservation.expiresAt,
-      isActive: reservation.isActive,
-      createdAt: reservation.createdAt,
-    };
-  }
-
-  @Cron('0 */5 * * * *')
-  async expireReservations(): Promise<void> {
-    const result = await this.reservationRepository.update(
-      { isActive: true, expiresAt: LessThan(new Date()) },
-      { isActive: false },
-    );
-
-    if (result.affected && result.affected > 0) {
-      this.logger.log(
-        `Expired ${result.affected} vault reservation(s)`,
-        'VaultsService',
-      );
-    }
-  }
-
   private async isCurrentUserAdmin(userId: string): Promise<boolean> {
     // In production, this would check the user's role in the database
     // For now, we'll implement a simple check
@@ -1630,99 +1191,5 @@ export class VaultsService {
       select: ['role'],
     });
     return user?.role === 'ADMIN';
-  }
-
-  @OnEvent(DomainEventNames.PAYMENT_RECEIVED, { async: true })
-  async handlePaymentReceived(event: PaymentReceivedEvent): Promise<void> {
-    this.logger.log(
-      `Received payment event: tx=${event.transactionHash} from=${event.from} amount=${event.amount} memo=${event.memo}`,
-      'VaultsService',
-    );
-
-    // Try to match the payment to a pending deposit
-    let deposit: Deposit | null = null;
-
-    // 1. Try matching by memo as deposit ID if it's a valid UUID
-    if (event.memo && this.isValidUuid(event.memo)) {
-      deposit = await this.depositRepository.findOne({
-        where: { id: event.memo, status: DepositStatus.PENDING },
-        relations: ['vault'],
-      });
-    }
-
-    // 2. Try matching by user's stellar address and amount
-    if (!deposit) {
-      const user = await this.dataSource.getRepository(User).findOne({
-        where: { stellarAddress: event.from },
-      });
-
-      if (user) {
-        deposit = await this.depositRepository.findOne({
-          where: {
-            userId: user.id,
-            amount: event.amount,
-            status: DepositStatus.PENDING,
-          },
-          relations: ['vault'],
-          order: { createdAt: 'ASC' },
-        });
-      }
-    }
-
-    if (!deposit) {
-      this.logger.warn(
-        `Could not match incoming payment to any pending deposit: tx=${event.transactionHash}`,
-        'VaultsService',
-      );
-      return;
-    }
-
-    this.logger.log(
-      `Matching payment found for deposit ${deposit.id}. Confirming...`,
-      'VaultsService',
-    );
-
-    // Confirm the deposit using applyExternalPaymentNotification
-    const { deposit: confirmedDeposit } = await this.applyExternalPaymentNotification({
-      depositId: deposit.id,
-      eventType: ExternalPaymentEventType.PAYMENT_CONFIRMED,
-      transactionHash: event.transactionHash,
-      stellarTransactionId: event.transactionHash,
-      externalEventId: `stellar_stream_${event.transactionHash}`,
-      occurredAt: event.occurredAt,
-    });
-
-    // Retrieve updated vault state
-    const vault = await this.vaultRepository.findOne({
-      where: { id: deposit.vaultId },
-    });
-
-    // Notify client/realtime Gateway
-    this.vaultGateway.emitDeposit({
-      vaultId: deposit.vaultId,
-      vaultName: vault ? vault.vaultName : 'Vault',
-      asset: vault ? vault.type : 'Asset',
-      amount: Number(deposit.amount),
-      userId: deposit.userId,
-      newBalance: vault ? Number(vault.totalDeposits) : 0,
-    });
-
-    // Emit DepositCompletedEvent
-    this.eventEmitter.emit(
-      DomainEventNames.DEPOSIT_COMPLETED,
-      new DepositCompletedEvent(
-        confirmedDeposit.id,
-        deposit.userId,
-        deposit.vaultId,
-        Number(deposit.amount),
-        vault ? vault.vaultName : 'Vault',
-        vault ? Number(vault.totalDeposits) : 0,
-      ),
-    );
-  }
-
-  private isValidUuid(val: string): boolean {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    return uuidRegex.test(val);
   }
 }

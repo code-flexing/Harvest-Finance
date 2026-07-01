@@ -45,7 +45,6 @@ import { AnalyticsModule } from '../analytics/analytics.module';
     NotificationsModule,
     RealtimeModule,
     CommonModule,
-    StellarModule,
     AnalyticsModule,
   ],
   controllers: [VaultsController, InsuranceFundController],

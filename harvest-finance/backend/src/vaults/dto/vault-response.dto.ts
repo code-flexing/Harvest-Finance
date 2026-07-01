@@ -1,21 +1,14 @@
   @ApiProperty({
-    example: 5.5,
-    description: 'Annual Percentage Rate (stated rate without compounding)',
+    example: 5.65,
+    description: 'Annual Percentage Rate (APR)',
   })
   apr: number;
 
   @ApiProperty({
-    example: 5.65,
-    description: 'Annual Percentage Yield (effective annual yield with compounding)',
+    example: 5.78,
+    description: 'Annual Percentage Yield (APY)',
   })
   apy: number;
-
-  @ApiProperty({
-    example: 'daily',
-    description: 'Compounding frequency',
-    enum: ['daily', 'weekly', 'monthly'],
-  })
-  compoundingFrequency: 'daily' | 'weekly' | 'monthly';
 
   @ApiProperty({
     example: '2024-12-31T23:59:59Z',
@@ -177,24 +170,4 @@ export class BatchDepositResponseDto {
     description: "User's total deposits across all vaults after batch",
   })
   userTotalDeposits: number;
-}
-
-export class PaginatedVaultsResponseDto {
-  @ApiProperty({
-    description: 'Array of vault items',
-    type: [VaultResponseDto],
-  })
-  data: VaultResponseDto[];
-
-  @ApiProperty({
-    example: 150,
-    description: 'Total number of vaults available',
-  })
-  total: number;
-
-  @ApiProperty({
-    example: true,
-    description: 'Whether there are more items to fetch',
-  })
-  hasMore: boolean;
 }

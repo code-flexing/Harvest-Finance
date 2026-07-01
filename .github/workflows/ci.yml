@@ -86,8 +86,8 @@ jobs:
           cache: npm
           cache-dependency-path: harvest-finance/backend/package-lock.json
 
-      - run: npm ci || true
-      - run: npm run build || true
+      - run: npm ci
+      - run: npm run build
       - run: npm test -- --forceExit --passWithNoTests || true
       - name: Upload coverage
         uses: actions/upload-artifact@v4
@@ -130,8 +130,8 @@ jobs:
           cache: npm
           cache-dependency-path: harvest-finance/frontend/package-lock.json
 
-      - run: npm ci || true
-      - run: npm run lint || true
+      - run: npm ci
+      - run: npm run lint
 
   frontend-test:
     name: Frontend — Tests
@@ -148,9 +148,9 @@ jobs:
           cache: npm
           cache-dependency-path: harvest-finance/frontend/package-lock.json
 
-      - run: npm ci || true
-      - run: npm test -- --passWithNoTests || true
-      - run: npm run test:vitest -- --run --passWithNoTests || true
+      - run: npm ci
+      - run: npm test -- --passWithNoTests
+      - run: npm run test:vitest -- --run --passWithNoTests
 
   frontend-build:
     name: Frontend — Next.js Build

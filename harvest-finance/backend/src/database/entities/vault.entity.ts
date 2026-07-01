@@ -13,6 +13,7 @@ import { Strategy, CompoundingFrequency, COMPOUNDING_FREQUENCY_N } from './strat
 import { User } from './user.entity';
 import { Deposit } from './deposit.entity';
 import { VaultApproval } from './vault-approval.entity';
+import { Strategy, CompoundingFrequency, COMPOUNDING_FREQUENCY_N } from './strategy.entity';
 
 export enum VaultType {
   CROP_PRODUCTION = 'CROP_PRODUCTION',

@@ -5,6 +5,7 @@ import {
   BadRequestException,
   NotFoundException,
   UnauthorizedException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { VaultsService } from './vaults.service';
 import { FeesService } from './fees.service';
@@ -26,8 +27,8 @@ import { ContractCacheService } from '../common/cache/contract-cache.service';
 import { InputSanitizerService } from '../common/sanitization/input-sanitizer.service';
 import { DepositEventService } from './deposit-event.service';
 import { ExternalPaymentEventType } from './dto/external-payment-notification.dto';
-import { WithdrawalQueueService } from './withdrawal-queue.service';
 import { VaultReservation } from './entities/vault-reservation.entity';
+import { AuthService } from '../auth/auth.service';
 
 describe('VaultsService', () => {
   let service: VaultsService;
@@ -73,9 +74,7 @@ describe('VaultsService', () => {
     transaction: jest.fn((cb: (em: typeof mockEntityManager) => unknown) =>
       cb(mockEntityManager),
     ),
-    getRepository: jest.fn().mockReturnValue({
-      findOne: jest.fn().mockResolvedValue({ stellarAddress: 'some-address' }),
-    }),
+    getRepository: jest.fn(),
   };
 
   const mockVaultRepository = {
@@ -128,17 +127,6 @@ describe('VaultsService', () => {
   const mockNotificationsService = {
     create: jest.fn().mockResolvedValue(undefined),
   };
-  const mockVaultReservationRepository = {
-    findOne: jest.fn().mockResolvedValue(null),
-    save: jest.fn(),
-    createQueryBuilder: jest.fn().mockReturnValue({
-      select: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      getRawOne: jest.fn().mockResolvedValue({ total: 0 }),
-    }),
-  };
-
   const mockLogger = { log: jest.fn(), error: jest.fn(), warn: jest.fn() };
   const mockVaultGateway = {
     emitDeposit: jest.fn(),
@@ -177,7 +165,6 @@ const buildQB = (total: string | null) => ({
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         VaultsService,
-        { provide: 'VaultReservationRepository', useValue: mockVaultReservationRepository },
         { provide: getRepositoryToken(Vault), useValue: mockVaultRepository },
         {
           provide: getRepositoryToken(VaultApyHistory),

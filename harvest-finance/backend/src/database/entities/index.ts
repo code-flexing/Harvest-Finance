@@ -14,11 +14,9 @@ export {
   InsuranceSubscription,
   SubscriptionStatus,
 } from './insurance-subscription.entity';
-export { InsuranceClaim, InsuranceClaimStatus } from './insurance-claim.entity';
 export { Notification, NotificationType } from './notification.entity';
 export { Order, OrderStatus } from './order.entity';
 export { Reward, RewardStatus } from './reward.entity';
-export { IndexerState } from './indexer-state.entity';
 export { SorobanEvent, SorobanEventType } from './soroban-event.entity';
 export {
   Transaction,
