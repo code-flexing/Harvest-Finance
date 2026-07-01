@@ -8,6 +8,8 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { VaultsService } from './vaults.service';
+import { FeesService } from './fees.service';
+import { WithdrawalQueueService } from './withdrawal-queue.service';
 import { Vault, VaultStatus, VaultType } from '../database/entities/vault.entity';
 import { Deposit, DepositStatus } from '../database/entities/deposit.entity';
 import { VaultApyHistory } from '../database/entities/vault-apy-history.entity';
@@ -176,25 +178,63 @@ const buildQB = (total: string | null) => ({
           provide: getRepositoryToken(Withdrawal),
           useValue: mockWithdrawalRepository,
         },
-     {
-  provide: getRepositoryToken(Strategy),
-  useValue: mockStrategyRepository,
-},
-{
-  provide: getRepositoryToken(VaultReservation),
-  useValue: mockReservationRepository,
-},
-{ provide: DataSource, useValue: mockDataSource },
-{ provide: NotificationsService, useValue: mockNotificationsService },
-{ provide: CustomLoggerService, useValue: mockLogger },
-{ provide: VaultGateway, useValue: mockVaultGateway },
-{ provide: EventEmitter2, useValue: mockEventEmitter },
-{ provide: ContractCacheService, useValue: mockContractCache },
-{ provide: InputSanitizerService, useValue: mockSanitizer },
-{ provide: DepositEventService, useValue: mockDepositEventService },
-{ provide: AuthService, useValue: mockAuthService },
+        {
+          provide: getRepositoryToken(VaultReservation),
+          useValue: mockReservationRepository,
+        },
+        { provide: DataSource, useValue: mockDataSource },
+        { provide: NotificationsService, useValue: mockNotificationsService },
+        { provide: CustomLoggerService, useValue: mockLogger },
+        { provide: VaultGateway, useValue: mockVaultGateway },
+        { provide: EventEmitter2, useValue: mockEventEmitter },
+        { provide: ContractCacheService, useValue: mockContractCache },
+        { provide: InputSanitizerService, useValue: mockSanitizer },
+        { provide: DepositEventService, useValue: mockDepositEventService },
+        FeesService,
+        {
+          provide: WithdrawalQueueService,
+          useValue: { processWithdrawalQueue: jest.fn().mockResolvedValue(undefined), enqueueWithdrawal: jest.fn().mockResolvedValue(undefined) },
+        },
+      ],
+    }).compile();
 
-it('should sanitize the vault ID before lookup', async () => {
+    service = module.get<VaultsService>(VaultsService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+
+  // ---------------------------------------------------------------------------
+  // getVaultById
+  // ---------------------------------------------------------------------------
+  describe('getVaultById', () => {
+    it('should return vault when found', async () => {
+      mockVaultRepository.findOne.mockResolvedValue(mockVault);
+
+      const result = await service.getVaultById('vault-1');
+
+      expect(result).toEqual(mockVault);
+      expect(mockContractCache.getVaultState).toHaveBeenCalledWith(
+        'vault-1',
+        expect.any(Function),
+      );
+    });
+
+    it('should throw NotFoundException when vault does not exist', async () => {
+      mockVaultRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.getVaultById('nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
+      await expect(service.getVaultById('nonexistent')).rejects.toThrow(
+        'Vault not found',
+      );
+    });
+
+    it('should sanitize the vault ID before lookup', async () => {
       mockVaultRepository.findOne.mockResolvedValue(mockVault);
       mockSanitizer.validateUUID.mockReturnValueOnce('vault-1');
 

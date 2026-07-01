@@ -128,8 +128,13 @@ export class AuthController {
      status: 500,
      description: 'Internal server error',
    })
-  async login(@Body() loginDto: LoginDto): Promise<AuthResponseDto> {
-    return this.authService.login(loginDto);
+  async login(@Body() loginDto: LoginDto, @Req() req: Request): Promise<AuthResponseDto> {
+    const userAgent = req.headers['user-agent'];
+    const ipAddress =
+      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ??
+      req.socket?.remoteAddress ??
+      undefined;
+    return this.authService.login(loginDto, userAgent, ipAddress);
   }
 
   /**
@@ -376,7 +381,12 @@ export class AuthController {
     type: AuthResponseDto,
   })
   async googleAuthRedirect(@Req() req): Promise<AuthResponseDto> {
-    return this.authService.loginWithOAuth(req.user);
+    const userAgent = req.headers['user-agent'];
+    const ipAddress =
+      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ??
+      req.socket?.remoteAddress ??
+      undefined;
+    return this.authService.loginWithOAuth(req.user, userAgent, ipAddress);
   }
 
   /**
@@ -402,7 +412,12 @@ export class AuthController {
     type: AuthResponseDto,
   })
   async githubAuthRedirect(@Req() req): Promise<AuthResponseDto> {
-    return this.authService.loginWithOAuth(req.user);
+    const userAgent = req.headers['user-agent'];
+    const ipAddress =
+      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ??
+      req.socket?.remoteAddress ??
+      undefined;
+    return this.authService.loginWithOAuth(req.user, userAgent, ipAddress);
   }
 
   @Get('verify-email')

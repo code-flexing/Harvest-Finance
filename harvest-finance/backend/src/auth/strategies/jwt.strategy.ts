@@ -10,6 +10,7 @@ export interface JwtPayload {
   sub: string;
   email: string;
   role: string;
+  sessionId?: string;
 }
 
 @Injectable()
@@ -30,7 +31,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: JwtPayload): Promise<User> {
+  async validate(payload: JwtPayload): Promise<User & { sessionId?: string }> {
     const user = await this.userRepository.findOne({
       where: { id: payload.sub, email: payload.email },
     });
@@ -39,6 +40,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Invalid or expired token');
     }
 
-    return user;
+    // Attach sessionId so controllers can identify the current session
+    (user as any).sessionId = payload.sessionId;
+
+    return user as User & { sessionId?: string };
   }
 }

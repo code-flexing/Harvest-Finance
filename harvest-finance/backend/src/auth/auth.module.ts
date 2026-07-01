@@ -2,7 +2,9 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
+import { SessionsController } from './sessions.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { StellarStrategy } from './strategies/stellar.strategy';
@@ -19,15 +21,38 @@ import { CustodialWalletService } from '../wallets/custodial-wallet.service';
 
 @Module({
   imports: [
+    TypeOrmModule.forFeature([User, UserOAuthLink, Session]),
     TypeOrmModule.forFeature([User, UserOAuthLink, CustodialWallet]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
-    JwtModule.register({
-      secret: 'super_secret_jwt_key',
-      signOptions: {
-        expiresIn: '1h',
-      },
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        secret:
+          configService.get<string>('JWT_SECRET') || 'super_secret_jwt_key',
+        signOptions: {
+          expiresIn:
+            configService.get<string>('JWT_EXPIRES_IN') || '1h',
+        },
+      }),
     }),
     CommonModule,
+  ],
+  controllers: [AuthController, SessionsController],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    StellarStrategy,
+    GoogleStrategy,
+    GithubStrategy,
+  ],
+  exports: [
+    AuthService,
+    JwtStrategy,
+    StellarStrategy,
+    GoogleStrategy,
+    GithubStrategy,
+    PassportModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, StellarStrategy, GoogleStrategy, GithubStrategy, CustodialWalletService],

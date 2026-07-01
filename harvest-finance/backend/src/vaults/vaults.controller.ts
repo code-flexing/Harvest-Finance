@@ -2,6 +2,8 @@ import {
   Controller,
   Post,
   Get,
+  Delete,
+  Patch,
   Param,
   Body,
   Query,
@@ -20,6 +22,7 @@ import {
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { VaultsService } from './vaults.service';
+import { SimulationService } from './simulation.service';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { DepositFundsCommand } from './cqrs/commands/deposit-funds.command';
 import { WithdrawFundsCommand } from './cqrs/commands/withdraw-funds.command';
@@ -27,13 +30,19 @@ import { GetVaultBalanceQuery } from './cqrs/queries/get-vault-balance.query';
 import { GetVaultTransactionsQuery } from './cqrs/queries/get-vault-transactions.query';
 import { DepositDto } from './dto/deposit.dto';
 import { BatchDepositDto } from './dto/batch-deposit.dto';
+import { CloneVaultDto } from './dto/clone-vault.dto';
+import { CreateReservationDto } from './dto/create-reservation.dto';
+import { ReservationResponseDto } from './dto/reservation-response.dto';
+import { UpdateVaultFeesDto } from './dto/update-vault-fees.dto';
 import {
   BatchDepositResponseDto,
   DepositVaultResponseDto,
   VaultResponseDto,
 } from './dto/vault-response.dto';
 import { DepositEventResponseDto } from './dto/deposit-event-response.dto';
-import { ScoreBreakdownDto } from './dto/score-breakdown.dto';
+import { SimulateDepositDto } from './dto/simulate-deposit.dto';
+import { SimulateStrategyChangeDto } from './dto/simulate-strategy-change.dto';
+import { SimulationResultDto } from './dto/simulation-result.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ScoringService } from '../analytics/scoring.service';
 
@@ -47,6 +56,7 @@ import { ScoringService } from '../analytics/scoring.service';
 export class VaultsController {
   constructor(
     private readonly vaultsService: VaultsService,
+    private readonly simulationService: SimulationService,
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
     private readonly scoringService: ScoringService,
@@ -102,6 +112,56 @@ export class VaultsController {
     return this.commandBus.execute(
       new DepositFundsCommand(vaultId, secureDepositDto.userId, secureDepositDto.amount, secureDepositDto.idempotencyKey),
     );
+  }
+
+  @Post(':vaultId/simulate-deposit')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Simulate a deposit without committing state' })
+  @ApiParam({
+    name: 'vaultId',
+    description: 'Vault ID (UUID)',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiBody({ type: SimulateDepositDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Simulation result',
+    type: SimulationResultDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - Invalid amount',
+  })
+  @ApiResponse({ status: 404, description: 'Vault not found' })
+  async simulateDeposit(
+    @Param('vaultId') vaultId: string,
+    @Body() dto: SimulateDepositDto,
+  ): Promise<SimulationResultDto> {
+    return this.simulationService.simulateDeposit(vaultId, dto);
+  }
+
+  @Post(':vaultId/simulate-strategy-change')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Simulate a strategy change without committing state' })
+  @ApiParam({
+    name: 'vaultId',
+    description: 'Vault ID (UUID)',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiBody({ type: SimulateStrategyChangeDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Simulation result',
+    type: SimulationResultDto,
+  })
+  @ApiResponse({ status: 404, description: 'Vault not found' })
+  async simulateStrategyChange(
+    @Param('vaultId') vaultId: string,
+    @Body() dto: SimulateStrategyChangeDto,
+  ): Promise<SimulationResultDto> {
+    return this.simulationService.simulateStrategyChange(vaultId, dto);
   }
 
   @Post(':vaultId/withdraw')
@@ -357,8 +417,25 @@ export class VaultsController {
     );
   }
 
-  @Post(':vaultId/request-approval')
+  @Patch(':vaultId/fees')
   @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Configure entry, exit, and performance fees for a vault' })
+  @ApiParam({ name: 'vaultId', description: 'Vault ID (UUID)' })
+  @ApiBody({ type: UpdateVaultFeesDto })
+  @ApiResponse({ status: 200, description: 'Fee configuration updated', type: VaultResponseDto })
+  @ApiResponse({ status: 400, description: 'Fee values exceed platform maximums' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Only vault owner can configure fees' })
+  @ApiResponse({ status: 404, description: 'Vault not found' })
+  async updateVaultFees(
+    @Param('vaultId') vaultId: string,
+    @Body() dto: UpdateVaultFeesDto,
+    @Request() req: any,
+  ): Promise<VaultResponseDto> {
+    return this.vaultsService.updateVaultFees(vaultId, req.user.id, dto);
+  }
+
+  @Post(':vaultId/request-approval')  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request approval from another user for vault operations' })
   @ApiParam({

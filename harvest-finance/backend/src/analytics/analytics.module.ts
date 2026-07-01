@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_INTERCEPTOR } from '@nestjs/core';
+import { TypeOrmModule } from '@nestjs/typeorm';
+
 import { Vault } from '../database/entities/vault.entity';
 import { Deposit } from '../database/entities/deposit.entity';
 import { Withdrawal } from '../database/entities/withdrawal.entity';

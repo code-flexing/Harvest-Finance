@@ -1,4 +1,4 @@
-import { IEventParser, ParsedEvent } from './event-parser.interface';
+import { IEventParser, ParsedEvent } from '../event-parser.interface';
 
 /**
  * Parser for contract schema v1.

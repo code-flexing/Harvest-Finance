@@ -3,7 +3,7 @@ import {
   ConflictException,
   UnauthorizedException,
   BadRequestException,
-  ForbiddenException,
+  NotFoundException,
   Inject,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -38,6 +38,12 @@ import {
   StellarAuthResponseDto,
   StellarChallengeResponseDto,
 } from './dto/stellar-auth.dto';
+import {
+  RevokeSessionResponseDto,
+  SessionListResponseDto,
+  SessionResponseDto,
+} from './dto/session.dto';
+import { deriveDeviceName } from './utils/device-name.util';
 import { CustodialWalletService } from '../wallets/custodial-wallet.service';
 
 @Injectable()
@@ -193,7 +199,11 @@ export class AuthService {
   /**
    * Login user
    */
-  async login(loginDto: LoginDto): Promise<AuthResponseDto> {
+  async login(
+    loginDto: LoginDto,
+    userAgent?: string,
+    ipAddress?: string,
+  ): Promise<AuthResponseDto> {
     const { email, password } = loginDto;
 
     // Find user with password
@@ -261,7 +271,7 @@ export class AuthService {
     await this.userRepository.update(user.id, { lastLogin: new Date(), lockedUntil: null });
 
     // Generate tokens
-    const tokens = await this.generateTokens(user);
+    const tokens = await this.generateTokens(user, userAgent, ipAddress);
 
     this.logger.log(`User logged in successfully: ${email}`, 'AuthService');
 
@@ -310,6 +320,10 @@ export class AuthService {
   }
 
   /**
+   * Refresh access token.
+   *
+   * Validates the refresh token against the stored (hashed) session record and
+   * updates `lastUsedAt` so the sessions list stays current.
    * Refresh access token — implements refresh token rotation with family-level
    * reuse detection.
    *
@@ -329,6 +343,8 @@ export class AuthService {
     // Step 1 — verify JWT signature & expiry
     let payload: { sub: string; email: string; role: string; jti?: string };
     try {
+      // Verify refresh token signature and expiry
+      const payload = await this.jwtService.verifyAsync(refresh_token, {
       payload = await this.jwtService.verifyAsync(refresh_token, {
         secret:
           this.configService.get<string>('JWT_REFRESH_SECRET') ||
@@ -347,6 +363,51 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
+      // Validate the refresh token against the stored session record.
+      // The sessionId claim was embedded at token-generation time.
+      if (payload.sessionId) {
+        const session = await this.sessionRepository.findOne({
+          where: { id: payload.sessionId, user: { id: user.id } },
+          select: ['id', 'refreshToken', 'expiresAt'],
+        });
+
+        if (!session || session.expiresAt < new Date()) {
+          throw new UnauthorizedException('Session has expired or been revoked');
+        }
+
+        const tokenMatches = await bcrypt.compare(
+          refresh_token,
+          session.refreshToken,
+        );
+        if (!tokenMatches) {
+          throw new UnauthorizedException('Invalid refresh token');
+        }
+
+        // Touch lastUsedAt so the sessions list reflects recent activity
+        await this.sessionRepository.update(session.id, {
+          lastUsedAt: new Date(),
+        });
+      }
+
+      // Issue a new access token (same session, same refresh token — no rotation)
+      const accessToken = await this.jwtService.signAsync(
+        {
+          sub: user.id,
+          email: user.email,
+          role: user.role,
+          sessionId: payload.sessionId,
+        },
+        {
+          expiresIn: this.accessTokenExpiry,
+          secret:
+            this.configService.get<string>('JWT_SECRET') ||
+            'super_secret_jwt_key',
+        },
+      );
+
+      return { access_token: accessToken, token_type: 'Bearer' };
+    } catch (error) {
+      if (error instanceof UnauthorizedException) throw error;
     // Fetch all non-expired sessions for this user so we can bcrypt-compare
     const candidateSessions = await this.sessionRepository.find({
       where: { user: { id: user.id } },
@@ -639,6 +700,35 @@ export class AuthService {
   }
 
   /**
+   * Generate access and refresh tokens, persisting a session record enriched
+   * with the caller's User-Agent and IP address.
+   *
+   * @param user         - Authenticated user entity
+   * @param userAgent    - Raw User-Agent header (optional)
+   * @param ipAddress    - Client IP address (optional)
+   */
+  async generateTokens(
+    user: User,
+    userAgent?: string,
+    ipAddress?: string,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    // Save the session first so we can embed its ID in the JWT payload.
+    const hashedRefreshTokenPlaceholder = ''; // filled in after hashing below
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const deviceName = deriveDeviceName(userAgent);
+
+    // Create a temporary session to get the UUID before signing tokens.
+    const session = this.sessionRepository.create({
+      user,
+      refreshToken: hashedRefreshTokenPlaceholder,
+      userAgent: userAgent ?? null,
+      ipAddress: ipAddress ?? null,
+      deviceName,
+      lastUsedAt: new Date(),
+      expiresAt,
+    });
+    await this.sessionRepository.save(session);
+
    * Generate access and refresh tokens and persist a new session row.
    * Each call starts a brand-new token family (used on login/register/OAuth).
    */
@@ -653,6 +743,7 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       role: user.role,
+      sessionId: session.id, // allows DELETE /auth/sessions to identify current session
     };
 
     const [accessToken, refreshToken] = await Promise.all([
@@ -670,10 +761,10 @@ export class AuthService {
       }),
     ]);
 
+    // Persist hashed refresh token onto the already-saved session row.
     // Store hashed refresh token with a new family ID
     const hashedRefreshToken = await bcrypt.hash(refreshToken, this.saltRounds);
-    const session = this.sessionRepository.create({
-      user,
+    await this.sessionRepository.update(session.id, {
       refreshToken: hashedRefreshToken,
       familyId: uuidv4(),   // new family for every fresh login
       isRevoked: false,
@@ -683,7 +774,6 @@ export class AuthService {
       lastUsedAt: new Date(),
       expiresAt: new Date(Date.now() + this.refreshTokenExpiryMs),
     });
-    await this.sessionRepository.save(session);
 
     return { accessToken, refreshToken };
   }
@@ -766,8 +856,12 @@ export class AuthService {
   /**
    * Log in user via OAuth and generate access/refresh tokens.
    */
-  async loginWithOAuth(user: User): Promise<AuthResponseDto> {
-    const tokens = await this.generateTokens(user);
+  async loginWithOAuth(
+    user: User,
+    userAgent?: string,
+    ipAddress?: string,
+  ): Promise<AuthResponseDto> {
+    const tokens = await this.generateTokens(user, userAgent, ipAddress);
     return {
       access_token: tokens.accessToken,
       refresh_token: tokens.refreshToken,
@@ -958,26 +1052,97 @@ export class AuthService {
     return !!user?.emailVerifiedAt;
   }
 
-  async getSessions(userId: string, page: number, limit: number) {
-    const [items, total] = await this.sessionRepository.findAndCount({
+  /**
+   * Return paginated active sessions for a user, flagging the caller's own session.
+   */
+  async getSessions(
+    userId: string,
+    page: number,
+    limit: number,
+    currentSessionId?: string,
+  ): Promise<SessionListResponseDto> {
+    const now = new Date();
+    const [sessions, total] = await this.sessionRepository.findAndCount({
       where: { user: { id: userId } },
+      order: { lastUsedAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
+      // expiresAt filter is handled in the query below instead
     });
-    return { items, total };
+
+    // Filter out expired sessions without a separate query
+    const activeSessions = sessions.filter((s) => s.expiresAt > now);
+
+    const items: SessionResponseDto[] = activeSessions.map((s) => ({
+      id: s.id,
+      deviceName: s.deviceName,
+      ipAddress: s.ipAddress,
+      userAgent: s.userAgent,
+      lastUsedAt: s.lastUsedAt,
+      createdAt: s.createdAt,
+      expiresAt: s.expiresAt,
+      isCurrent: currentSessionId ? s.id === currentSessionId : false,
+    }));
+
+    return { items, total, page, limit };
   }
 
-  async revokeSession(userId: string, sessionId: string) {
-    await this.sessionRepository.delete({ id: sessionId, user: { id: userId } });
-    return { success: true };
-  }
+  /**
+   * Revoke a single session belonging to the given user.
+   * Throws NotFoundException if the session does not exist or belongs to another user.
+   */
+  async revokeSession(
+    userId: string,
+    sessionId: string,
+  ): Promise<RevokeSessionResponseDto> {
+    const session = await this.sessionRepository.findOne({
+      where: { id: sessionId, user: { id: userId } },
+    });
 
-  async revokeAllSessions(userId: string, currentSessionId?: string) {
-    const query = this.sessionRepository.createQueryBuilder().delete().where('user_id = :userId', { userId });
-    if (currentSessionId) {
-      query.andWhere('id != :currentSessionId', { currentSessionId });
+    if (!session) {
+      throw new NotFoundException('Session not found');
     }
-    await query.execute();
-    return { success: true };
+
+    await this.sessionRepository.delete(session.id);
+    this.logger.log(
+      `Session ${sessionId} revoked for user ${userId}`,
+      'AuthService',
+    );
+
+    return { success: true, message: 'Session revoked successfully' };
+  }
+
+  /**
+   * Revoke all sessions for a user except the current one.
+   * If `currentSessionId` is not provided (e.g. legacy tokens), all sessions are revoked.
+   */
+  async revokeAllSessions(
+    userId: string,
+    currentSessionId?: string,
+  ): Promise<RevokeSessionResponseDto> {
+    const qb = this.sessionRepository
+      .createQueryBuilder('session')
+      .delete()
+      .where('session.user_id = :userId', { userId });
+
+    if (currentSessionId) {
+      qb.andWhere('session.id != :currentSessionId', { currentSessionId });
+    }
+
+    const result = await qb.execute();
+    const count: number = result.affected ?? 0;
+
+    this.logger.log(
+      `Revoked ${count} session(s) for user ${userId} (kept: ${currentSessionId ?? 'none'})`,
+      'AuthService',
+    );
+
+    return {
+      success: true,
+      message:
+        count === 0
+          ? 'No other sessions to revoke'
+          : `${count} session(s) revoked successfully`,
+    };
   }
 }
