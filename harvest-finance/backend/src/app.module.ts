@@ -52,6 +52,7 @@ import {
   Notification,
   Order,
   Reward,
+  Session,
   SorobanEvent,
   Transaction,
   User,
@@ -93,6 +94,7 @@ import { VaultReservation } from './vaults/entities/vault-reservation.entity';
 import { Session } from './database/entities/session.entity';
 import { SecurityEvent } from './database/entities/security-event.entity';
 import { CreateVaultApyHistory1700000000017 } from './database/migrations/1700000000017-CreateVaultApyHistory';
+import { CreateSessionsAndOAuthLinks1700000000022 } from './database/migrations/1700000000022-CreateSessionsAndOAuthLinks';
 import { AddRefreshTokenRotation1700000000022 } from './database/migrations/1700000000022-AddRefreshTokenRotation';
 import { DomainEventsModule } from './domain-events';
 import { DomainEventHandlersModule } from './common/events';
@@ -124,6 +126,7 @@ import { CreateCustodialWallets1700000000021 } from './database/migrations/17000
         entities: [
           User,
           UserOAuthLink,
+          Session,
           Order,
           Transaction,
           Verification,
@@ -163,6 +166,7 @@ import { CreateCustodialWallets1700000000021 } from './database/migrations/17000
           CreateVaultReservations1700000000018,
           AddDepositorConcentrationThreshold1700000000022,
           CreateVaultApyHistory1700000000017,
+          CreateSessionsAndOAuthLinks1700000000022,
           CreateCustodialWallets1700000000021,
         ],
         synchronize: false,

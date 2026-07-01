@@ -2,6 +2,7 @@ import { DataSource, DataSourceOptions } from 'typeorm';
 import { config } from 'dotenv';
 import { User } from './entities/user.entity';
 import { UserOAuthLink } from './entities/user-oauth-link.entity';
+import { Session } from './entities/session.entity';
 import { Order } from './entities/order.entity';
 import { Transaction } from './entities/transaction.entity';
 import { Verification } from './entities/verification.entity';
@@ -44,6 +45,7 @@ import { CreateYieldAnalytics1700000000012 } from './migrations/1700000000012-Cr
 import { AddSorobanEventQueryIndexes1700000000013 } from './migrations/1700000000013-AddSorobanEventQueryIndexes';
 import { CreateDepositEvents1700000000016 } from './migrations/1700000000016-CreateDepositEvents';
 import { CreateVaultReservations1700000000018 } from './migrations/1700000000018-CreateVaultReservations';
+import { CreateSessionsAndOAuthLinks1700000000022 } from './migrations/1700000000022-CreateSessionsAndOAuthLinks';
 
 // Load environment variables explicitly for CLI usage
 config();
@@ -71,6 +73,7 @@ const options: DataSourceOptions = {
   entities: [
     User,
     UserOAuthLink,
+    Session,
     Order,
     Transaction,
     Verification,
@@ -114,6 +117,7 @@ const options: DataSourceOptions = {
     AddSorobanEventQueryIndexes1700000000013,
     CreateDepositEvents1700000000016,
     CreateVaultReservations1700000000018,
+    CreateSessionsAndOAuthLinks1700000000022,
   ],
   // synchronize must remain false in all non-test environments.
   // Use `npm run migration:run` to apply schema changes safely.
