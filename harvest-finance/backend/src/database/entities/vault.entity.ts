@@ -128,6 +128,19 @@ export class Vault {
   })
   stellarAccountAddress: string | null;
 
+  @Column({ name: 'entry_fee_bps', type: 'int', default: 0 })
+  entryFeeBps: number;
+
+  @Column({ name: 'exit_fee_bps', type: 'int', default: 0 })
+  exitFeeBps: number;
+
+  @Column({ name: 'performance_fee_bps', type: 'int', default: 0 })
+  performanceFeeBps: number;
+
+  /** Wallet address where collected fees are sent */
+  @Column({ name: 'fee_address', type: 'text', nullable: true })
+  feeAddress: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

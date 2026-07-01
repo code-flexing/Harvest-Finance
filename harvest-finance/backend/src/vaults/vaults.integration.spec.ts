@@ -8,6 +8,8 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { VaultsService } from './vaults.service';
+import { FeesService } from './fees.service';
+import { WithdrawalQueueService } from './withdrawal-queue.service';
 import { ExternalPaymentEventType } from './dto/external-payment-notification.dto';
 import { PaymentReceivedEvent, DepositCompletedEvent, WithdrawalConfirmedEvent, DomainEventNames } from '../domain-events';
 import { User } from '../database/entities/user.entity';
@@ -82,7 +84,9 @@ describe('VaultsService — Yield Strategy Integration', () => {
     transaction: jest.fn((cb: (em: typeof mockManager) => unknown) =>
       cb(mockManager),
     ),
-    getRepository: jest.fn(),
+    getRepository: jest.fn().mockReturnValue({
+      findOne: jest.fn().mockResolvedValue({ stellarAddress: 'some-address' }),
+    }),
   };
 
   const mockVaultRepository = {
@@ -168,6 +172,19 @@ describe('VaultsService — Yield Strategy Integration', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         VaultsService,
+        { 
+          provide: 'VaultReservationRepository', 
+          useValue: { 
+            findOne: jest.fn().mockResolvedValue(null), 
+            save: jest.fn(),
+            createQueryBuilder: jest.fn().mockReturnValue({
+              select: jest.fn().mockReturnThis(),
+              where: jest.fn().mockReturnThis(),
+              andWhere: jest.fn().mockReturnThis(),
+              getRawOne: jest.fn().mockResolvedValue({ total: 0 }),
+            }),
+          } 
+        },
         { provide: getRepositoryToken(Vault), useValue: mockVaultRepository },
         {
           provide: getRepositoryToken(VaultApyHistory),
@@ -192,7 +209,13 @@ describe('VaultsService — Yield Strategy Integration', () => {
         { provide: ContractCacheService, useValue: mockContractCache },
         { provide: InputSanitizerService, useValue: mockSanitizer },
         { provide: DepositEventService, useValue: mockDepositEventService },
+        { provide: WithdrawalQueueService, useValue: { processQueue: jest.fn().mockResolvedValue(undefined) } },
         { provide: EventEmitter2, useValue: mockEventEmitter },
+        FeesService,
+        {
+          provide: WithdrawalQueueService,
+          useValue: { processWithdrawalQueue: jest.fn().mockResolvedValue(undefined), enqueueWithdrawal: jest.fn().mockResolvedValue(undefined) },
+        },
       ],
     }).compile();
 

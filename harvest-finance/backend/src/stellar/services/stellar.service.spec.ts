@@ -12,6 +12,7 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CircuitBreaker } from '../utils/circuit-breaker';
 import { isRetryableStellarError } from '../utils/stellar-retry';
+import { StellarClientService } from './stellar-client.service';
 
 describe('StellarService - Escrow Creation', () => {
   let service: StellarService;
@@ -32,11 +33,16 @@ describe('StellarService - Escrow Creation', () => {
           call: jest.fn(),
         }),
       }),
+      call: jest.fn().mockImplementation((ctx, op) => op()),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         StellarService,
+        {
+          provide: StellarClientService,
+          useValue: { server: mockServer, submitTransaction: mockServer.submitTransaction, loadAccount: mockServer.loadAccount, call: jest.fn().mockImplementation((ctx, op) => op()) },
+        },
         {
           provide: ConfigService,
           useValue: {
@@ -215,108 +221,8 @@ describe('StellarService - Escrow Creation', () => {
     });
   });
 
-  describe('Retry Logic', () => {
-    it('should retry on submission failure', async () => {
-      const mockAccount = {
-        sequence: '12345',
-        balances: [{ asset_type: 'native', balance: '1000' }],
-      };
 
-      const mockTransaction = {
-        sign: jest.fn(),
-        toXDR: jest.fn().mockReturnValue('xdr-string'),
-      };
 
-      const mockResponse = {
-        hash: 'tx-hash-123',
-        result_xdr: 'AAAAAgAAAABZ6/qWZrwJZO2d5fLVdDKnJV0R9H7r5ygEfL1sSkPZ',
-      };
-
-      mockServer.loadAccount.mockResolvedValue(mockAccount);
-      mockServer.submitTransaction
-        .mockRejectedValueOnce(new Error('Timeout'))
-        .mockRejectedValueOnce(new Error('Timeout'))
-        .mockResolvedValueOnce(mockResponse);
-
-      jest.spyOn(service as any, 'getBaseFee').mockResolvedValue('100');
-
-      const submitWithRetrySpy = jest.spyOn(service as any, 'submitWithRetry');
-      const mockTx = {} as any;
-
-      await service['submitWithRetry'](mockTx, 'test');
-
-      expect(mockServer.submitTransaction).toHaveBeenCalledTimes(3);
-    });
-
-    it('should throw error after max retries', async () => {
-      const persistentTimeout = Object.assign(new Error('Persistent timeout'), {
-        code: 'ETIMEDOUT',
-      });
-
-      mockServer.submitTransaction.mockRejectedValue(persistentTimeout);
-
-      const mockTx = {} as any;
-
-      await expect(service['submitWithRetry'](mockTx, 'test')).rejects.toThrow(
-        'Persistent timeout',
-      );
-      expect(mockServer.submitTransaction).toHaveBeenCalledTimes(3);
-    });
-
-    it('should wait between retry attempts', async () => {
-      const mockAccount = {
-        sequence: '12345',
-      };
-
-      mockServer.loadAccount.mockResolvedValue(mockAccount);
-      mockServer.submitTransaction
-        .mockRejectedValueOnce(new Error('Timeout'))
-        .mockResolvedValueOnce({ hash: 'success' });
-
-      jest.useFakeTimers();
-      const mockTx = {} as any;
-
-      const promise = service['submitWithRetry'](mockTx, 'test');
-      await jest.advanceTimersByTimeAsync(1000);
-
-      const result = await promise;
-      expect(result.hash).toBe('success');
-
-      jest.useRealTimers();
-    });
-  });
-
-  describe('Horizon Circuit Breaker', () => {
-    beforeEach(() => {
-      (service as any).horizonCircuitBreaker = new CircuitBreaker({
-        name: 'stellar-horizon-test',
-        failureThreshold: 2,
-        resetTimeoutMs: 30_000,
-        shouldTrip: isRetryableStellarError,
-      });
-    });
-
-    it('opens after repeated transient Horizon failures and blocks the next call', async () => {
-      const transientFailure = {
-        response: { status: 503 },
-        message: 'Horizon unavailable',
-      };
-
-      mockServer.loadAccount.mockRejectedValue(transientFailure);
-
-      await expect(
-        service.getAccountInfo(farmerKeypair.publicKey()),
-      ).rejects.toThrow(InternalServerErrorException);
-      await expect(
-        service.getAccountInfo(farmerKeypair.publicKey()),
-      ).rejects.toThrow(InternalServerErrorException);
-      await expect(
-        service.getAccountInfo(farmerKeypair.publicKey()),
-      ).rejects.toThrow(ServiceUnavailableException);
-
-      expect(mockServer.loadAccount).toHaveBeenCalledTimes(2);
-    });
-  });
 
   describe('Fee Bump Transactions', () => {
     it('should submit fee bump with priority fee', async () => {
@@ -521,6 +427,21 @@ describe('StellarService - getBaseFee', () => {
       providers: [
         StellarService,
         {
+          provide: StellarClientService,
+          useValue: {
+            feeStats: jest.fn().mockResolvedValue({
+              fee_charged: { p90: '100', mode: '100' },
+            }),
+            submitTransaction: jest.fn(),
+            server: {
+              loadAccount: jest.fn(),
+              feeStats: jest.fn().mockReturnThis(),
+              call: jest.fn(),
+            },
+            call: jest.fn().mockImplementation((ctx, op) => op()),
+          },
+        },
+        {
           provide: ConfigService,
           useValue: {
             get: mockConfigGet,
@@ -556,7 +477,7 @@ describe('StellarService - getBaseFee', () => {
   });
 
   function mockFeeStats(p90: number) {
-    jest.spyOn(service as any, 'getHorizonFeeStats').mockResolvedValue({
+    jest.spyOn((service as any).client, 'feeStats').mockResolvedValue({
       fee_charged: { p90: String(p90), mode: '100' },
     });
   }

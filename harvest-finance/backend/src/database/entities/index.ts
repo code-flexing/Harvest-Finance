@@ -27,6 +27,7 @@ export {
 } from './transaction.entity';
 export { User, UserRole } from './user.entity';
 export { UserOAuthLink } from './user-oauth-link.entity';
+export { Session } from './session.entity';
 export { Vault, VaultStatus, VaultType } from './vault.entity';
 export { Strategy, CompoundingFrequency, COMPOUNDING_FREQUENCY_N } from './strategy.entity';
 export { VaultApyHistory } from './vault-apy-history.entity';

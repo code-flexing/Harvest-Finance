@@ -3,6 +3,7 @@ import { config } from 'dotenv';
 
 import { User } from './entities/user.entity';
 import { UserOAuthLink } from './entities/user-oauth-link.entity';
+import { Session } from './entities/session.entity';
 import { Order } from './entities/order.entity';
 import { Transaction } from './entities/transaction.entity';
 import { Verification } from './entities/verification.entity';
@@ -51,6 +52,7 @@ import { CreateDepositEvents1700000000016 } from './migrations/1700000000016-Cre
 import { CreateStrategyAndApyHistory1700000000017 } from './migrations/1700000000017-CreateStrategyAndApyHistory';
 import { CreateVaultScoreHistory1700000000018 } from './migrations/1700000000018-CreateVaultScoreHistory';
 import { CreateVaultReservations1700000000018 } from './migrations/1700000000018-CreateVaultReservations';
+import { CreateSessionsAndOAuthLinks1700000000022 } from './migrations/1700000000022-CreateSessionsAndOAuthLinks';
 
 // Load environment variables explicitly for CLI usage
 config();
@@ -79,6 +81,7 @@ const options: DataSourceOptions = {
   entities: [
     User,
     UserOAuthLink,
+    Session,
     Order,
     Transaction,
     Verification,
@@ -129,6 +132,7 @@ const options: DataSourceOptions = {
     CreateStrategyAndApyHistory1700000000017,
     CreateVaultScoreHistory1700000000018,
     CreateVaultReservations1700000000018,
+    CreateSessionsAndOAuthLinks1700000000022,
   ],
 
   // synchronize must remain false in all non-test environments.

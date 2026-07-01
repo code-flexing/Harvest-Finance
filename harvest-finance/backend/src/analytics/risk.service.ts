@@ -75,7 +75,7 @@ export class RiskService {
             await this.notificationService.create({
               userId: vault.ownerId, // Send alert to vault owner
               title: `Depositor Concentration Risk Alert for Vault ${vault.vaultName}`,
-              message: `Depositor ${depositor.userId} controls ${(depositor.concentration * 100).toFixed(2)}% of vault.depositorConcentrationThreshold * 100)}%`,
+              message: `Depositor ${depositor.userId} controls ${(depositor.concentration * 100).toFixed(2)}% of vault TVL, exceeding the configured threshold of ${(vault.depositorConcentrationThreshold * 100).toFixed(2)}%`,
               type: NotificationType.DEPOSITOR_CONCENTRATION,
               adminOnly: false,
             });

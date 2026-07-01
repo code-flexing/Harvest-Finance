@@ -26,6 +26,18 @@ export enum UserRole {
 }
 
 /**
+ * Wallet custody type for a user's Stellar account.
+ * - none        → user has not linked any Stellar wallet yet.
+ * - self-custody → user supplied their own Stellar address (e.g. Freighter).
+ * - custodial   → platform generated and manages the wallet on behalf of the user.
+ */
+export enum WalletType {
+  NONE = 'none',
+  SELF_CUSTODY = 'self-custody',
+  CUSTODIAL = 'custodial',
+}
+
+/**
  * User entity representing all participants in the marketplace
  *
  * Relationships:
@@ -61,6 +73,18 @@ export class User {
 
   @Column({ name: 'stellar_address', nullable: true })
   stellarAddress: string | null;
+
+  /**
+   * Indicates how the user's Stellar wallet is managed.
+   * Defaults to 'none' until the user links or creates a wallet.
+   */
+  @Column({
+    name: 'wallet_type',
+    type: 'enum',
+    enum: WalletType,
+    default: WalletType.NONE,
+  })
+  walletType: WalletType;
 
   @Column({ name: 'solana_address', nullable: true })
   solanaAddress: string | null;
@@ -99,6 +123,12 @@ export class User {
   @Exclude()
   emailVerificationToken: string | null;
 
+  @Column({ name: 'phone_number', nullable: true })
+  phoneNumber: string | null;
+
+  @Column({ name: 'phone_verified_at', nullable: true })
+  phoneVerifiedAt: Date | null;
+
   @OneToMany(() => Session, (session) => session.user)
   sessions: Session[];
 
@@ -111,6 +141,20 @@ export class User {
 
   @Column({ name: 'locked_until', nullable: true, default: null })
   lockedUntil: Date | null;
+
+  @Column({
+    name: 'notification_preferences',
+    type: 'jsonb',
+    nullable: true,
+    default: () => `'{
+      "depositConfirmed": {"email": true, "sms": false, "push": true, "inApp": true},
+      "withdrawalCompleted": {"email": true, "sms": false, "push": true, "inApp": true},
+      "vaultPaused": {"email": true, "sms": true, "push": true, "inApp": true},
+      "securityAlert": {"email": true, "sms": true, "push": true, "inApp": true},
+      "yieldMilestone": {"email": true, "sms": false, "push": true, "inApp": true}
+    }'::jsonb`,
+  })
+  notificationPreferences: Record<string, any> | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

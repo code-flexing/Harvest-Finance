@@ -1,0 +1,7 @@
+feat(telegram): implement telegram bot for vault monitoring (#581, #1054)
+
+- Add telegramChatId and telegramLinkToken to User entity
+- Integrate telegraf library for bot framework
+- Implement /connect, /disconnect, /balance, /vaults, /history commands
+- Implement rate-limiting middleware (10 commands/min)
+- Add notification methods for deposits, withdrawals, and security alerts

@@ -3,6 +3,7 @@ import {
   ConflictException,
   UnauthorizedException,
   BadRequestException,
+  NotFoundException,
   Inject,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -13,12 +14,14 @@ import * as bcrypt from 'bcrypt';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { randomBytes } from 'crypto';
+import { v4 as uuidv4 } from 'uuid';
 import { CustomLoggerService } from '../logger/custom-logger.service';
-import { User, UserRole } from '../database/entities/user.entity';
+import { User, UserRole, WalletType } from '../database/entities/user.entity';
 import { UserOAuthLink } from '../database/entities/user-oauth-link.entity';
 const zxcvbn = require('zxcvbn');
 import * as crypto from 'crypto';
 import { Session } from '../database/entities/session.entity';
+import { SecurityEvent, SecurityEventType } from '../database/entities/security-event.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -35,12 +38,20 @@ import {
   StellarAuthResponseDto,
   StellarChallengeResponseDto,
 } from './dto/stellar-auth.dto';
+import {
+  RevokeSessionResponseDto,
+  SessionListResponseDto,
+  SessionResponseDto,
+} from './dto/session.dto';
+import { deriveDeviceName } from './utils/device-name.util';
+import { CustodialWalletService } from '../wallets/custodial-wallet.service';
 
 @Injectable()
 export class AuthService {
   private readonly saltRounds = 10;
   private readonly accessTokenExpiry = '1h';
   private readonly refreshTokenExpiry = '7d';
+  private readonly refreshTokenExpiryMs = 7 * 24 * 60 * 60 * 1000; // 7 days
   private readonly resetTokenExpiry = 3600000; // 1 hour in milliseconds
 
   private get maxLoginAttempts(): number {
@@ -66,18 +77,28 @@ export class AuthService {
     private oauthLinkRepository: Repository<UserOAuthLink>,
     @InjectRepository(Session)
     private sessionRepository: Repository<Session>,
+    @InjectRepository(SecurityEvent)
+    private securityEventRepository: Repository<SecurityEvent>,
     private jwtService: JwtService,
     private configService: ConfigService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private logger: CustomLoggerService,
+    private custodialWalletService: CustodialWalletService,
   ) {}
 
   /**
    * Register a new user
    */
   async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
-    const { email, password, role, full_name, phone_number, stellar_address } =
+    const { email, password, role, full_name, phone_number, stellar_address, use_custodial_wallet } =
       registerDto;
+
+    // Validate: user must supply either a stellar_address OR opt into a custodial wallet
+    if (!stellar_address && !use_custodial_wallet) {
+      throw new BadRequestException(
+        'Please provide a Stellar address or opt into a platform-managed custodial wallet (use_custodial_wallet: true).',
+      );
+    }
 
     // Check if user already exists
     const existingUser = await this.userRepository.findOne({
@@ -102,7 +123,12 @@ export class AuthService {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, this.saltRounds);
 
-    // Create new user
+    // Determine wallet type and Stellar address
+    // Self-custody takes precedence when both fields are supplied.
+    const isSelfCustody = !!stellar_address;
+    const walletType = isSelfCustody ? WalletType.SELF_CUSTODY : WalletType.CUSTODIAL;
+
+    // Create new user (without stellarAddress for custodial — we set it after wallet creation)
     const user = this.userRepository.create({
       email,
       password: hashedPassword,
@@ -110,12 +136,38 @@ export class AuthService {
       firstName,
       lastName,
       phone: phone_number || null,
-      stellarAddress: stellar_address,
+      stellarAddress: stellar_address ?? null,
+      walletType,
       isActive: true,
     });
 
     // Save user
     await this.userRepository.save(user);
+
+    // Create custodial wallet if requested and no self-custody address provided
+    if (!isSelfCustody && use_custodial_wallet) {
+      try {
+        const publicKey = await this.custodialWalletService.createCustodialWallet(
+          user.id,
+          password, // plaintext password — used for key derivation before bcrypt hashing
+        );
+        // Link the generated public key to the user record
+        await this.userRepository.update(user.id, { stellarAddress: publicKey });
+        user.stellarAddress = publicKey;
+        this.logger.log(
+          `Custodial wallet created for new user ${email}: ${publicKey}`,
+          'AuthService',
+        );
+      } catch (err) {
+        // Clean up: delete the partially-created user to keep the DB consistent
+        await this.userRepository.delete(user.id);
+        this.logger.error(
+          `Failed to create custodial wallet for ${email}: ${err.message}`,
+          'AuthService',
+        );
+        throw err;
+      }
+    }
 
     // Generate tokens
     const tokens = await this.generateTokens(user);
@@ -132,7 +184,11 @@ export class AuthService {
   /**
    * Login user
    */
-  async login(loginDto: LoginDto): Promise<AuthResponseDto> {
+  async login(
+    loginDto: LoginDto,
+    userAgent?: string,
+    ipAddress?: string,
+  ): Promise<AuthResponseDto> {
     const { email, password } = loginDto;
 
     // Find user with password
@@ -200,7 +256,7 @@ export class AuthService {
     await this.userRepository.update(user.id, { lastLogin: new Date(), lockedUntil: null });
 
     // Generate tokens
-    const tokens = await this.generateTokens(user);
+    const tokens = await this.generateTokens(user, userAgent, ipAddress);
 
     this.logger.log(`User logged in successfully: ${email}`, 'AuthService');
 
@@ -249,34 +305,82 @@ export class AuthService {
   }
 
   /**
-   * Refresh access token
+   * Refresh access token.
+   *
+   * Validates the refresh token against the stored (hashed) session record and
+   * updates `lastUsedAt` so the sessions list stays current.
+   * Refresh access token — implements refresh token rotation with family-level
+   * reuse detection.
+   *
+   * Happy path:
+   *  1. Verify the JWT signature & expiry.
+   *  2. Look up the matching session row by hashed token.
+   *  3. If the session is already revoked → the token was replayed after rotation.
+   *     Revoke the entire family and throw 401.
+   *  4. Mark the current session as revoked + set replacedBy.
+   *  5. Issue a brand-new access token AND a brand-new refresh token.
+   *  6. Store the new session in the same family.
+   *  7. Return both tokens.
    */
   async refresh(refreshTokenDto: RefreshTokenDto): Promise<TokenResponseDto> {
     const { refresh_token } = refreshTokenDto;
 
+    // Step 1 — verify JWT signature & expiry
+    let payload: { sub: string; email: string; role: string; jti?: string };
     try {
-      // Verify refresh token
+      // Verify refresh token signature and expiry
       const payload = await this.jwtService.verifyAsync(refresh_token, {
+      payload = await this.jwtService.verifyAsync(refresh_token, {
         secret:
           this.configService.get<string>('JWT_REFRESH_SECRET') ||
           'super_secret_refresh_jwt_key',
       });
+    } catch {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
 
-      // Find user
-      const user = await this.userRepository.findOne({
-        where: { id: payload.sub },
-      });
+    // Step 2 — find the matching session by scanning hashed tokens for this user
+    const user = await this.userRepository.findOne({
+      where: { id: payload.sub },
+    });
 
-      if (!user || !user.isActive) {
-        throw new UnauthorizedException('Invalid refresh token');
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+      // Validate the refresh token against the stored session record.
+      // The sessionId claim was embedded at token-generation time.
+      if (payload.sessionId) {
+        const session = await this.sessionRepository.findOne({
+          where: { id: payload.sessionId, user: { id: user.id } },
+          select: ['id', 'refreshToken', 'expiresAt'],
+        });
+
+        if (!session || session.expiresAt < new Date()) {
+          throw new UnauthorizedException('Session has expired or been revoked');
+        }
+
+        const tokenMatches = await bcrypt.compare(
+          refresh_token,
+          session.refreshToken,
+        );
+        if (!tokenMatches) {
+          throw new UnauthorizedException('Invalid refresh token');
+        }
+
+        // Touch lastUsedAt so the sessions list reflects recent activity
+        await this.sessionRepository.update(session.id, {
+          lastUsedAt: new Date(),
+        });
       }
 
-      // Generate new access token
+      // Issue a new access token (same session, same refresh token — no rotation)
       const accessToken = await this.jwtService.signAsync(
         {
           sub: user.id,
           email: user.email,
           role: user.role,
+          sessionId: payload.sessionId,
         },
         {
           expiresIn: this.accessTokenExpiry,
@@ -288,8 +392,161 @@ export class AuthService {
 
       return { access_token: accessToken, token_type: 'Bearer' };
     } catch (error) {
+      if (error instanceof UnauthorizedException) throw error;
+    // Fetch all non-expired sessions for this user so we can bcrypt-compare
+    const candidateSessions = await this.sessionRepository.find({
+      where: { user: { id: user.id } },
+      relations: ['user'],
+    });
+
+    let matchedSession: Session | null = null;
+    for (const session of candidateSessions) {
+      if (await bcrypt.compare(refresh_token, session.refreshToken)) {
+        matchedSession = session;
+        break;
+      }
+    }
+
+    if (!matchedSession) {
+      // Token is cryptographically valid but not in the DB — treat as stolen
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
+
+    // Step 3 — reuse detection: token was already consumed
+    if (matchedSession.isRevoked) {
+      await this.revokeFamilyAndAlert(matchedSession.familyId, user, refresh_token);
+      throw new UnauthorizedException(
+        'Refresh token reuse detected. All sessions have been revoked for your security.',
+      );
+    }
+
+    // Step 4 — atomically revoke the current session
+    const newSessionId = uuidv4(); // reserve the ID so we can set replacedBy
+    await this.sessionRepository.update(matchedSession.id, {
+      isRevoked: true,
+      replacedBy: newSessionId,
+      lastUsedAt: new Date(),
+    });
+
+    // Step 5 — generate new token pair
+    const jwtPayload = { sub: user.id, email: user.email, role: user.role };
+
+    const [accessToken, newRefreshToken] = await Promise.all([
+      this.jwtService.signAsync(jwtPayload, {
+        expiresIn: this.accessTokenExpiry,
+        secret:
+          this.configService.get<string>('JWT_SECRET') || 'super_secret_jwt_key',
+      }),
+      this.jwtService.signAsync(jwtPayload, {
+        expiresIn: this.refreshTokenExpiry,
+        secret:
+          this.configService.get<string>('JWT_REFRESH_SECRET') ||
+          'super_secret_refresh_jwt_key',
+      }),
+    ]);
+
+    // Step 6 — store the new session in the SAME family
+    const hashedNewRefreshToken = await bcrypt.hash(newRefreshToken, this.saltRounds);
+    const newSession = this.sessionRepository.create({
+      id: newSessionId,
+      user,
+      refreshToken: hashedNewRefreshToken,
+      familyId: matchedSession.familyId,
+      isRevoked: false,
+      replacedBy: null,
+      userAgent: matchedSession.userAgent,
+      ipAddress: matchedSession.ipAddress,
+      lastUsedAt: new Date(),
+      expiresAt: new Date(Date.now() + this.refreshTokenExpiryMs),
+    });
+    await this.sessionRepository.save(newSession);
+
+    this.logger.log(
+      `Refresh token rotated for user ${user.id} (family ${matchedSession.familyId})`,
+      'AuthService',
+    );
+
+    // Step 7 — return both tokens
+    return {
+      access_token: accessToken,
+      refresh_token: newRefreshToken,
+      token_type: 'Bearer',
+    };
+  }
+
+  /**
+   * Revoke every session in a token family and write a security-event audit
+   * record. Called when a previously consumed (revoked) token is replayed —
+   * indicating a stolen token.
+   */
+  private async revokeFamilyAndAlert(
+    familyId: string,
+    user: User,
+    replayedToken: string,
+  ): Promise<void> {
+    // Mark all sessions in the family as revoked
+    await this.sessionRepository
+      .createQueryBuilder()
+      .update(Session)
+      .set({ isRevoked: true })
+      .where('family_id = :familyId', { familyId })
+      .execute();
+
+    const metadata: Record<string, unknown> = {
+      familyId,
+      userId: user.id,
+      email: user.email,
+      detectedAt: new Date().toISOString(),
+    };
+
+    // Write audit log entry
+    const securityEvent = this.securityEventRepository.create({
+      userId: user.id,
+      type: SecurityEventType.REFRESH_TOKEN_REUSE,
+      message: `Refresh token reuse detected for family ${familyId}. All sessions in the family have been revoked.`,
+      metadata,
+    });
+    await this.securityEventRepository.save(securityEvent);
+
+    this.logger.warn(
+      JSON.stringify({
+        event: SecurityEventType.REFRESH_TOKEN_REUSE,
+        ...metadata,
+      }),
+      'AuthService',
+    );
+
+    // Alert the user by email (send via mail service if configured, otherwise log)
+    await this.sendSecurityAlertEmail(user, familyId);
+  }
+
+  /**
+   * Sends a security alert email to the user when their token family is revoked.
+   * Replace the logger stub with a real mailer (e.g. @nestjs-modules/mailer)
+   * once an SMTP / SES transport is wired up.
+   */
+  private async sendSecurityAlertEmail(user: User, familyId: string): Promise<void> {
+    const subject = 'Security Alert: Suspicious Activity Detected on Your Account';
+    const body = [
+      `Hello ${user.firstName ?? user.email},`,
+      '',
+      'We detected that a previously used refresh token was submitted to your account.',
+      'This may indicate that your session token has been stolen.',
+      '',
+      'As a precaution, all active sessions associated with this login have been revoked.',
+      'Please log in again and change your password if you did not initiate this request.',
+      '',
+      `Event reference: ${familyId}`,
+      `Time: ${new Date().toISOString()}`,
+      '',
+      '— Harvest Finance Security Team',
+    ].join('\n');
+
+    // TODO: replace with real mail transport (e.g. nodemailer / @nestjs-modules/mailer)
+    this.logger.error(
+      `[EMAIL ALERT] To: ${user.email} | Subject: ${subject}\n${body}`,
+      'AuthService',
+    );
   }
 
   /**
@@ -425,9 +682,42 @@ export class AuthService {
   }
 
   /**
-   * Generate access and refresh tokens
+   * Generate access and refresh tokens, persisting a session record enriched
+   * with the caller's User-Agent and IP address.
+   *
+   * @param user         - Authenticated user entity
+   * @param userAgent    - Raw User-Agent header (optional)
+   * @param ipAddress    - Client IP address (optional)
    */
-  private async generateTokens(user: User): Promise<{
+  async generateTokens(
+    user: User,
+    userAgent?: string,
+    ipAddress?: string,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    // Save the session first so we can embed its ID in the JWT payload.
+    const hashedRefreshTokenPlaceholder = ''; // filled in after hashing below
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const deviceName = deriveDeviceName(userAgent);
+
+    // Create a temporary session to get the UUID before signing tokens.
+    const session = this.sessionRepository.create({
+      user,
+      refreshToken: hashedRefreshTokenPlaceholder,
+      userAgent: userAgent ?? null,
+      ipAddress: ipAddress ?? null,
+      deviceName,
+      lastUsedAt: new Date(),
+      expiresAt,
+    });
+    await this.sessionRepository.save(session);
+
+   * Generate access and refresh tokens and persist a new session row.
+   * Each call starts a brand-new token family (used on login/register/OAuth).
+   */
+  private async generateTokens(
+    user: User,
+    context?: { userAgent?: string; ipAddress?: string },
+  ): Promise<{
     accessToken: string;
     refreshToken: string;
   }> {
@@ -435,6 +725,7 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       role: user.role,
+      sessionId: session.id, // allows DELETE /auth/sessions to identify current session
     };
 
     const [accessToken, refreshToken] = await Promise.all([
@@ -452,17 +743,19 @@ export class AuthService {
       }),
     ]);
 
-    // Store refresh token in database (Session)
+    // Persist hashed refresh token onto the already-saved session row.
+    // Store hashed refresh token with a new family ID
     const hashedRefreshToken = await bcrypt.hash(refreshToken, this.saltRounds);
-    const session = this.sessionRepository.create({
-      user,
+    await this.sessionRepository.update(session.id, {
       refreshToken: hashedRefreshToken,
-      userAgent: 'Unknown', // Typically passed from request
-      ipAddress: 'Unknown', // Typically passed from request
+      familyId: uuidv4(),   // new family for every fresh login
+      isRevoked: false,
+      replacedBy: null,
+      userAgent: context?.userAgent ?? 'Unknown',
+      ipAddress: context?.ipAddress ?? 'Unknown',
       lastUsedAt: new Date(),
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      expiresAt: new Date(Date.now() + this.refreshTokenExpiryMs),
     });
-    await this.sessionRepository.save(session);
 
     return { accessToken, refreshToken };
   }
@@ -479,6 +772,7 @@ export class AuthService {
         [user.firstName, user.lastName].filter(Boolean).join(' ') || '',
       phone_number: user.phone,
       stellar_address: user.stellarAddress,
+      wallet_type: user.walletType,
     };
   }
 
@@ -544,8 +838,12 @@ export class AuthService {
   /**
    * Log in user via OAuth and generate access/refresh tokens.
    */
-  async loginWithOAuth(user: User): Promise<AuthResponseDto> {
-    const tokens = await this.generateTokens(user);
+  async loginWithOAuth(
+    user: User,
+    userAgent?: string,
+    ipAddress?: string,
+  ): Promise<AuthResponseDto> {
+    const tokens = await this.generateTokens(user, userAgent, ipAddress);
     return {
       access_token: tokens.accessToken,
       refresh_token: tokens.refreshToken,
@@ -596,26 +894,97 @@ export class AuthService {
     return { success: true };
   }
 
-  async getSessions(userId: string, page: number, limit: number) {
-    const [items, total] = await this.sessionRepository.findAndCount({
+  /**
+   * Return paginated active sessions for a user, flagging the caller's own session.
+   */
+  async getSessions(
+    userId: string,
+    page: number,
+    limit: number,
+    currentSessionId?: string,
+  ): Promise<SessionListResponseDto> {
+    const now = new Date();
+    const [sessions, total] = await this.sessionRepository.findAndCount({
       where: { user: { id: userId } },
+      order: { lastUsedAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
+      // expiresAt filter is handled in the query below instead
     });
-    return { items, total };
+
+    // Filter out expired sessions without a separate query
+    const activeSessions = sessions.filter((s) => s.expiresAt > now);
+
+    const items: SessionResponseDto[] = activeSessions.map((s) => ({
+      id: s.id,
+      deviceName: s.deviceName,
+      ipAddress: s.ipAddress,
+      userAgent: s.userAgent,
+      lastUsedAt: s.lastUsedAt,
+      createdAt: s.createdAt,
+      expiresAt: s.expiresAt,
+      isCurrent: currentSessionId ? s.id === currentSessionId : false,
+    }));
+
+    return { items, total, page, limit };
   }
 
-  async revokeSession(userId: string, sessionId: string) {
-    await this.sessionRepository.delete({ id: sessionId, user: { id: userId } });
-    return { success: true };
-  }
+  /**
+   * Revoke a single session belonging to the given user.
+   * Throws NotFoundException if the session does not exist or belongs to another user.
+   */
+  async revokeSession(
+    userId: string,
+    sessionId: string,
+  ): Promise<RevokeSessionResponseDto> {
+    const session = await this.sessionRepository.findOne({
+      where: { id: sessionId, user: { id: userId } },
+    });
 
-  async revokeAllSessions(userId: string, currentSessionId?: string) {
-    const query = this.sessionRepository.createQueryBuilder().delete().where('user_id = :userId', { userId });
-    if (currentSessionId) {
-      query.andWhere('id != :currentSessionId', { currentSessionId });
+    if (!session) {
+      throw new NotFoundException('Session not found');
     }
-    await query.execute();
-    return { success: true };
+
+    await this.sessionRepository.delete(session.id);
+    this.logger.log(
+      `Session ${sessionId} revoked for user ${userId}`,
+      'AuthService',
+    );
+
+    return { success: true, message: 'Session revoked successfully' };
+  }
+
+  /**
+   * Revoke all sessions for a user except the current one.
+   * If `currentSessionId` is not provided (e.g. legacy tokens), all sessions are revoked.
+   */
+  async revokeAllSessions(
+    userId: string,
+    currentSessionId?: string,
+  ): Promise<RevokeSessionResponseDto> {
+    const qb = this.sessionRepository
+      .createQueryBuilder('session')
+      .delete()
+      .where('session.user_id = :userId', { userId });
+
+    if (currentSessionId) {
+      qb.andWhere('session.id != :currentSessionId', { currentSessionId });
+    }
+
+    const result = await qb.execute();
+    const count: number = result.affected ?? 0;
+
+    this.logger.log(
+      `Revoked ${count} session(s) for user ${userId} (kept: ${currentSessionId ?? 'none'})`,
+      'AuthService',
+    );
+
+    return {
+      success: true,
+      message:
+        count === 0
+          ? 'No other sessions to revoke'
+          : `${count} session(s) revoked successfully`,
+    };
   }
 }

@@ -19,8 +19,12 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service';
+import { NotificationPreferencesService } from './notification-preferences.service';
+import { SMSService } from './sms/sms.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { NotificationResponseDto } from './dto/notification-response.dto';
+import { NotificationPreferencesDto, UpdateNotificationPreferencesDto } from './dto/notification-preferences.dto';
+import { SetPhoneNumberDto, VerifyPhoneNumberDto, SendSMSDto } from './dto/sms.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('Notifications')
@@ -31,7 +35,11 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class NotificationsController {
-  constructor(private readonly notificationsService: NotificationsService) {}
+  constructor(
+    private readonly notificationsService: NotificationsService,
+    private readonly preferencesService: NotificationPreferencesService,
+    private readonly smsService: SMSService,
+  ) {}
 
   @Get(':userId')
   @ApiOperation({ summary: 'Get notifications for a user' })
@@ -93,5 +101,65 @@ export class NotificationsController {
       );
     }
     return this.notificationsService.markAllAsRead(userId);
+  }
+
+  @Get('preferences')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get notification preferences for authenticated user' })
+  @ApiResponse({
+    status: 200,
+    description: 'User notification preferences',
+    type: NotificationPreferencesDto,
+  })
+  async getPreferences(@Request() req: any): Promise<NotificationPreferencesDto> {
+    return this.preferencesService.getPreferences(req.user.id);
+  }
+
+  @Patch('preferences')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update notification preferences for authenticated user' })
+  @ApiResponse({
+    status: 200,
+    description: 'Notification preferences updated',
+    type: NotificationPreferencesDto,
+  })
+  async updatePreferences(
+    @Body() updateDto: UpdateNotificationPreferencesDto,
+    @Request() req: any,
+  ): Promise<NotificationPreferencesDto> {
+    return this.preferencesService.updatePreferences(req.user.id, updateDto);
+  }
+
+  @Post('sms/phone-number')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Set phone number for SMS notifications' })
+  @ApiResponse({ status: 200, description: 'Phone number set successfully' })
+  async setPhoneNumber(
+    @Body() dto: SetPhoneNumberDto,
+    @Request() req: any,
+  ): Promise<{ success: boolean }> {
+    await this.smsService.setPhoneNumber(req.user.id, dto.phoneNumber);
+    return { success: true };
+  }
+
+  @Post('sms/verify-request')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Request OTP for phone number verification' })
+  @ApiResponse({ status: 200 })
+  async requestPhoneVerification(
+    @Request() req: any,
+  ): Promise<{ expiresIn: number }> {
+    return this.smsService.requestPhoneVerification(req.user.id);
+  }
+
+  @Post('sms/verify')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify phone number with OTP code' })
+  @ApiResponse({ status: 200 })
+  async verifyPhoneNumber(
+    @Body() dto: VerifyPhoneNumberDto,
+    @Request() req: any,
+  ): Promise<{ verified: boolean }> {
+    return this.smsService.verifyPhoneNumber(req.user.id, dto.otpCode);
   }
 }
