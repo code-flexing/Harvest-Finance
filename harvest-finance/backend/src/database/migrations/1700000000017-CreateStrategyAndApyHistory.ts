@@ -77,6 +77,13 @@ export class CreateStrategyAndApyHistory1700000000017 implements MigrationInterf
             isNullable: false,
           },
           {
+            name: 'apr',
+            type: 'decimal',
+            precision: 18,
+            scale: 8,
+            isNullable: true,
+          },
+          {
             name: 'apy',
             type: 'decimal',
             precision: 18,

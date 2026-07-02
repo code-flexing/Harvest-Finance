@@ -1,10 +1,4 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 
 export enum CompoundingFrequency {
   DAILY = 'daily',
@@ -19,14 +13,16 @@ export const COMPOUNDING_FREQUENCY_N: Record<CompoundingFrequency, number> = {
 };
 
 @Entity('strategies')
+@Index('idx_strategies_compounding_frequency', ['compoundingFrequency'])
 export class Strategy {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ length: 100 })
+  @Column({ type: 'varchar', length: 100 })
   name: string;
 
   @Column({
+    name: 'compounding_frequency',
     type: 'enum',
     enum: CompoundingFrequency,
     default: CompoundingFrequency.DAILY,

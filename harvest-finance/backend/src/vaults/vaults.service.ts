@@ -9,7 +9,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Vault, VaultStatus } from '../database/entities/vault.entity';
 import { Deposit, DepositStatus } from '../database/entities/deposit.entity';
-import { VaultApyHistory } from '../database/entities/vault-apy-history.entity';
 import { DepositEvent, DepositEventType } from '../database/entities/deposit-event.entity';
 import { ExternalPaymentEventType } from './dto/external-payment-notification.dto';
 import {
@@ -19,6 +18,8 @@ import {
 
 import { Strategy, CompoundingFrequency, COMPOUNDING_FREQUENCY_N } from '../database/entities/strategy.entity';
 import { VaultApyHistory } from '../database/entities/vault-apy-history.entity';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { AuthService } from '../auth/auth.service';
 
 import { VaultReservation } from './entities/vault-reservation.entity';
 import { CreateReservationDto } from './dto/create-reservation.dto';
@@ -65,8 +66,6 @@ export class VaultsService {
 
     @InjectRepository(VaultReservation)
     private reservationRepository: Repository<VaultReservation>,
-    @InjectRepository(VaultApyHistory)
-    private vaultApyHistoryRepository: Repository<VaultApyHistory>,
 
     private dataSource: DataSource,
     private notificationsService: NotificationsService,
@@ -90,23 +89,36 @@ export class VaultsService {
    */
   calculateApy(
     apr: number,
-    frequency: CompoundingFrequency = CompoundingFrequency.DAILY,
+    frequency: CompoundingFrequency | string | null | undefined = CompoundingFrequency.DAILY,
   ): number {
     if (apr === 0) return 0;
 
-    const n = COMPOUNDING_FREQUENCY_N[frequency];
+    const normalizedFrequency = this.normalizeCompoundingFrequency(frequency);
+    const n = COMPOUNDING_FREQUENCY_N[normalizedFrequency];
     const decimalApr = apr / 100;
     const apy = Math.pow(1 + decimalApr / n, n) - 1;
 
-    return Math.round(apy * 10000) / 100; // Return as percentage, rounded to 2 decimal places
+    return Number((apy * 100).toFixed(2));
   }
 
   /**
    * Get the effective compounding frequency for a vault.
-   * Falls back to DAILY if no strategy is assigned.
+   * Falls back to DAILY if no strategy is assigned or the stored value is invalid.
    */
   private getVaultCompoundingFrequency(vault: Vault): CompoundingFrequency {
-    return vault.strategy?.compoundingFrequency ?? CompoundingFrequency.DAILY;
+    return this.normalizeCompoundingFrequency(vault.strategy?.compoundingFrequency);
+  }
+
+  private normalizeCompoundingFrequency(
+    frequency: CompoundingFrequency | string | null | undefined,
+  ): CompoundingFrequency {
+    if (frequency === CompoundingFrequency.WEEKLY) {
+      return CompoundingFrequency.WEEKLY;
+    }
+    if (frequency === CompoundingFrequency.MONTHLY) {
+      return CompoundingFrequency.MONTHLY;
+    }
+    return CompoundingFrequency.DAILY;
   }
 
   async getVaultById(vaultId: string): Promise<Vault> {
@@ -687,12 +699,8 @@ export class VaultsService {
 
   mapVaultToResponse(vault: Vault): VaultResponseDto {
     const apr = Number(vault.interestRate);
-
-    const apy = this.calculateApy(apr, this.getVaultCompoundingFrequency(vault));
-
-    const compoundingFrequency = vault.compoundingFrequency || 'daily';
+    const compoundingFrequency = this.getVaultCompoundingFrequency(vault);
     const apy = this.calculateApy(apr, compoundingFrequency);
-
 
     return {
       id: vault.id,
@@ -707,12 +715,10 @@ export class VaultsService {
       maxCapacity: Number(vault.maxCapacity),
       availableCapacity: vault.availableCapacity,
       utilizationPercentage: vault.utilizationPercentage,
-      interestRate: apr,
+        interestRate: apr,
       apr,
       apy,
-
       compoundingFrequency,
-
       maturityDate: vault.maturityDate,
       lockPeriodEnd: vault.lockPeriodEnd,
       isPublic: vault.isPublic,
@@ -752,10 +758,11 @@ export class VaultsService {
       .into('vault_apy_history')
       .values({
         vault_id: vault.id,
+        apr,
         apy,
         snapshot_date: snapshotDate,
       })
-      .orIgnore() // Ignore if a snapshot for this vault/date already exists
+      .orIgnore()
       .execute();
   }
 
@@ -914,7 +921,6 @@ export class VaultsService {
     vaultId?: string,
     timeRange: string = '30d',
   ): Promise<any[]> {
-    // Calculate date range
     const now = new Date();
     let daysBack = 30;
 
@@ -934,7 +940,6 @@ export class VaultsService {
 
     const startDate = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
 
-
     const query = this.apyHistoryRepository
       .createQueryBuilder('history')
       .where('history.snapshotDate >= :startDate', {
@@ -944,44 +949,27 @@ export class VaultsService {
 
     if (vaultId) {
       query.andWhere('history.vaultId = :vaultId', { vaultId });
-
-    const queryBuilder = this.vaultApyHistoryRepository
-      .createQueryBuilder('history')
-      .where('history.snapshotDate >= :startDate', {
-        startDate: startDate.toISOString().split('T')[0],
-      })
-      .orderBy('history.snapshotDate', 'ASC');
-
-    if (vaultId) {
-      query.andWhere('history.vaultId = :vaultId', { vaultId });
     }
 
     const rows = await query.getMany();
 
-    if (records.length > 0) {
-      return records.map(r => ({
-        date: typeof r.date === 'string' ? r.date : new Date(r.date).toISOString().split('T')[0],
-        apy: Number(r.apy),
-        vaultId: r.vaultId,
-      }));
+    if (rows.length === 0) {
+      // Fallback: If no real data exists, generate some mock data so charts aren't blank
+      const dataPoints: { date: string; apy: number; vaultId: string }[] = [];
+      for (let i = 0; i < daysBack; i++) {
+        const date = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
+        const baseApy = 8 + Math.sin(i / 10) * 2 + Math.random() * 1;
+        const apy = Math.max(0, Math.min(15, baseApy));
+
+        dataPoints.push({
+          date: date.toISOString().split('T')[0],
+          apy: Math.round(apy * 100) / 100,
+          vaultId: vaultId || 'all',
+        });
+      }
+
+      return dataPoints;
     }
-
-    // Fallback: If no real data exists, generate some mock data so charts aren't blank
-    const dataPoints: { date: string; apy: number; vaultId: string }[] = [];
-    for (let i = 0; i < daysBack; i++) {
-      const date = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
-      const baseApy = 8 + Math.sin(i / 10) * 2 + Math.random() * 1;
-      const apy = Math.max(0, Math.min(15, baseApy));
-
-      dataPoints.push({
-        date: date.toISOString().split('T')[0],
-        apy: Math.round(apy * 100) / 100,
-        vaultId: vaultId || 'all',
-      });
-
-    }
-
-    const rows = await query.getMany();
 
     return rows.map((row) => ({
       date: row.snapshotDate.toISOString().split('T')[0],
