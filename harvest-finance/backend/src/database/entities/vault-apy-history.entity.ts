@@ -26,11 +26,10 @@ export class VaultApyHistory {
   @JoinColumn({ name: 'vault_id' })
   vault: Vault;
 
-  @Column({
-    type: 'decimal',
-    precision: 18,
-    scale: 8,
-  })
+  @Column({ type: 'decimal', precision: 18, scale: 8, nullable: true })
+  apr: number | null;
+
+  @Column({ type: 'decimal', precision: 18, scale: 8 })
   apy: number;
 
   @Column({ name: 'snapshot_date', type: 'date' })
